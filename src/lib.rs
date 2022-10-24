@@ -62,7 +62,7 @@ impl Solver {
         }
 
         for a in &self.assertions {
-            stmts.push(ast::Command::Assert(Term::from(*a)));
+            stmts.push(ast::Command::Assert(Term::from(*a).strip_sort()));
         }
 
         stmts.push(ast::Command::CheckSat);
