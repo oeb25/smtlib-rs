@@ -157,6 +157,11 @@ impl std::fmt::Display for Real {
 
 #[derive(Debug, Clone, Copy)]
 pub struct Dynamic(&'static Term);
+impl From<Const<Dynamic>> for Dynamic {
+    fn from(c: Const<Dynamic>) -> Self {
+        c.1
+    }
+}
 impl std::fmt::Display for Dynamic {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         Term::from(*self).fmt(f)
