@@ -111,9 +111,24 @@ pub trait Quantifiable<Args, Ret> {
 }
 
 #[derive(Debug, Clone, Copy)]
+pub struct Const<T>(&'static str, T);
+impl<T> std::ops::Deref for Const<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.1
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
 pub enum Bool {
     Const(&'static str),
     Term(&'static Term),
+}
+impl From<Const<Bool>> for Bool {
+    fn from(c: Const<Bool>) -> Self {
+        c.1
+    }
 }
 impl std::fmt::Display for Bool {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -122,6 +137,11 @@ impl std::fmt::Display for Bool {
 }
 #[derive(Debug, Clone, Copy)]
 pub struct Int(&'static Term);
+impl From<Const<Int>> for Int {
+    fn from(c: Const<Int>) -> Self {
+        c.1
+    }
+}
 impl std::fmt::Display for Int {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         Term::from(*self).fmt(f)
@@ -154,19 +174,39 @@ impl From<Bool> for Dynamic {
     }
 }
 
-pub trait Sort: From<Term> + Into<Term> {
+pub trait Sort: Into<Term> {
     fn sort() -> ast::Sort;
-    fn from_name(name: impl Into<String>) -> Self {
-        Term::QualIdentifier(qual_ident(name.into(), Some(Self::sort())), vec![]).into()
+    fn from_name(name: impl Into<String>) -> Const<Self>
+    where
+        Self: From<Term>,
+    {
+        let name = name.into();
+        Const(
+            Box::leak(name.clone().into_boxed_str()),
+            Term::QualIdentifier(qual_ident(name, Some(Self::sort())), vec![]).into(),
+        )
     }
-    fn from_dynamic(d: Dynamic) -> Self {
+    fn from_dynamic(d: Dynamic) -> Self
+    where
+        Self: From<Term>,
+    {
         d.0.clone().into()
     }
-    fn _eq(self, other: Self) -> Bool {
-        fun("=", vec![self.into(), other.into()]).into()
+    fn _eq(self, other: impl Into<Self>) -> Bool {
+        fun("=", vec![self.into(), other.into().into()]).into()
     }
-    fn _neq(self, other: Self) -> Bool {
-        fun("distinct", vec![self.into(), other.into()]).into()
+    fn _neq(self, other: impl Into<Self>) -> Bool {
+        fun("distinct", vec![self.into(), other.into().into()]).into()
+    }
+}
+impl<T: Into<Term>> From<Const<T>> for Term {
+    fn from(c: Const<T>) -> Self {
+        c.1.into()
+    }
+}
+impl<T: Sort> Sort for Const<T> {
+    fn sort() -> ast::Sort {
+        T::sort()
     }
 }
 
@@ -249,10 +289,6 @@ impl Sort for Bool {
     fn sort() -> ast::Sort {
         ast::Sort(Identifier::Simple(Symbol("Bool".into())), vec![])
     }
-
-    fn from_name(name: impl Into<String>) -> Self {
-        Bool::Const(Box::leak(name.into().into_boxed_str()))
-    }
 }
 impl Bool {
     fn binop(self, op: &str, other: Bool) -> Self {
@@ -282,32 +318,6 @@ impl Sort for Dynamic {
     }
 }
 
-impl<F, A, Ret> Quantifiable<A, Ret> for F
-where
-    F: FnOnce(A) -> Ret,
-    A: Sort,
-{
-    fn apply(self) -> (Vec<SortedVar>, Ret) {
-        let a = SortedVar(Symbol("a".into()), A::sort());
-
-        (vec![a], self(A::from_name("a")))
-    }
-}
-
-impl<F, A, B, Ret> Quantifiable<(A, B), Ret> for F
-where
-    F: FnOnce(A, B) -> Ret,
-    A: Sort,
-    B: Sort,
-{
-    fn apply(self) -> (Vec<SortedVar>, Ret) {
-        let a = SortedVar(Symbol("a".into()), A::sort());
-        let b = SortedVar(Symbol("b".into()), B::sort());
-
-        (vec![a, b], self(A::from_name("a"), B::from_name("b")))
-    }
-}
-
 impl std::ops::Neg for Int {
     type Output = Self;
     fn neg(self) -> Self::Output {
@@ -316,6 +326,15 @@ impl std::ops::Neg for Int {
 }
 macro_rules! impl_op {
     ($ty:ty, $other:ty, $trait:tt, $fn:ident, $op:literal, $a_trait:tt, $a_fn:tt, $a_op:tt) => {
+        impl<R> std::ops::$trait<R> for Const<$ty>
+        where
+            R: Into<$ty>,
+        {
+            type Output = $ty;
+            fn $fn(self, rhs: R) -> Self::Output {
+                self.1.binop($op, rhs.into())
+            }
+        }
         impl<R> std::ops::$trait<R> for $ty
         where
             R: Into<$ty>,
@@ -323,6 +342,12 @@ macro_rules! impl_op {
             type Output = Self;
             fn $fn(self, rhs: R) -> Self::Output {
                 self.binop($op, rhs.into())
+            }
+        }
+        impl std::ops::$trait<Const<$ty>> for $other {
+            type Output = $ty;
+            fn $fn(self, rhs: Const<$ty>) -> Self::Output {
+                <$ty>::from(self).binop($op, rhs.1)
             }
         }
         impl std::ops::$trait<$ty> for $other {
@@ -357,20 +382,42 @@ impl std::ops::Not for Bool {
     }
 }
 
-pub fn forall<Args>(f: impl Quantifiable<Args, Bool>) -> Bool {
-    let (vars, term) = f.apply();
-    Term::Forall(vars, Box::new(term.into())).into()
+pub trait QuantifierVars {
+    fn into_vars(self) -> Vec<SortedVar>;
 }
-pub fn exists<Args>(f: impl Quantifiable<Args, Bool>) -> Bool {
-    let (vars, term) = f.apply();
-    Term::Exists(vars, Box::new(term.into())).into()
-}
-pub fn let_<Args, T>(decl: impl FnOnce() -> Args, body: impl Quantifiable<Args, T>) -> T
+
+impl<A> QuantifierVars for Const<A>
 where
-    T: Sort,
+    A: Sort,
 {
-    let (vars, term) = body.apply();
-    Term::Exists(vars, Box::new(term.into())).into()
+    fn into_vars(self) -> Vec<SortedVar> {
+        vec![SortedVar(Symbol(self.0.into()), A::sort())]
+    }
+}
+macro_rules! impl_quantifiers {
+    ($($x:ident $n:tt),+ $(,)?) => {
+        impl<$($x,)+> QuantifierVars for ($(Const<$x>),+)
+        where
+            $($x: Sort),+
+        {
+            fn into_vars(self) -> Vec<SortedVar> {
+                vec![
+                    $(SortedVar(Symbol((self.$n).0.into()), $x::sort())),+
+                ]
+            }
+        }
+    };
+}
+impl_quantifiers!(A 0, B 1);
+impl_quantifiers!(A 0, B 1, C 2);
+impl_quantifiers!(A 0, B 1, C 2, D 3);
+impl_quantifiers!(A 0, B 1, C 2, D 3, E 4);
+
+pub fn forall(vars: impl QuantifierVars, term: Bool) -> Bool {
+    Term::Forall(vars.into_vars(), Box::new(term.into())).into()
+}
+pub fn exists(vars: impl QuantifierVars, term: Bool) -> Bool {
+    Term::Exists(vars.into_vars(), Box::new(term.into())).into()
 }
 
 #[cfg(test)]
@@ -389,9 +436,10 @@ mod tests {
 
     #[test]
     fn quantifiers() {
-        let x = Bool::from_name("x");
+        let x = Int::from_name("x");
+        let y = Int::from_name("y");
 
-        let res = exists(|y: Bool| forall(|z: Bool, w: Bool| y & z | w | x));
+        let res = forall((x, y), (x + 2)._eq(y));
         println!("{}", Term::from(res));
         panic!();
     }
