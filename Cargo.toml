@@ -1,0 +1,11 @@
+[package]
+name = "smtlib"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+z3 = []
+default = ["z3"]
+
+[dependencies]
+itertools = "0.10.5"
