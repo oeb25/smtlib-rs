@@ -28,7 +28,20 @@ pub type FunctionDec = ();
 pub type DatatypeDec = ();
 pub type SortDec = ();
 pub type InfoFlag = ();
-pub type Keyword = ();
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Keyword(pub String);
+impl Display for Keyword {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, ":{}", self.0)
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Reserved(pub String);
+impl Display for Reserved {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Index {
@@ -58,11 +71,24 @@ pub enum AttributeValue {
     Symbol(Symbol),
     SExprs(Vec<SExpr>),
 }
+impl Display for AttributeValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AttributeValue::SpecConstant(c) => write!(f, "{c}"),
+            AttributeValue::Symbol(s) => write!(f, "{s}"),
+            AttributeValue::SExprs(es) => write!(f, "({})", es.iter().format(" ")),
+        }
+    }
+}
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Attribute(pub Keyword, pub std::option::Option<AttributeValue>);
 impl Display for Attribute {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        todo!()
+        if let Some(value) = &self.1 {
+            write!(f, "{} {value}", self.0)
+        } else {
+            write!(f, "{}", self.0)
+        }
     }
 }
 
@@ -94,11 +120,22 @@ impl Display for SpecConstant {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SExpr {
-    SpecConstant,
-    Symbol,
-    Reserved,
-    Keyword,
+    SpecConstant(SpecConstant),
+    Symbol(Symbol),
+    Reserved(Reserved),
+    Keyword(Keyword),
     List(Vec<SExpr>),
+}
+impl Display for SExpr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SExpr::SpecConstant(s) => write!(f, "{s}"),
+            SExpr::Symbol(s) => write!(f, "{s}"),
+            SExpr::Reserved(s) => write!(f, "{s}"),
+            SExpr::Keyword(s) => write!(f, "{s}"),
+            SExpr::List(es) => write!(f, "({})", es.iter().format(" ")),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -131,9 +168,23 @@ impl Display for SortedVar {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Pattern(pub Symbol, pub Vec<Symbol>);
+impl Display for Pattern {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.1.is_empty() {
+            write!(f, "{}", self.0)
+        } else {
+            write!(f, "({} {})", self.0, self.1.iter().format(" "))
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct MatchCase(pub Pattern, pub Term);
+impl Display for MatchCase {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({} {})", self.0, self.1)
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Term {
@@ -151,7 +202,7 @@ pub enum Term {
     // (match <term> <match_case>+)
     Match(Box<Term>, Vec<MatchCase>),
     // (! <term> <attribute>+)
-    Bang,
+    Annotate(Box<Term>, Vec<Attribute>),
 }
 impl Term {
     pub(crate) fn all_consts(&self) -> HashSet<&QualIdentifier> {
@@ -164,7 +215,7 @@ impl Term {
             Term::Forall(_, _) => todo!(),
             Term::Exists(_, _) => todo!(),
             Term::Match(_, _) => todo!(),
-            Term::Bang => todo!(),
+            Term::Annotate(_, _) => todo!(),
         }
     }
     pub(crate) fn strip_sort(self) -> Term {
@@ -178,7 +229,7 @@ impl Term {
             Term::Forall(_, _) => todo!(),
             Term::Exists(_, _) => todo!(),
             Term::Match(_, _) => todo!(),
-            Term::Bang => todo!(),
+            Term::Annotate(_, _) => todo!(),
         }
     }
 }
@@ -197,9 +248,42 @@ impl Display for Term {
             Term::Let(bs, t) => write!(f, "(let ({}) {t})", bs.iter().format(" ")),
             Term::Forall(vars, t) => write!(f, "(forall ({}) {t})", vars.iter().format(" ")),
             Term::Exists(vars, t) => write!(f, "(exists ({}) {t})", vars.iter().format(" ")),
-            Term::Match(_, _) => write!(f, "(match)"),
-            Term::Bang => write!(f, "!"),
+            Term::Match(t, cases) => write!(f, "(match {t} ({}))", cases.iter().format(" ")),
+            Term::Annotate(t, ans) => write!(f, "(! {t} {})", ans.iter().format(" ")),
         }
+    }
+}
+
+struct InnerHash<T: 'static>(&'static T);
+
+impl<T: 'static + std::hash::Hash> std::hash::Hash for InnerHash<T> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        (&*self.0).hash(state);
+    }
+}
+impl<T: 'static + PartialEq> PartialEq for InnerHash<T> {
+    fn eq(&self, other: &Self) -> bool {
+        (&*self.0) == (&*other.0)
+    }
+}
+impl<T: 'static + Eq> Eq for InnerHash<T> {}
+
+pub struct Interner<T: 'static> {
+    lookup: std::sync::RwLock<std::collections::HashMap<InnerHash<T>, &'static T>>,
+}
+
+impl<T: 'static> Interner<T> {
+    pub fn intern(&self, t: T) -> &'static T
+    where
+        T: std::hash::Hash + PartialEq + Eq,
+    {
+        let temp: &'static T = Box::leak(Box::new(t));
+        if let Some(old) = self.lookup.read().unwrap().get(&InnerHash(temp)) {
+            unsafe { drop(Box::from_raw(temp as *const T as *mut T)) };
+            return old;
+        }
+        self.lookup.write().unwrap().insert(InnerHash(temp), temp);
+        temp
     }
 }
 
@@ -294,7 +378,7 @@ impl std::fmt::Display for Command {
             Command::GetAssignment => write!(f, "(get-assignment)"),
             Command::GetInfo(InfoFlag) => write!(f, "(get-info <info_flag>)"),
             Command::GetModel => write!(f, "(get-model)"),
-            Command::GetOption(Keyword) => write!(f, "(get-option Keyword)"),
+            Command::GetOption(k) => write!(f, "(get-option {k})"),
             Command::GetProof => write!(f, "(get-proof)"),
             Command::GetUnsatAssumptions => write!(f, "(get-unsat-assumptions)"),
             Command::GetUnsatCore => write!(f, "(get-unsat-core)"),
