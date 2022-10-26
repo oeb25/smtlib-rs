@@ -185,7 +185,7 @@ pub trait Sort: Into<Term> {
     where
         Self: From<Term>,
     {
-        let name = name.into();
+        let name = format!("|{}|", name.into());
         Const(
             Box::leak(name.clone().into_boxed_str()),
             Term::QualIdentifier(qual_ident(name, Some(Self::sort())), vec![]).into(),
