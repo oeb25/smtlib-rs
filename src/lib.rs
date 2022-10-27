@@ -372,7 +372,7 @@ impl Sort for Dynamic {
 impl std::ops::Neg for Int {
     type Output = Self;
     fn neg(self) -> Self::Output {
-        todo!()
+        fun("-", vec![self.into()]).into()
     }
 }
 macro_rules! impl_op {
