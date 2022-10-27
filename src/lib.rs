@@ -420,7 +420,7 @@ macro_rules! impl_op {
 impl_op!(Int, i64, Add, add, "+", AddAssign, add_assign, +);
 impl_op!(Int, i64, Sub, sub, "-", SubAssign, sub_assign, -);
 impl_op!(Int, i64, Mul, mul, "*", MulAssign, mul_assign, *);
-impl_op!(Int, i64, Div, div, "/", DivAssign, div_assign, /);
+impl_op!(Int, i64, Div, div, "div", DivAssign, div_assign, /);
 impl_op!(Bool, bool, BitAnd, bitand, "and", BitAndAssign, bitand_assign, &);
 impl_op!(Bool, bool, BitOr,  bitor,  "or", BitOrAssign,  bitor_assign,  |);
 impl_op!(Bool, bool, BitXor, bitxor, "xor",  BitXorAssign, bitxor_assign, ^);
