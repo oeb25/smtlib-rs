@@ -1,6 +1,6 @@
 [package]
 name = "smtlib"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "A high-level API for interacting with SMT solvers"
 homepage = "https://github.com/oeb25/smtlib-rs"
@@ -18,7 +18,7 @@ cvc5 = ["smtlib-lowlevel/cvc5"]
 itertools = "0.10.5"
 miette = { version = "5.5.0", features = ["fancy"] }
 thiserror = "1.0.38"
-smtlib-lowlevel = { path = "./lowlevel", version = "0.1.0" }
+smtlib-lowlevel = { path = "./lowlevel", version = "0.1.1" }
 
 [workspace]
 members = ["generate", "lowlevel"]

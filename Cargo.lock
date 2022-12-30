@@ -423,7 +423,7 @@ checksum = "f67ad224767faa3c7d8b6d91985b78e70a1324408abcb1cfcc2be4c06bc06043"
 
 [[package]]
 name = "smtlib"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "itertools",
  "miette",
@@ -434,7 +434,7 @@ dependencies = [
 
 [[package]]
 name = "smtlib-lowlevel"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "insta",
  "itertools",
