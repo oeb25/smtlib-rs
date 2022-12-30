@@ -67,7 +67,7 @@ where
             {
                 continue;
             }
-            if self.buf.ends_with("\n") {
+            if self.buf.ends_with('\n') {
                 self.buf.pop();
             }
 

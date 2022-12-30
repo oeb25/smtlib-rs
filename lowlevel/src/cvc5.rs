@@ -18,9 +18,9 @@ impl Cvc5Binary {
         use std::process::{Command, Stdio};
 
         let mut child = Command::new(cvc5.as_ref())
-            .args(&["--lang", "smt2"])
-            .args(&["--produce-models"])
-            .args(&["--incremental"])
+            .args(["--lang", "smt2"])
+            .args(["--produce-models"])
+            .args(["--incremental"])
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .spawn()?;

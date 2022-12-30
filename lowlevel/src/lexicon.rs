@@ -130,11 +130,11 @@ impl SmtlibParse for String {
     }
 }
 impl SmtlibParse for bool {
-    fn is_start_of(offset: usize, tokens: &mut Parser) -> bool {
+    fn is_start_of(_offset: usize, _tokens: &mut Parser) -> bool {
         todo!()
     }
 
-    fn parse(tokens: &mut Parser) -> Result<Self, ParseError> {
+    fn parse(_tokens: &mut Parser) -> Result<Self, ParseError> {
         todo!()
     }
 }

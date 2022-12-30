@@ -340,7 +340,7 @@ impl<'src> Parser<'src> {
             error: format!("Parser stuck while parsing {parsing:?}"),
             src: self.src.into(),
             err_span: self.current_span(),
-            label: Some(format!("The parser got stuck at this token")),
+            label: Some("The parser got stuck at this token".to_string()),
             help: None,
         }
     }

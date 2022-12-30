@@ -101,10 +101,7 @@ where
         let term = ast::Term::from(b);
         for q in term.all_consts() {
             match q {
-                QualIdentifier::Identifier(i) => match self.decls.get(i) {
-                    Some(_) => {}
-                    None => {}
-                },
+                QualIdentifier::Identifier(_) => {}
                 QualIdentifier::Sorted(i, s) => match self.decls.entry(i.clone()) {
                     Entry::Occupied(stored) => assert_eq!(s, stored.get()),
                     Entry::Vacant(v) => {

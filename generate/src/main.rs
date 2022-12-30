@@ -145,10 +145,10 @@ impl std::fmt::Display for Token {
         use Token::*;
 
         match self {
-            LParen => write!(f, "{}", "("),
-            RParen => write!(f, "{}", ")"),
-            Underscore => write!(f, "{}", "_"),
-            Annotation => write!(f, "{}", "!"),
+            LParen => write!(f, "("),
+            RParen => write!(f, ")"),
+            Underscore => write!(f, "_"),
+            Annotation => write!(f, "!"),
             Builtin(s) => write!(f, "{s}"),
             Reserved(s) => write!(f, "{s}"),
             Keyword(k) => write!(f, "{k}"),
@@ -186,7 +186,7 @@ impl std::fmt::Display for Grammar {
 fn parse_raw_grammar(s: &str) -> Grammar {
     let mut acc = 0;
     let p = s
-        .split(" ")
+        .split(' ')
         .map(|t| {
             let t = parse_raw_token(t, acc);
             if let Token::Field(_, _) = t {
@@ -211,17 +211,17 @@ fn parse_raw_token(s: &str, field_idx: usize) -> Token {
         ")" => Token::RParen,
         "_" => Token::Underscore,
         "!" => Token::Annotation,
-        f if f.starts_with(":") => Token::Keyword(f.to_string()),
-        f if f.starts_with("<") && f.ends_with(">") => {
+        f if f.starts_with(':') => Token::Keyword(f.to_string()),
+        f if f.starts_with('<') && f.ends_with('>') => {
             Token::Field(field_idx, Field::One(f[1..f.len() - 1].to_string()))
         }
-        f if f.starts_with("<") && f.ends_with(">*") => {
+        f if f.starts_with('<') && f.ends_with(">*") => {
             Token::Field(field_idx, Field::Any(f[1..f.len() - 2].to_string()))
         }
-        f if f.starts_with("<") && f.ends_with(">+") => {
+        f if f.starts_with('<') && f.ends_with(">+") => {
             Token::Field(field_idx, Field::NonZero(f[1..f.len() - 2].to_string()))
         }
-        f if f.starts_with("<") && f.ends_with(">n+1") => {
+        f if f.starts_with('<') && f.ends_with(">n+1") => {
             Token::Field(field_idx, Field::NPlusOne(f[1..f.len() - 4].to_string()))
         }
         f if f.chars().all(|c| c.is_alphabetic() || c == '-') => {
@@ -564,7 +564,7 @@ impl Rule {
                     Field::Any(_) | Field::NonZero(_) | Field::NPlusOne(_) => {
                         format!(
                             r#", {scope}{idx}.iter().format({:?})"#,
-                            self.separator.as_ref().map(|s| s.as_str()).unwrap_or(" ")
+                            self.separator.as_deref().unwrap_or(" ")
                         )
                     }
                 })
@@ -594,28 +594,26 @@ impl Rule {
                 .map(|(idx, t)| rust_check_token(idx, t))
                 .format(" && ")
                 .to_string()
+        } else if !self.syntax.tokens[0].is_concrete() {
+            let q = rust_check_token(0, &self.syntax.tokens[0]);
+            assert!(!q.is_empty());
+            q
         } else {
-            if !self.syntax.tokens[0].is_concrete() {
-                let q = rust_check_token(0, &self.syntax.tokens[0]);
-                assert!(!q.is_empty());
-                q
-            } else {
-                self.syntax
-                    .tokens
-                    .iter()
-                    .take_while(|t| t.is_concrete())
-                    .enumerate()
-                    .map(|(idx, t)| rust_check_token(idx, t))
-                    .format(" && ")
-                    .to_string()
-            }
+            self.syntax
+                .tokens
+                .iter()
+                .take_while(|t| t.is_concrete())
+                .enumerate()
+                .map(|(idx, t)| rust_check_token(idx, t))
+                .format(" && ")
+                .to_string()
         }
     }
     fn rust_start_of_impl(&self) -> String {
         self.rust_start_of_check()
     }
     fn rust_parse_impl(&self) -> String {
-        let stmts = self.syntax.tokens.iter().map(|t| rust_parse_token(t));
+        let stmts = self.syntax.tokens.iter().map(rust_parse_token);
         stmts.format("\n").to_string()
     }
 }
@@ -643,10 +641,10 @@ fn rust_parse_construct_variant(suffix: &str, name: &str, syntax: &Grammar) -> S
 
 fn rust_parse_token(t: &Token) -> String {
     match t {
-        Token::LParen => format!("p.expect(Token::LParen)?;"),
-        Token::RParen => format!("p.expect(Token::RParen)?;"),
-        Token::Underscore => format!("p.expect_matches(Token::Reserved, \"_\")?;"),
-        Token::Annotation => format!("p.expect_matches(Token::Reserved, \"!\")?;"),
+        Token::LParen => "p.expect(Token::LParen)?;".to_string(),
+        Token::RParen => "p.expect(Token::RParen)?;".to_string(),
+        Token::Underscore => "p.expect_matches(Token::Reserved, \"_\")?;".to_string(),
+        Token::Annotation => "p.expect_matches(Token::Reserved, \"!\")?;".to_string(),
         Token::Builtin(b) => format!("p.expect_matches(Token::Symbol, {b:?})?;"),
         Token::Reserved(b) => format!("p.expect_matches(Token::Reserved, {b:?})?;"),
         Token::Keyword(kw) => format!("p.expect_matches(Token::Keyword, {kw:?})?;"),
@@ -675,7 +673,7 @@ fn rust_check_token(idx: usize, t: &Token) -> String {
         Token::Builtin(b) => format!("p.nth_matches(offset + {idx}, Token::Symbol, {b:?})"),
         Token::Reserved(b) => format!("p.nth_matches(offset + {idx}, Token::Reserved, {b:?})"),
         Token::Keyword(kw) => {
-            format!("p.nth_matches(offset + {idx}, Token::Keyword, {:?})", kw)
+            format!("p.nth_matches(offset + {idx}, Token::Keyword, {kw:?})")
         }
         Token::Field(_, f) => match f {
             Field::One(t) | Field::NonZero(t) | Field::NPlusOne(t) => {
@@ -696,7 +694,7 @@ impl Grammar {
                 if inside_of.contains(t) {
                     format!("Box<{}>", t.to_pascal_case())
                 } else {
-                    format!("{}", t.to_pascal_case())
+                    t.to_pascal_case()
                 }
             }
             Field::Any(t) | Field::NonZero(t) | Field::NPlusOne(t) => {
@@ -710,6 +708,7 @@ fn main() -> anyhow::Result<()> {
     let raw: RawSpec = toml::from_str(include_str!("./spec.toml"))?;
     let spec = raw.parse();
 
+    println!("#![allow(clippy::all)]");
     println!("//! This file is autogenerated! DO NOT EDIT!\n");
     println!("use crate::parse::{{Token, Parser, ParseError}};");
     println!("use itertools::Itertools; use crate::lexicon::*;\n");
