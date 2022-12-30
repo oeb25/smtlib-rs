@@ -1,0 +1,391 @@
+# S-expressions
+
+[spec_constant]
+numeral = { syntax = "<numeral>" }
+decimal = { syntax = "<decimal>" }
+hexadecimal = { syntax = "<hexadecimal>" }
+binary = { syntax = "<binary>" }
+string = { syntax = "<string>" }
+
+[s_expr]
+spec_constant = { syntax = "<spec_constant>" }
+symbol = { syntax = "<symbol>" }
+reserved = { syntax = "<reserved>" }
+keyword = { syntax = "<keyword>" }
+paren = { syntax = "( <s_expr>* )" }
+
+# Identifier
+
+[index.numeral]
+syntax = "<numeral>"
+
+[index.symbol]
+syntax = "<symbol>"
+
+[identifier.simple]
+syntax = "<symbol>"
+
+[identifier.indexed]
+syntax = "( _ <symbol> <index>+ )"
+
+# Attributes
+
+[attribute_value.spec_constant]
+syntax = "<spec_constant>"
+
+[attribute_value.symbol]
+syntax = "<symbol>"
+
+[attribute_value.expr]
+syntax = "( <s_expr> )"
+
+[attribute]
+keyword = { syntax = "<keyword>" }
+with_value = { syntax = "<keyword> <attribute_value>" }
+
+# Sorts
+
+[sort.sort]
+syntax = "<identifier>"
+priority = 1
+[sort.parametric]
+syntax = "( <identifier> <sort>+ )"
+
+# Terms
+
+[qual_identifier.identifier]
+syntax = "<identifier>"
+[qual_identifier.sorted]
+syntax = "( as <identifier> <sort> )"
+[var_binding]
+syntax = "( <symbol> <term> )"
+[sorted_var]
+syntax = "( <symbol> <sort> )"
+[pattern.symbol]
+syntax = "<symbol>"
+[pattern.application]
+syntax = "( <symbol> <symbol>+ )"
+[match_case]
+syntax = "( <pattern> <term> )"
+
+[term]
+spec_constant = { syntax = "<spec_constant>" }
+identifier = { syntax = "<qual_identifier>" }
+application = { syntax = "( <qual_identifier> <term>+ )" }
+let = { syntax = "( let ( <var_binding>+ ) <term> )" }
+forall = { syntax = "( forall ( <sorted_var>+ ) <term> )" }
+exists = { syntax = "( exists ( <sorted_var>+ ) <term> )" }
+match = { syntax = "( match <term> ( <match_case>+ ) )" }
+annotation = { syntax = "( ! <term> <attribute>+ )" }
+
+# Theory declarations
+
+[sort_symbol_decl]
+syntax = "( <identifier> <numeral> <attribute>* )"
+
+[meta_spec_constant]
+numeral = { syntax = "NUMERAL" }
+decimal = { syntax = "DECIMAL" }
+string = { syntax = "STRING" }
+
+[fun_symbol_decl]
+spec_constant = { syntax = "( <spec_constant> <sort> <attribute>* )" }
+meta_spec_constant = { syntax = "( <meta_spec_constant> <sort> <attribute>* )" }
+identifier = { syntax = "( <identifier> <sort>+ <attribute>* )" }
+
+[par_fun_symbol_decl]
+par = { syntax = "( par ( <symbol>+ ) ( <identifier> <sort>+ <attribute>* ) )" }
+fun_symbol_decl = { syntax = "<fun_symbol_decl>" }
+
+[theory_attribute]
+sorts = { syntax = ":sorts ( <sort_symbol_decl>+ )" }
+funs = { syntax = ":funs ( <par_fun_symbol_decl>+ )" }
+sorts-description = { syntax = ":sorts-description <string>" }
+funs-description = { syntax = ":funs-description <string>" }
+definition = { syntax = ":definition <string>" }
+values = { syntax = ":values <string>" }
+notes = { syntax = ":notes <string>" }
+attribute = { syntax = "<attribute>" }
+
+[theory_decl]
+syntax = "( theory <symbol> <theory_attribute>+ )"
+
+# Logic declarations
+
+[logic_attribute]
+theories = { syntax = ":theories ( <symbol>+ )" }
+language = { syntax = ":language <string>" }
+extensions = { syntax = ":extensions <string>" }
+values = { syntax = ":values <string>" }
+notes = { syntax = ":notes <string>" }
+attribute = { syntax = "<attribute>" }
+
+[logic]
+syntax = "( logic <symbol> <logic_attribute>+ )"
+
+# SMT-LIB Commands.
+
+[sort_dec]
+syntax = "( <symbol> <numeral> )"
+
+[selector_dec]
+syntax = "( <symbol> <sort> )"
+
+[constructor_dec]
+syntax = "( <symbol> <selector_dec>* )"
+
+[datatype_dec.datatype_dec]
+syntax = "( <constructor_dec>+ )"
+
+[datatype_dec.par]
+syntax = "( par ( <symbol>+ ) ( <constructor_dec>+ ) )"
+
+[function_dec]
+syntax = "( <symbol> ( <sorted_var>* ) <sort> )"
+
+[function_def]
+syntax = "<symbol> ( <sorted_var>* ) <sort> <term>"
+
+[prop_literal.symbol]
+syntax = "<symbol>"
+
+[prop_literal.not]
+syntax = "<symbol>"
+
+[command]
+response = "specific_success_response"
+
+[command.assert]
+syntax = "( assert <term> )"
+
+[command.check-sat]
+syntax = "( check-sat )"
+response = "<check_sat_response>"
+
+[command.check-sat-assuming]
+syntax = "( check-sat-assuming ( <prop_literal>* ) )"
+response = "<check_sat_response>"
+
+[command.declare-const]
+syntax = "( declare-const <symbol> <sort> )"
+
+[command.declare-datatype]
+syntax = "( declare-datatype <symbol> <datatype_dec> )"
+
+[command.declare-datatypes]
+syntax = "( declare-datatypes ( <sort_dec>n+1 ) ( <datatype_dec>n+1 ) )"
+
+[command.declare-fun]
+syntax = "( declare-fun <symbol> ( <sort>* ) <sort> )"
+
+[command.declare-sort]
+syntax = "( declare-sort <symbol> <numeral> )"
+
+[command.define-fun]
+syntax = "( define-fun <function_def> )"
+
+[command.define-fun-rec]
+syntax = "( define-fun-rec <function_def> )"
+
+[command.define-funs-rec]
+syntax = "( define-funs-rec ( <function_dec>n+1 ) ( <term>n+1 ) )"
+
+[command.define-sort]
+syntax = "( define-sort <symbol> ( <symbol>* ) <sort> )"
+
+[command.echo]
+syntax = "( echo <string> )"
+response = "<echo_response>"
+
+[command.exit]
+syntax = "( exit )"
+
+[command.get-assertions]
+syntax = "( get-assertions )"
+response = "<get_assertions_response>"
+
+[command.get-assignment]
+syntax = "( get-assignment )"
+response = "<get_assignment_response>"
+
+[command.get-info]
+syntax = "( get-info <info_flag> )"
+response = "<get_info_response>"
+
+[command.get-model]
+syntax = "( get-model )"
+response = "<get_model_response>"
+
+[command.get-option]
+syntax = "( get-option <keyword> )"
+response = "<get_option_response>"
+
+[command.get-proof]
+syntax = "( get-proof )"
+response = "<get_proof_response>"
+
+[command.get-unsat-assumptions]
+syntax = "( get-unsat-assumptions )"
+response = "<get_unsat_assumptions_response>"
+
+[command.get-unsat-core]
+syntax = "( get-unsat-core )"
+response = "<get_unsat_core_response>"
+
+[command.get-value]
+syntax = "( get-value ( <term>+ ) )"
+response = "<get_value_response>"
+
+[command.pop]
+syntax = "( pop <numeral> )"
+
+[command.push]
+syntax = "( push <numeral> )"
+
+[command.reset]
+syntax = "( reset )"
+
+[command.reset-assertions]
+syntax = "( reset-assertions )"
+
+[command.set-info]
+syntax = "( set-info <attribute> )"
+
+[command.set-logic]
+syntax = "( set-logic <symbol> )"
+
+[command.set-option]
+syntax = "( set-option <option> )"
+
+[script]
+syntax = "<command>*"
+separator = "\n"
+
+# Command Options.
+
+# [b_value.true]
+# syntax = "true"
+
+# [b_value.false]
+# syntax = "false"
+
+[option]
+diagnostic-output-channel = { syntax = ":diagnostic-output-channel <string>" }
+global-declarations = { syntax = ":global-declarations <b_value>" }
+interactive-mode = { syntax = ":interactive-mode <b_value>" }
+print-success = { syntax = ":print-success <b_value>" }
+produce-assertions = { syntax = ":produce-assertions <b_value>" }
+produce-assignments = { syntax = ":produce-assignments <b_value>" }
+produce-models = { syntax = ":produce-models <b_value>" }
+produce-proofs = { syntax = ":produce-proofs <b_value>" }
+produce-unsat-assumptions = { syntax = ":produce-unsat-assumptions <b_value>" }
+produce-unsat-cores = { syntax = ":produce-unsat-cores <b_value>" }
+random-seed = { syntax = ":random-seed <numeral>" }
+regular-output-channel = { syntax = ":regular-output-channel <string>" }
+reproducible-resource-limit = { syntax = ":reproducible-resource-limit <numeral>" }
+verbosity = { syntax = ":verbosity <numeral>" }
+attribute = { syntax = "<attribute>" }
+
+# Info flags.
+
+[info_flag.all-statistics]
+syntax = ":all-statistics"
+[info_flag.assertion-stack-levels]
+syntax = ":assertion-stack-levels"
+[info_flag.authors]
+syntax = ":authors"
+[info_flag.error-behavior]
+syntax = ":error-behavior"
+[info_flag.name]
+syntax = ":name"
+[info_flag.reason-unknown]
+syntax = ":reason-unknown"
+[info_flag.version]
+syntax = ":version"
+[info_flag.keyword]
+syntax = "<keyword>"
+
+# Command responses.
+
+[error_behavior]
+immediate-exit = { syntax = "immediate-exit" }
+continued-execution = { syntax = "continued-execution" }
+
+[reason_unknown]
+memout = { syntax = "memout" }
+incomplete = { syntax = "incomplete" }
+s_expr = { syntax = "<s_expr>" }
+
+[model_response]
+define-fun = { syntax = "( define-fun <function_def> )" }
+define-fun-rec = { syntax = "( define-fun-rec <function_def> )" }
+define-funs-rec = { syntax = "( define-funs-rec ( <function_dec>n+1 ) ( <term>n+1 ) )" }
+
+[info_response]
+assertion-stack-levels = { syntax = ":assertion-stack-levels <numeral>" }
+authors = { syntax = ":authors <string>" }
+error-behavior = { syntax = ":error-behavior <error-behavior>" }
+name = { syntax = ":name <string>" }
+reason-unknown = { syntax = ":reason-unknown <reason-unknown>" }
+version = { syntax = ":version <string>" }
+attribute = { syntax = "<attribute>" }
+
+[valuation_pair]
+syntax = "( <term> <term> )"
+
+[t_valuation_pair]
+syntax = "( <symbol> <b_value> )"
+
+[check_sat_response]
+sat = { syntax = "sat" }
+unsat = { syntax = "unsat" }
+unknown = { syntax = "unknown" }
+
+[echo_response]
+syntax = "<string>"
+
+[get_assertions_response]
+syntax = "( <term>* )"
+
+[get_assignment_response]
+syntax = "( <t_valuation_pair>* )"
+
+[get_info_response]
+syntax = "( <info_response>+ )"
+
+[get_model_response]
+syntax = "( <model_response>* )"
+
+[get_option_response]
+syntax = "<attribute_value>"
+
+[get_proof_response]
+syntax = "<s_expr>"
+
+[get_unsat_assumptions_response]
+syntax = "( <symbol>* )"
+
+[get_unsat_core_response]
+syntax = "( <symbol>* )"
+
+[get_value_response]
+syntax = "( <valuation_pair>+ )"
+
+[specific_success_response]
+get_unsat_assumptions_response = { syntax = "<get_unsat_assumptions_response>" }
+check_sat_response = { syntax = "<check_sat_response>" }
+echo_response = { syntax = "<echo_response>" }
+get_assertions_response = { syntax = "<get_assertions_response>" }
+get_assignment_response = { syntax = "<get_assignment_response>" }
+get_info_response = { syntax = "<get_info_response>" }
+get_model_response = { syntax = "<get_model_response>" }
+get_option_response = { syntax = "<get_option_response>" }
+get_proof_response = { syntax = "<get_proof_response>" }
+get_unsat_core_response = { syntax = "<get_unsat_core_response>" }
+get_value_response = { syntax = "<get_value_response>" }
+
+[general_response]
+success = { syntax = "success" }
+specific_success_response = { syntax = "<specific_success_response>" }
+unsupported = { syntax = "unsupported" }
+error = { syntax = "( error <string> )" }

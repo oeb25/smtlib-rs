@@ -1,0 +1,19 @@
+[package]
+name = "smtlib-lowlevel"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = []
+serde = ["dep:serde"]
+
+[dependencies]
+itertools = "0.10.5"
+logos = "0.12.1"
+miette = { version = "5.5.0" }
+serde = { version = "1.0.152", features = ["derive"], optional = true }
+thiserror = "1.0.38"
+
+[dev-dependencies]
+insta = { version = "1.23.0", features = ["ron"] }
+smtlib-lowlevel = { path = ".", features = ["serde"] }

@@ -1,0 +1,14 @@
+[package]
+name = "generate"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.68"
+heck = "0.4.0"
+indexmap = { version = "1.9.2", features = ["serde"] }
+itertools = "0.10.5"
+serde = { version = "1.0.152", features = ["derive"] }
+toml = { version = "0.5.10", features = ["indexmap"] }

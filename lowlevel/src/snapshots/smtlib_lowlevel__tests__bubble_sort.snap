@@ -1,0 +1,350 @@
+---
+source: lowlevel/src/tests.rs
+expression: "Script::parse(include_str!(\"../../examples/bubble_sort.smt2\"))"
+---
+Ok(Script([
+  DeclareConst(Symbol("dim"), Sort(Simple(Symbol("Int")))),
+  DeclareConst(Symbol("A0"), Parametric(Simple(Symbol("Array")), [
+    Sort(Simple(Symbol("Int"))),
+    Sort(Simple(Symbol("Int"))),
+  ])),
+  DeclareConst(Symbol("A1"), Parametric(Simple(Symbol("Array")), [
+    Sort(Simple(Symbol("Int"))),
+    Sort(Simple(Symbol("Int"))),
+  ])),
+  DeclareConst(Symbol("A2"), Parametric(Simple(Symbol("Array")), [
+    Sort(Simple(Symbol("Int"))),
+    Sort(Simple(Symbol("Int"))),
+  ])),
+  DeclareConst(Symbol("A3"), Parametric(Simple(Symbol("Array")), [
+    Sort(Simple(Symbol("Int"))),
+    Sort(Simple(Symbol("Int"))),
+  ])),
+  DeclareConst(Symbol("i0"), Sort(Simple(Symbol("Int")))),
+  DeclareConst(Symbol("i1"), Sort(Simple(Symbol("Int")))),
+  DeclareConst(Symbol("i2"), Sort(Simple(Symbol("Int")))),
+  DeclareConst(Symbol("i3"), Sort(Simple(Symbol("Int")))),
+  DeclareConst(Symbol("j0"), Sort(Simple(Symbol("Int")))),
+  DeclareConst(Symbol("j1"), Sort(Simple(Symbol("Int")))),
+  DeclareConst(Symbol("j2"), Sort(Simple(Symbol("Int")))),
+  DeclareConst(Symbol("j3"), Sort(Simple(Symbol("Int")))),
+  DeclareConst(Symbol("tmp0"), Sort(Simple(Symbol("Int")))),
+  DeclareConst(Symbol("tmp1"), Sort(Simple(Symbol("Int")))),
+  DeclareConst(Symbol("tmp2"), Sort(Simple(Symbol("Int")))),
+  DeclareConst(Symbol("l0"), Parametric(Simple(Symbol("List")), [
+    Sort(Simple(Symbol("Int"))),
+  ])),
+  DeclareConst(Symbol("l1"), Parametric(Simple(Symbol("List")), [
+    Sort(Simple(Symbol("Int"))),
+  ])),
+  DeclareConst(Symbol("l2"), Parametric(Simple(Symbol("List")), [
+    Sort(Simple(Symbol("Int"))),
+  ])),
+  DeclareConst(Symbol("l3"), Parametric(Simple(Symbol("List")), [
+    Sort(Simple(Symbol("Int"))),
+  ])),
+  DeclareConst(Symbol("l4"), Parametric(Simple(Symbol("List")), [
+    Sort(Simple(Symbol("Int"))),
+  ])),
+  DefineFun(FunctionDef(Symbol("init_indexes"), [
+    SortedVar(Symbol("_i"), Sort(Simple(Symbol("Int")))),
+    SortedVar(Symbol("_j"), Sort(Simple(Symbol("Int")))),
+  ], Sort(Simple(Symbol("Bool"))), Application(Identifier(Simple(Symbol("and"))), [
+    Application(Identifier(Simple(Symbol("="))), [
+      Identifier(Identifier(Simple(Symbol("_i")))),
+      SpecConstant(Numeral(Numeral("0"))),
+    ]),
+    Application(Identifier(Simple(Symbol("="))), [
+      Identifier(Identifier(Simple(Symbol("_j")))),
+      SpecConstant(Numeral(Numeral("0"))),
+    ]),
+  ]))),
+  DefineFun(FunctionDef(Symbol("inner_loop"), [
+    SortedVar(Symbol("_A0"), Parametric(Simple(Symbol("Array")), [
+      Sort(Simple(Symbol("Int"))),
+      Sort(Simple(Symbol("Int"))),
+    ])),
+    SortedVar(Symbol("_A1"), Parametric(Simple(Symbol("Array")), [
+      Sort(Simple(Symbol("Int"))),
+      Sort(Simple(Symbol("Int"))),
+    ])),
+    SortedVar(Symbol("tmp"), Sort(Simple(Symbol("Int")))),
+    SortedVar(Symbol("_i0"), Sort(Simple(Symbol("Int")))),
+    SortedVar(Symbol("_dim"), Sort(Simple(Symbol("Int")))),
+  ], Sort(Simple(Symbol("Bool"))), Application(Identifier(Simple(Symbol("ite"))), [
+    Application(Identifier(Simple(Symbol(">"))), [
+      Application(Identifier(Simple(Symbol("select"))), [
+        Identifier(Identifier(Simple(Symbol("_A0")))),
+        Identifier(Identifier(Simple(Symbol("_i0")))),
+      ]),
+      Application(Identifier(Simple(Symbol("select"))), [
+        Identifier(Identifier(Simple(Symbol("_A0")))),
+        Application(Identifier(Simple(Symbol("+"))), [
+          Identifier(Identifier(Simple(Symbol("_i0")))),
+          SpecConstant(Numeral(Numeral("1"))),
+        ]),
+      ]),
+    ]),
+    Application(Identifier(Simple(Symbol("and"))), [
+      Application(Identifier(Simple(Symbol("="))), [
+        Identifier(Identifier(Simple(Symbol("tmp")))),
+        Application(Identifier(Simple(Symbol("select"))), [
+          Identifier(Identifier(Simple(Symbol("_A0")))),
+          Identifier(Identifier(Simple(Symbol("_i0")))),
+        ]),
+      ]),
+      Application(Identifier(Simple(Symbol("="))), [
+        Identifier(Identifier(Simple(Symbol("_A1")))),
+        Application(Identifier(Simple(Symbol("store"))), [
+          Identifier(Identifier(Simple(Symbol("_A0")))),
+          Identifier(Identifier(Simple(Symbol("_i0")))),
+          Application(Identifier(Simple(Symbol("select"))), [
+            Identifier(Identifier(Simple(Symbol("_A0")))),
+            Application(Identifier(Simple(Symbol("+"))), [
+              Identifier(Identifier(Simple(Symbol("_i0")))),
+              SpecConstant(Numeral(Numeral("1"))),
+            ]),
+          ]),
+        ]),
+      ]),
+      Application(Identifier(Simple(Symbol("="))), [
+        Identifier(Identifier(Simple(Symbol("_A1")))),
+        Application(Identifier(Simple(Symbol("store"))), [
+          Identifier(Identifier(Simple(Symbol("_A0")))),
+          Application(Identifier(Simple(Symbol("+"))), [
+            Identifier(Identifier(Simple(Symbol("_i0")))),
+            SpecConstant(Numeral(Numeral("1"))),
+          ]),
+          Identifier(Identifier(Simple(Symbol("tmp")))),
+        ]),
+      ]),
+    ]),
+    Application(Identifier(Simple(Symbol("="))), [
+      Identifier(Identifier(Simple(Symbol("_A1")))),
+      Identifier(Identifier(Simple(Symbol("_A0")))),
+    ]),
+  ]))),
+  DefineFun(FunctionDef(Symbol("bsort_step"), [
+    SortedVar(Symbol("_A0"), Parametric(Simple(Symbol("Array")), [
+      Sort(Simple(Symbol("Int"))),
+      Sort(Simple(Symbol("Int"))),
+    ])),
+    SortedVar(Symbol("_A1"), Parametric(Simple(Symbol("Array")), [
+      Sort(Simple(Symbol("Int"))),
+      Sort(Simple(Symbol("Int"))),
+    ])),
+    SortedVar(Symbol("tmp"), Sort(Simple(Symbol("Int")))),
+    SortedVar(Symbol("_i0"), Sort(Simple(Symbol("Int")))),
+    SortedVar(Symbol("_j0"), Sort(Simple(Symbol("Int")))),
+    SortedVar(Symbol("_i1"), Sort(Simple(Symbol("Int")))),
+    SortedVar(Symbol("_j1"), Sort(Simple(Symbol("Int")))),
+    SortedVar(Symbol("_dim"), Sort(Simple(Symbol("Int")))),
+  ], Sort(Simple(Symbol("Bool"))), Application(Identifier(Simple(Symbol("ite"))), [
+    Application(Identifier(Simple(Symbol("<"))), [
+      Identifier(Identifier(Simple(Symbol("_j0")))),
+      Application(Identifier(Simple(Symbol("-"))), [
+        Identifier(Identifier(Simple(Symbol("_dim")))),
+        SpecConstant(Numeral(Numeral("1"))),
+      ]),
+    ]),
+    Application(Identifier(Simple(Symbol("and"))), [
+      Application(Identifier(Simple(Symbol("ite"))), [
+        Application(Identifier(Simple(Symbol("<"))), [
+          Identifier(Identifier(Simple(Symbol("_i0")))),
+          Application(Identifier(Simple(Symbol("-"))), [
+            Identifier(Identifier(Simple(Symbol("_dim")))),
+            SpecConstant(Numeral(Numeral("1"))),
+          ]),
+        ]),
+        Application(Identifier(Simple(Symbol("and"))), [
+          Application(Identifier(Simple(Symbol("inner_loop"))), [
+            Identifier(Identifier(Simple(Symbol("_A0")))),
+            Identifier(Identifier(Simple(Symbol("_A1")))),
+            Identifier(Identifier(Simple(Symbol("tmp")))),
+            Identifier(Identifier(Simple(Symbol("_i0")))),
+            Identifier(Identifier(Simple(Symbol("_dim")))),
+          ]),
+          Application(Identifier(Simple(Symbol("="))), [
+            Identifier(Identifier(Simple(Symbol("_i1")))),
+            Application(Identifier(Simple(Symbol("+"))), [
+              Identifier(Identifier(Simple(Symbol("_i0")))),
+              SpecConstant(Numeral(Numeral("1"))),
+            ]),
+          ]),
+        ]),
+        Application(Identifier(Simple(Symbol("="))), [
+          Identifier(Identifier(Simple(Symbol("_j1")))),
+          Application(Identifier(Simple(Symbol("+"))), [
+            Identifier(Identifier(Simple(Symbol("_j0")))),
+            SpecConstant(Numeral(Numeral("1"))),
+          ]),
+        ]),
+      ]),
+      Application(Identifier(Simple(Symbol("="))), [
+        Identifier(Identifier(Simple(Symbol("_j1")))),
+        Application(Identifier(Simple(Symbol("+"))), [
+          Identifier(Identifier(Simple(Symbol("_j0")))),
+          SpecConstant(Numeral(Numeral("1"))),
+        ]),
+      ]),
+    ]),
+    Application(Identifier(Simple(Symbol("and"))), [
+      Application(Identifier(Simple(Symbol("="))), [
+        Identifier(Identifier(Simple(Symbol("_j1")))),
+        Application(Identifier(Simple(Symbol("+"))), [
+          Identifier(Identifier(Simple(Symbol("_j0")))),
+          SpecConstant(Numeral(Numeral("1"))),
+        ]),
+      ]),
+      Application(Identifier(Simple(Symbol("="))), [
+        Identifier(Identifier(Simple(Symbol("_A1")))),
+        Identifier(Identifier(Simple(Symbol("_A0")))),
+      ]),
+    ]),
+  ]))),
+  DefineFunRec(FunctionDef(Symbol("check"), [
+    SortedVar(Symbol("_l"), Parametric(Simple(Symbol("List")), [
+      Sort(Simple(Symbol("Int"))),
+    ])),
+  ], Sort(Simple(Symbol("Bool"))), Application(Identifier(Simple(Symbol("ite"))), [
+    Application(Identifier(Simple(Symbol("="))), [
+      Identifier(Identifier(Simple(Symbol("_l")))),
+      Identifier(Identifier(Simple(Symbol("nil")))),
+    ]),
+    Identifier(Identifier(Simple(Symbol("true")))),
+    Application(Identifier(Simple(Symbol("ite"))), [
+      Application(Identifier(Simple(Symbol("not"))), [
+        Application(Identifier(Simple(Symbol("="))), [
+          Application(Identifier(Simple(Symbol("tail"))), [
+            Identifier(Identifier(Simple(Symbol("_l")))),
+          ]),
+          Identifier(Identifier(Simple(Symbol("nil")))),
+        ]),
+      ]),
+      Application(Identifier(Simple(Symbol("and"))), [
+        Application(Identifier(Simple(Symbol(">="))), [
+          Application(Identifier(Simple(Symbol("head"))), [
+            Identifier(Identifier(Simple(Symbol("_l")))),
+          ]),
+          Application(Identifier(Simple(Symbol("head"))), [
+            Application(Identifier(Simple(Symbol("tail"))), [
+              Identifier(Identifier(Simple(Symbol("_l")))),
+            ]),
+          ]),
+        ]),
+        Application(Identifier(Simple(Symbol("check"))), [
+          Application(Identifier(Simple(Symbol("tail"))), [
+            Identifier(Identifier(Simple(Symbol("_l")))),
+          ]),
+        ]),
+      ]),
+      Identifier(Identifier(Simple(Symbol("true")))),
+    ]),
+  ]))),
+  Assert(Application(Identifier(Simple(Symbol("="))), [
+    Identifier(Identifier(Simple(Symbol("dim")))),
+    SpecConstant(Numeral(Numeral("4"))),
+  ])),
+  Assert(Application(Identifier(Simple(Symbol("init_indexes"))), [
+    Identifier(Identifier(Simple(Symbol("i0")))),
+    Identifier(Identifier(Simple(Symbol("j0")))),
+  ])),
+  Assert(Application(Identifier(Simple(Symbol("bsort_step"))), [
+    Identifier(Identifier(Simple(Symbol("A0")))),
+    Identifier(Identifier(Simple(Symbol("A1")))),
+    Identifier(Identifier(Simple(Symbol("tmp0")))),
+    Identifier(Identifier(Simple(Symbol("i0")))),
+    Identifier(Identifier(Simple(Symbol("j0")))),
+    Identifier(Identifier(Simple(Symbol("i1")))),
+    Identifier(Identifier(Simple(Symbol("j1")))),
+    Identifier(Identifier(Simple(Symbol("dim")))),
+  ])),
+  Assert(Application(Identifier(Simple(Symbol("bsort_step"))), [
+    Identifier(Identifier(Simple(Symbol("A1")))),
+    Identifier(Identifier(Simple(Symbol("A2")))),
+    Identifier(Identifier(Simple(Symbol("tmp1")))),
+    Identifier(Identifier(Simple(Symbol("i1")))),
+    Identifier(Identifier(Simple(Symbol("j1")))),
+    Identifier(Identifier(Simple(Symbol("i2")))),
+    Identifier(Identifier(Simple(Symbol("j2")))),
+    Identifier(Identifier(Simple(Symbol("dim")))),
+  ])),
+  Assert(Application(Identifier(Simple(Symbol("bsort_step"))), [
+    Identifier(Identifier(Simple(Symbol("A2")))),
+    Identifier(Identifier(Simple(Symbol("A3")))),
+    Identifier(Identifier(Simple(Symbol("tmp2")))),
+    Identifier(Identifier(Simple(Symbol("i2")))),
+    Identifier(Identifier(Simple(Symbol("j2")))),
+    Identifier(Identifier(Simple(Symbol("i3")))),
+    Identifier(Identifier(Simple(Symbol("j3")))),
+    Identifier(Identifier(Simple(Symbol("dim")))),
+  ])),
+  Assert(Application(Identifier(Simple(Symbol("and"))), [
+    Application(Identifier(Simple(Symbol("="))), [
+      Identifier(Identifier(Simple(Symbol("l0")))),
+      Identifier(Identifier(Simple(Symbol("nil")))),
+    ]),
+    Application(Identifier(Simple(Symbol("="))), [
+      Identifier(Identifier(Simple(Symbol("l1")))),
+      Application(Identifier(Simple(Symbol("insert"))), [
+        Application(Identifier(Simple(Symbol("select"))), [
+          Identifier(Identifier(Simple(Symbol("A3")))),
+          SpecConstant(Numeral(Numeral("0"))),
+        ]),
+        Identifier(Identifier(Simple(Symbol("l0")))),
+      ]),
+    ]),
+    Application(Identifier(Simple(Symbol("="))), [
+      Identifier(Identifier(Simple(Symbol("l2")))),
+      Application(Identifier(Simple(Symbol("insert"))), [
+        Application(Identifier(Simple(Symbol("select"))), [
+          Identifier(Identifier(Simple(Symbol("A3")))),
+          SpecConstant(Numeral(Numeral("1"))),
+        ]),
+        Identifier(Identifier(Simple(Symbol("l1")))),
+      ]),
+    ]),
+    Application(Identifier(Simple(Symbol("="))), [
+      Identifier(Identifier(Simple(Symbol("l3")))),
+      Application(Identifier(Simple(Symbol("insert"))), [
+        Application(Identifier(Simple(Symbol("select"))), [
+          Identifier(Identifier(Simple(Symbol("A3")))),
+          SpecConstant(Numeral(Numeral("2"))),
+        ]),
+        Identifier(Identifier(Simple(Symbol("l2")))),
+      ]),
+    ]),
+    Application(Identifier(Simple(Symbol("="))), [
+      Identifier(Identifier(Simple(Symbol("l4")))),
+      Application(Identifier(Simple(Symbol("insert"))), [
+        Application(Identifier(Simple(Symbol("select"))), [
+          Identifier(Identifier(Simple(Symbol("A3")))),
+          SpecConstant(Numeral(Numeral("3"))),
+        ]),
+        Identifier(Identifier(Simple(Symbol("l3")))),
+      ]),
+    ]),
+  ])),
+  Echo("\"BUBBLE SORT\""),
+  Push(Numeral("1")),
+  Assert(Application(Identifier(Simple(Symbol("not"))), [
+    Application(Identifier(Simple(Symbol("check"))), [
+      Identifier(Identifier(Simple(Symbol("l4")))),
+    ]),
+  ])),
+  Echo("\"Testing the validity of the algorithm; `unsat` expected: \""),
+  CheckSat,
+  Echo("\"---------------------\""),
+  Pop(Numeral("1")),
+  Assert(Application(Identifier(Simple(Symbol("check"))), [
+    Identifier(Identifier(Simple(Symbol("l4")))),
+  ])),
+  Echo("\"Getting a model; `sat` expected: \""),
+  CheckSat,
+  Echo("\"---------------------\""),
+  Echo("\"Model: \""),
+  GetValue([
+    Identifier(Identifier(Simple(Symbol("A3")))),
+  ]),
+  Exit,
+]))

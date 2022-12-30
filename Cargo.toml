@@ -9,3 +9,12 @@ default = ["z3"]
 
 [dependencies]
 itertools = "0.10.5"
+miette = { version = "5.5.0", features = ["fancy"] }
+thiserror = "1.0.38"
+smtlib-lowlevel = { path = "./lowlevel" }
+
+[workspace]
+members = ["generate", "lowlevel"]
+
+[dev-dependencies]
+miette = { version = "5.5.0", features = ["fancy"] }

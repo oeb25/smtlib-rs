@@ -1,0 +1,5 @@
+---
+source: lowlevel/src/tests.rs
+expression: "String::parse(&mut Parser::new(r#\"\"Hello \"\"world\"\" this is cool!\"\"#))"
+---
+Ok("\"Hello \"\"world\"\" this is cool!\"")
