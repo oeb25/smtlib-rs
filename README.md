@@ -1,4 +1,8 @@
-# smtlib-rs
+# smtlib
+
+[![Crates.io](https://img.shields.io/crates/v/smtlib.svg)](https://crates.io/crates/smtlib)
+[![Docs](https://docs.rs/smtlib/badge.svg)](https://docs.rs/smtlib)
+[![Crates.io license shield](https://img.shields.io/crates/l/smtlib.svg)](https://crates.io/crates/smtlib)
 
 A family of crates for generating and interacting with SMTLIB.
 

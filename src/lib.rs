@@ -1,3 +1,7 @@
+//! # smtlib
+//!
+//! _A high-level API for interacting with SMT solvers._
+
 use std::collections::{hash_map::Entry, HashMap};
 
 use itertools::Itertools;

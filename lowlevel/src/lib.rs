@@ -1,3 +1,7 @@
+//! # smtlib-lowlevel
+//!
+//! _A low-level API for interacting with SMT solvers._
+
 use std::{
     collections::HashSet,
     io::{BufRead, Write},
