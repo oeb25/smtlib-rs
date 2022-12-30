@@ -2,9 +2,17 @@
 name = "smtlib-lowlevel"
 version = "0.1.0"
 edition = "2021"
+description = "A low-level API for interacting with SMT solvers"
+homepage = "https://github.com/oeb25/smtlib-rs/tree/main/lowlevel"
+license = "MIT/Apache-2.0"
+authors = ["Oliver Bøving <oliver@bvng.dk>"]
+readme = "README.md"
+repository = "https://github.com/oeb25/smtlib-rs"
 
 [features]
 default = []
+z3 = []
+cvc5 = []
 serde = ["dep:serde"]
 
 [dependencies]

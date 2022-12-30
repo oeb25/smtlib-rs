@@ -8,7 +8,11 @@ use smtlib_lowlevel::{
 };
 use terms::{fun, Bool, Const, Sort};
 
-pub use smtlib_lowlevel::{cvc5::Cvc5Binary, z3::Z3Binary, Backend};
+#[cfg(feature = "cvc5")]
+pub use smtlib_lowlevel::cvc5::Cvc5Binary;
+#[cfg(feature = "z3")]
+pub use smtlib_lowlevel::z3::Z3Binary;
+pub use smtlib_lowlevel::Backend;
 
 pub mod terms;
 

@@ -1,5 +1,3 @@
-#![feature(buf_read_has_data_left)]
-
 use std::{
     collections::HashSet,
     io::{BufRead, Write},
@@ -11,11 +9,13 @@ use parse::ParseError;
 use crate::ast::{Command, GeneralResponse};
 
 pub mod ast;
+#[cfg(feature = "cvc5")]
 pub mod cvc5;
 pub mod lexicon;
 mod parse;
 #[cfg(test)]
 mod tests;
+#[cfg(feature = "z3")]
 pub mod z3;
 
 #[derive(Debug)]
