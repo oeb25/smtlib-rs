@@ -1,9 +1,11 @@
 use itertools::Itertools;
 use miette::IntoDiagnostic;
 use smtlib::{
-    and, distinct, or,
+    and,
+    backend::{Cvc5Binary, Z3Binary},
+    distinct, or,
     terms::{Int, Sort},
-    Backend, Cvc5Binary, SatResult, Solver, Z3Binary,
+    Backend, SatResult, Solver,
 };
 
 fn queens<B: Backend>(backend: B) -> miette::Result<()> {
