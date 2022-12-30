@@ -8,6 +8,7 @@ license = "MIT/Apache-2.0"
 authors = ["Oliver Bøving <oliver@bvng.dk>"]
 readme = "README.md"
 repository = "https://github.com/oeb25/smtlib-rs"
+documentation = "https://docs.rs/smtlib-lowlevel"
 
 [features]
 default = []
