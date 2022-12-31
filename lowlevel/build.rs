@@ -1,11 +1,11 @@
-use std::{fs::File, path::PathBuf};
+use std::fs::File;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let out = PathBuf::from(std::env::var("OUT_DIR").expect("Could not get OUT_DIR"));
+    let out = build_util::out_dir();
 
-    let mut const_file = File::create(out.join("ast.rs")).unwrap();
+    let mut ast_file = File::create(out.join("ast.rs")).unwrap();
 
-    build_util::spec::generate(&mut const_file)?;
+    build_util::spec::generate(&mut ast_file)?;
 
     Ok(())
 }

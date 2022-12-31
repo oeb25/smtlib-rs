@@ -12,8 +12,10 @@ use smtlib_lowlevel::{
 };
 use terms::{fun, Bool, Const, Sort};
 
+pub use logic::Logic;
 pub use smtlib_lowlevel::{backend, Backend};
 
+mod logic;
 pub mod terms;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -92,8 +94,8 @@ where
             decls: Default::default(),
         })
     }
-    pub fn set_logic(&mut self, logic: &str) -> Result<(), Error> {
-        let cmd = ast::Command::SetLogic(Symbol(logic.into()));
+    pub fn set_logic(&mut self, logic: Logic) -> Result<(), Error> {
+        let cmd = ast::Command::SetLogic(Symbol(logic.to_string()));
         match self.driver.exec(&cmd)? {
             ast::GeneralResponse::Success => Ok(()),
             ast::GeneralResponse::SpecificSuccessResponse(_) => todo!(),

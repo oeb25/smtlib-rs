@@ -113,7 +113,9 @@ syntax = "( theory <symbol> <theory_attribute>+ )"
 # Logic declarations
 
 [logic_attribute]
-theories = { syntax = ":theories ( <symbol>+ )" }
+# TODO: In the specification this says `<symbol>+`, but an official logic
+# (QF_UF.smt2) contains an empty theory
+theories = { syntax = ":theories ( <symbol>* )" }
 language = { syntax = ":language <string>" }
 extensions = { syntax = ":extensions <string>" }
 values = { syntax = ":values <string>" }

@@ -18,6 +18,7 @@ impl Z3Binary {
         use std::process::{Command, Stdio};
 
         let mut child = Command::new(z3.as_ref())
+            .arg("smtlib2_compliant=true")
             .arg("-in")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())

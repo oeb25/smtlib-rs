@@ -5,7 +5,7 @@ use smtlib::{
     backend::{Cvc5Binary, Z3Binary},
     distinct, or,
     terms::{Int, Sort},
-    Backend, SatResult, Solver,
+    Backend, Logic, SatResult, Solver,
 };
 
 fn queens<B: Backend>(backend: B) -> miette::Result<()> {
@@ -23,7 +23,7 @@ fn queens<B: Backend>(backend: B) -> miette::Result<()> {
 
     let mut solver = Solver::new(backend)?;
 
-    solver.set_logic("QF_IDL")?;
+    solver.set_logic(Logic::QF_IDL)?;
 
     solver.assert(n._eq(8))?;
 

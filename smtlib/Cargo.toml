@@ -24,3 +24,7 @@ smtlib-lowlevel = { path = "../lowlevel", version = "0.1.1" }
 [dev-dependencies]
 miette = { version = "5.5.0", features = ["fancy"] }
 smtlib = { path = ".", features = ["z3", "cvc5"] }
+
+[build-dependencies]
+build-util = { version = "0.1.0", path = "../build-util" }
+smtlib-lowlevel = { version = "0.1.1", path = "../lowlevel" }

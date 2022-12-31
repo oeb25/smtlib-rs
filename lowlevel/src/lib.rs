@@ -8,7 +8,8 @@ use std::{
 };
 
 use ast::{QualIdentifier, Term};
-use parse::ParseError;
+use logos::Lexer;
+use parse::{ParseError, Token};
 
 use crate::ast::{Command, GeneralResponse};
 
@@ -50,7 +51,7 @@ where
             buf: Default::default(),
         };
 
-        driver.exec(&Command::SetOption(crate::ast::Option::PrintSuccess(true)))?;
+        driver.exec(&Command::SetOption(ast::Option::PrintSuccess(true)))?;
 
         Ok(driver)
     }
@@ -63,32 +64,16 @@ where
             if n == 0 {
                 continue;
             }
-            if self.buf.chars().filter(|c| *c == '(').count()
-                != self.buf.chars().filter(|c| *c == ')').count()
+            if Lexer::new(self.buf.as_str()).fold(0i32, |acc, tok| match tok {
+                Token::LParen => acc + 1,
+                Token::RParen => acc - 1,
+                _ => acc,
+            }) != 0
             {
                 continue;
             }
-            if self.buf.ends_with('\n') {
-                self.buf.pop();
-            }
-
-            match cmd {
-                Command::Echo(_) if !self.buf.starts_with("(error") => {
-                    self.buf.insert(0, '"');
-                    self.buf.push('"');
-                }
-                _ => {}
-            }
             // println!("<< {}", self.buf);
-            let res = if cmd.has_response() {
-                match cmd.parse_response(&self.buf) {
-                    Ok(Some(res)) => GeneralResponse::SpecificSuccessResponse(res),
-                    Ok(None) => GeneralResponse::parse(&self.buf)?,
-                    Err(_) => GeneralResponse::parse(&self.buf)?,
-                }
-            } else {
-                GeneralResponse::parse(&self.buf)?
-            };
+            let res = GeneralResponse::parse(&self.buf)?;
             self.buf.clear();
             return Ok(res);
         }
