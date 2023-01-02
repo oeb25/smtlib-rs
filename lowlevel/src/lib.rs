@@ -1,13 +1,13 @@
+#![deny(rustdoc::broken_intra_doc_links)]
+
 //! # smtlib-lowlevel
 //!
 //! _A low-level API for interacting with SMT solvers._
 
-use std::{
-    collections::HashSet,
-    io::{BufRead, Write},
-};
+use std::collections::HashSet;
 
 use ast::{QualIdentifier, Term};
+use backend::Backend;
 use logos::Lexer;
 use parse::{ParseError, Token};
 
@@ -25,8 +25,6 @@ pub struct Driver<B> {
     backend: B,
     buf: String,
 }
-
-pub trait Backend: BufRead + Write {}
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum Error {
@@ -56,7 +54,7 @@ where
         Ok(driver)
     }
     pub fn exec(&mut self, cmd: &Command) -> Result<GeneralResponse, Error> {
-        println!("> {cmd}");
+        // println!("> {cmd}");
         writeln!(self.backend, "{cmd}")?;
         self.backend.flush()?;
 
@@ -84,6 +82,7 @@ where
     }
 }
 
+// TODO: Use the definitions from 3.6.3 Scoping of variables and parameters
 impl Term {
     pub fn all_consts(&self) -> HashSet<&QualIdentifier> {
         match self {

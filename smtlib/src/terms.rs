@@ -1,3 +1,9 @@
+//! Terms are the building blocks for constructing the mathematical expressions
+//! used in assertions with [`Solver`](crate::Solver).
+//!
+//! They are a statically-typed and ergonomic layer on top of
+//! [`smtlib_lowlevel::ast::Term`], which provides a more _Rust-like_ API.
+
 use std::marker::PhantomData;
 
 use smtlib_lowlevel::{
@@ -18,15 +24,18 @@ pub(crate) fn qual_ident(s: String, sort: Option<ast::Sort>) -> QualIdentifier {
     }
 }
 
-pub trait Quantifiable<Args, Ret> {
-    fn apply(self) -> (Vec<SortedVar>, Ret);
-}
-
+/// This struct wraps specific instances of other terms to indicate that they
+/// are constant. Constants are named terms whose value can be extracted from a
+/// model using [`Model::eval`](crate::Model::eval).
+///
+/// To construct a `Const<T>` call [`T::from_name`](Sort::from_name) where `T`
+/// implements [`Sort`].
 #[derive(Debug, Clone, Copy)]
 pub struct Const<T>(pub(crate) &'static str, pub(crate) T);
 
 impl<T> Const<T> {
-    pub fn name(&self) -> &'static str {
+    /// The name of the constant
+    pub fn name(&self) -> &str {
         self.0
     }
 }
@@ -38,6 +47,8 @@ impl<T> std::ops::Deref for Const<T> {
     }
 }
 
+/// This type wraps terms loosing all static type information. It is particular
+/// useful when constructing terms dynamically.
 #[derive(Debug, Clone, Copy)]
 pub struct Dynamic(&'static Term);
 impl std::fmt::Display for Dynamic {
@@ -46,9 +57,18 @@ impl std::fmt::Display for Dynamic {
     }
 }
 
+/// An trait for statically typing STM-LIB terms.
+///
+/// This trait indicates that a type can construct a [`Term`] which is the
+/// low-level primitive that is used to define expressions for the SMT solvers
+/// to evaluate.
 pub trait Sort: Into<Term> {
+    /// The inner type of the term. This is used for [`Const<T>`](Const) where the inner type is `T`.
     type Inner: Sort;
+    /// The sort of the term
     fn sort() -> ast::Sort;
+    /// Construct a constant of this sort. See the documentation of [`Const`]
+    /// for more information about constants.
     fn from_name(name: impl Into<String>) -> Const<Self>
     where
         Self: From<Term>,
@@ -60,18 +80,23 @@ pub trait Sort: Into<Term> {
             Term::Identifier(qual_ident(name, Some(Self::sort()))).into(),
         )
     }
+    /// Casts a dynamically typed term into a concrete type
     fn from_dynamic(d: Dynamic) -> Self
     where
         Self: From<Term>,
     {
         d.0.clone().into()
     }
+    /// Construct the term representing `(= self other)`
     fn _eq(self, other: impl Into<Self::Inner>) -> Bool {
         fun("=", vec![self.into(), other.into().into()]).into()
     }
+    /// Construct the term representing `(distinct self other)`
     fn _neq(self, other: impl Into<Self::Inner>) -> Bool {
         fun("distinct", vec![self.into(), other.into().into()]).into()
     }
+    /// Wraps the term in a a label, which can be used to extract information
+    /// from models at a later point.
     fn labeled(self) -> (Label<Self>, Self::Inner)
     where
         Self::Inner: From<Term>,
@@ -103,6 +128,12 @@ impl<T: Sort> Sort for Const<T> {
         T::sort()
     }
 }
+
+/// Labels are annotations that can be put on expressions to track their
+/// satisfiability.
+///
+/// > **NOTE:** API's for labels are yet to be part of the crate at the time of
+/// > writing.
 pub struct Label<T>(u64, PhantomData<T>);
 impl<T> Label<T> {
     pub(crate) fn generate() -> Self {
@@ -187,7 +218,11 @@ macro_rules! impl_op {
         }
     };
 }
+
+/// This trait is implemented for types and sequences which can be used as quantified variables in [`forall`] and [`exists`].
 pub trait QuantifierVars {
+    /// The concrete sequence of variable declaration which should be quantified
+    /// over.
     fn into_vars(self) -> Vec<SortedVar>;
 }
 
@@ -231,9 +266,11 @@ impl QuantifierVars for Vec<SortedVar> {
     }
 }
 
+/// Universally quantifies over `vars` in expression `term`.
 pub fn forall(vars: impl QuantifierVars, term: Bool) -> Bool {
     Term::Forall(vars.into_vars(), Box::new(term.into())).into()
 }
+/// Existentially quantifies over `vars` in expression `term`.
 pub fn exists(vars: impl QuantifierVars, term: Bool) -> Bool {
     Term::Exists(vars.into_vars(), Box::new(term.into())).into()
 }

@@ -29,3 +29,6 @@ smtlib-lowlevel = { path = ".", features = ["serde"] }
 
 [build-dependencies]
 smtlib-build-util = { version = "0.1.0", path = "../build-util" }
+
+[package.metadata.docs.rs]
+all-features = true

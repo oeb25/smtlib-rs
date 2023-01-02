@@ -32,3 +32,6 @@ smtlib = { path = ".", features = ["serde", "z3", "cvc5", "const-bit-vec"] }
 [build-dependencies]
 smtlib-build-util = { version = "0.1.0", path = "../build-util" }
 smtlib-lowlevel = { version = "0.1.2", path = "../lowlevel" }
+
+[package.metadata.docs.rs]
+all-features = true

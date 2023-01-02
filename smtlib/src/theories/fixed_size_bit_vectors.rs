@@ -8,6 +8,10 @@ use smtlib_lowlevel::{
 
 use crate::terms::{fun, qual_ident, Const, Dynamic, Sort};
 
+/// A bit-vec is a fixed size sequence of boolean values. You can [read more
+/// about it
+/// here](https://smtlib.cs.uiowa.edu/theories-FixedSizeBitVectors.shtml), among
+/// other places.
 #[derive(Debug, Clone, Copy)]
 pub struct BitVec<const M: usize>(&'static Term);
 impl<const M: usize> From<Const<BitVec<M>>> for BitVec<M> {
@@ -103,6 +107,13 @@ impl<const M: usize> BitVec<M> {
     }
 
     #[cfg(feature = "const-bit-vec")]
+    /// Extract a slice of the bit-vec.
+    ///
+    /// The constraints `I`, `J`, and `M` are:
+    ///
+    /// ```ignore
+    /// M > I >= J
+    /// ```
     pub fn extract<const I: usize, const J: usize>(self) -> BitVec<{ I - J + 1 }> {
         assert!(M > I);
         assert!(I >= J);
@@ -120,6 +131,8 @@ impl<const M: usize> BitVec<M> {
         .into()
     }
     #[cfg(feature = "const-bit-vec")]
+    /// Concatenates `self` and `other` bit-vecs to a single contiguous bit-vec
+    /// with length `N + M`
     pub fn concat<const N: usize>(self, other: impl Into<BitVec<N>>) -> BitVec<{ N + M }> {
         Term::Application(
             qual_ident("concat".to_string(), None),
@@ -129,37 +142,13 @@ impl<const M: usize> BitVec<M> {
     }
 
     // Unary
+    /// Calls `(bvnot self)`
     pub fn bvnot(self) -> Self {
         self.unop("bvnot")
     }
+    /// Calls `(bvneg self)`
     pub fn bvneg(self) -> Self {
         self.unop("bvneg")
-    }
-
-    // Binary
-    pub fn bvand(self, other: impl Into<Self>) -> Self {
-        self.binop("bvand", other.into())
-    }
-    pub fn bvor(self, other: impl Into<Self>) -> Self {
-        self.binop("bvor", other.into())
-    }
-    pub fn bvadd(self, other: impl Into<Self>) -> Self {
-        self.binop("bvadd", other.into())
-    }
-    pub fn bvmul(self, other: impl Into<Self>) -> Self {
-        self.binop("bvmul", other.into())
-    }
-    pub fn bvudiv(self, other: impl Into<Self>) -> Self {
-        self.binop("bvudiv", other.into())
-    }
-    pub fn bvurem(self, other: impl Into<Self>) -> Self {
-        self.binop("bvurem", other.into())
-    }
-    pub fn bvshl(self, other: impl Into<Self>) -> Self {
-        self.binop("bvshl", other.into())
-    }
-    pub fn bvlshr(self, other: impl Into<Self>) -> Self {
-        self.binop("bvlshr", other.into())
     }
 }
 
@@ -177,14 +166,14 @@ impl<const M: usize> std::ops::Neg for BitVec<M> {
 }
 
 macro_rules! impl_op {
-    ($ty:ty, $other:ty, $trait:tt, $fn:ident, $op:literal, $a_trait:tt, $a_fn:tt, $a_op:tt) => {
+    ($ty:ty, $other:ty, $trait:tt, $fn:ident, $op:ident, $a_trait:tt, $a_fn:tt, $a_op:tt) => {
         impl<const M: usize, R> std::ops::$trait<R> for Const<$ty>
         where
             R: Into<$ty>,
         {
             type Output = $ty;
             fn $fn(self, rhs: R) -> Self::Output {
-                self.1.binop($op, rhs.into())
+                self.1.binop(stringify!($op), rhs.into())
             }
         }
         impl<const M: usize, R> std::ops::$trait<R> for $ty
@@ -193,19 +182,19 @@ macro_rules! impl_op {
         {
             type Output = Self;
             fn $fn(self, rhs: R) -> Self::Output {
-                self.binop($op, rhs.into())
+                self.binop(stringify!($op), rhs.into())
             }
         }
         impl<const M: usize> std::ops::$trait<Const<$ty>> for $other {
             type Output = $ty;
             fn $fn(self, rhs: Const<$ty>) -> Self::Output {
-                <$ty>::from(self).binop($op, rhs.1)
+                <$ty>::from(self).binop(stringify!($op), rhs.1)
             }
         }
         impl<const M: usize> std::ops::$trait<$ty> for $other {
             type Output = $ty;
             fn $fn(self, rhs: $ty) -> Self::Output {
-                <$ty>::from(self).binop($op, rhs)
+                <$ty>::from(self).binop(stringify!($op), rhs)
             }
         }
         impl<const M: usize, R> std::ops::$a_trait<R> for $ty
@@ -216,18 +205,24 @@ macro_rules! impl_op {
                 *self = *self $a_op rhs;
             }
         }
+        impl<const M: usize> $ty {
+            #[doc = concat!("Calls `(", stringify!($op), " self other)`")]
+            pub fn $op(self, other: impl Into<Self>) -> Self {
+                self.binop(stringify!($op), other.into())
+            }
+        }
     };
 }
 
-impl_op!(BitVec<M>, [bool; M], BitAnd, bitand, "bvand", BitAndAssign, bitand_assign, &);
-impl_op!(BitVec<M>, [bool; M], BitOr, bitor, "bvor", BitOrAssign, bitor_assign, |);
-impl_op!(BitVec<M>, [bool; M], Add, add, "bvadd", AddAssign, add_assign, +);
-// impl_op!(BitVec<M>, [bool; M], Sub, sub, "bvsub", SubAssign, sub_assign, -);
-impl_op!(BitVec<M>, [bool; M], Mul, mul, "bvmul", MulAssign, mul_assign, *);
-impl_op!(BitVec<M>, [bool; M], Div, div, "bvudiv", DivAssign, div_assign, /);
-impl_op!(BitVec<M>, [bool; M], Rem, rem, "bvurem", RemAssign, rem_assign, %);
-impl_op!(BitVec<M>, [bool; M], Shr, shr, "bvshr", ShrAssign, shr_assign, >>);
-impl_op!(BitVec<M>, [bool; M], Shl, shl, "bvlshr", ShlAssign, shl_assign, <<);
+impl_op!(BitVec<M>, [bool; M], BitAnd, bitand, bvand, BitAndAssign, bitand_assign, &);
+impl_op!(BitVec<M>, [bool; M], BitOr, bitor, bvor, BitOrAssign, bitor_assign, |);
+impl_op!(BitVec<M>, [bool; M], Add, add, bvadd, AddAssign, add_assign, +);
+// impl_op!(BitVec<M>, [bool; M], Sub, sub, bvsub, SubAssign, sub_assign, -);
+impl_op!(BitVec<M>, [bool; M], Mul, mul, bvmul, MulAssign, mul_assign, *);
+impl_op!(BitVec<M>, [bool; M], Div, div, bvudiv, DivAssign, div_assign, /);
+impl_op!(BitVec<M>, [bool; M], Rem, rem, bvurem, RemAssign, rem_assign, %);
+impl_op!(BitVec<M>, [bool; M], Shr, shr, bvshr, ShrAssign, shr_assign, >>);
+impl_op!(BitVec<M>, [bool; M], Shl, shl, bvlshr, ShlAssign, shl_assign, <<);
 
 #[cfg(test)]
 mod tests {
@@ -250,8 +245,7 @@ mod tests {
         solver.assert(b._eq(a.extract::<5, 2>()))?;
         solver.assert(c._eq(a.concat(b)))?;
 
-        solver.check_sat()?;
-        let model = solver.get_model()?;
+        let model = solver.check_sat_with_model()?.expect_sat()?;
 
         let a: [bool; 6] = model.eval(a).unwrap().try_into()?;
         let b: [bool; 4] = model.eval(b).unwrap().try_into()?;

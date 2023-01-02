@@ -11,6 +11,9 @@ use crate::{
     Bool,
 };
 
+/// A [`Real`] is a term containing a
+/// [real](https://en.wikipedia.org/wiki/Real_number). You can [read more
+/// here.](https://smtlib.cs.uiowa.edu/theories-Reals.shtml).
 #[derive(Debug, Clone, Copy)]
 pub struct Real(&'static Term);
 impl From<Const<Real>> for Real {
@@ -60,18 +63,23 @@ impl Real {
     fn binop<T: From<Term>>(self, op: &str, other: Real) -> T {
         fun(op, vec![self.into(), other.into()]).into()
     }
+    /// Construct the term expressing `(> self other)`
     pub fn gt(self, other: impl Into<Self>) -> Bool {
         self.binop(">", other.into())
     }
+    /// Construct the term expressing `(>= self other)`
     pub fn ge(self, other: impl Into<Self>) -> Bool {
         self.binop(">=", other.into())
     }
+    /// Construct the term expressing `(< self other)`
     pub fn lt(self, other: impl Into<Self>) -> Bool {
         self.binop("<", other.into())
     }
+    /// Construct the term expressing `(<= self other)`
     pub fn le(self, other: impl Into<Self>) -> Bool {
         self.binop("<=", other.into())
     }
+    /// Construct the term expressing `(abs self)`
     pub fn abs(self) -> Real {
         fun("abs", vec![self.into()]).into()
     }

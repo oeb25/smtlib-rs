@@ -10,6 +10,9 @@ use crate::{
     terms::{fun, qual_ident, Const, Dynamic, Sort},
 };
 
+/// A [`Bool`] is a term containing a
+/// [boolean](https://en.wikipedia.org/wiki/Boolean_data_type). You can [read more
+/// here.](https://smtlib.cs.uiowa.edu/theories-Core.shtml).
 #[derive(Clone, Copy)]
 pub struct Bool(BoolImpl);
 
@@ -73,9 +76,21 @@ impl Bool {
     fn binop(self, op: &str, other: Bool) -> Self {
         fun(op, vec![self.into(), other.into()]).into()
     }
+    /// Construct the term expressing `(==> self other)`.
+    ///
+    /// The value of the returned boolean is true if:
+    /// - `self` is false
+    /// - or `other` is true
     pub fn implies(self, other: Bool) -> Bool {
         self.binop("=>", other)
     }
+    /// Construct the term expressing `(ite self then otherwise)`.
+    ///
+    /// This is similar to the [ternary condition
+    /// operator](https://en.wikipedia.org/wiki/Ternary_conditional_operator),
+    /// and an if statement:
+    /// - **C-style notation:** `self ? then : otherwise`
+    /// - **Rust notation:**  `if self { then } else { otherwise }`
     pub fn ite(self, then: Bool, otherwise: Bool) -> Bool {
         fun("ite", vec![self.into(), then.into(), otherwise.into()]).into()
     }
@@ -93,22 +108,33 @@ impl std::ops::Not for Bool {
     }
 }
 
+/// Construct the term expressing `(and ...terms)` representing the conjunction
+/// of all of the terms. That is to say, the result is true iff all terms in
+/// `terms` is true.
 pub fn and<const N: usize>(terms: [Bool; N]) -> Bool {
     fun("and", terms.map(Into::into).to_vec()).into()
 }
+/// Construct the term expressing `(or ...terms)` representing the disjunction
+/// of all of the terms. That is to say, the result is true iff any of the terms in
+/// `terms` is true.
 pub fn or<const N: usize>(terms: [Bool; N]) -> Bool {
     fun("or", terms.map(Into::into).to_vec()).into()
 }
+/// Construct the term expressing `(xor ...terms)`.
 pub fn xor<const N: usize>(terms: [Bool; N]) -> Bool {
     fun("xor", terms.map(Into::into).to_vec()).into()
 }
 
+/// Construct the term expressing `(equal terms)` representing that all of the
+/// terms in `terms` are equal.
 pub fn equal<T, const N: usize>(terms: [T; N]) -> Bool
 where
     T: Into<ast::Term>,
 {
-    fun("equal", terms.map(Into::into).to_vec()).into()
+    fun("=", terms.map(Into::into).to_vec()).into()
 }
+/// Construct the term expressing `(distinct terms)` representing that all of the
+/// terms in `terms` are distinct (or not-equal).
 pub fn distinct<T, const N: usize>(terms: [T; N]) -> Bool
 where
     T: Into<ast::Term>,

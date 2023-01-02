@@ -2,10 +2,10 @@ use itertools::Itertools;
 use miette::IntoDiagnostic;
 use smtlib::{
     and,
-    backend::{Cvc5Binary, Z3Binary},
+    backend::{Backend, Cvc5Binary, Z3Binary},
     distinct, or,
     terms::Sort,
-    Backend, Int, Logic, SatResult, Solver,
+    Int, Logic, SatResultWithModel, Solver,
 };
 
 fn queens<B: Backend>(backend: B) -> miette::Result<()> {
@@ -52,13 +52,12 @@ fn queens<B: Backend>(backend: B) -> miette::Result<()> {
     ]))?;
 
     for i in 1.. {
-        match solver.check_sat()? {
-            SatResult::Unsat => {
+        match solver.check_sat_with_model()? {
+            SatResultWithModel::Unsat => {
                 eprintln!("No more solutions!");
                 break;
             }
-            SatResult::Sat => {
-                let model = solver.get_model()?;
+            SatResultWithModel::Sat(model) => {
                 println!(
                     "{i:5}: {}",
                     xs.map(|x| model.eval(x).unwrap()).iter().format(",")
@@ -66,7 +65,7 @@ fn queens<B: Backend>(backend: B) -> miette::Result<()> {
 
                 solver.assert(or(xs.map(|x| distinct([x.into(), model.eval(x).unwrap()]))))?;
             }
-            SatResult::Unknown => todo!(),
+            SatResultWithModel::Unknown => todo!(),
         }
     }
 

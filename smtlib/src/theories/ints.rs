@@ -11,6 +11,9 @@ use crate::{
     Bool,
 };
 
+/// A [`Int`] is a term containing a
+/// [integer](https://en.wikipedia.org/wiki/Integer). You can [read more
+/// here.](https://smtlib.cs.uiowa.edu/theories-Ints.shtml).
 #[derive(Debug, Clone, Copy)]
 pub struct Int(&'static Term);
 impl From<Const<Int>> for Int {
@@ -55,19 +58,24 @@ impl Int {
     fn binop<T: From<Term>>(self, op: &str, other: Int) -> T {
         fun(op, vec![self.into(), other.into()]).into()
     }
+    /// Construct the term expressing `(> self other)`
     pub fn gt(self, other: impl Into<Self>) -> Bool {
         self.binop(">", other.into())
     }
+    /// Construct the term expressing `(>= self other)`
     pub fn ge(self, other: impl Into<Self>) -> Bool {
         self.binop(">=", other.into())
     }
+    /// Construct the term expressing `(< self other)`
     pub fn lt(self, other: impl Into<Self>) -> Bool {
         self.binop("<", other.into())
     }
+    /// Construct the term expressing `(<= self other)`
     pub fn le(self, other: impl Into<Self>) -> Bool {
         self.binop("<=", other.into())
     }
     // TODO: This seems to not be supported by z3?
+    /// Construct the term expressing `(abs self)`
     pub fn abs(self) -> Int {
         fun("abs", vec![self.into()]).into()
     }

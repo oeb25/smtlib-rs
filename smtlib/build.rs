@@ -33,6 +33,13 @@ fn main() -> miette::Result<()> {
     writeln!(
         logic_file,
         "
+        /// Logics allow specifictation of which (sub-)logic should be used by a
+        /// solver.
+        ///
+        /// > [A more detailed description of logics can be found on the
+        /// SMT-LIB website.](https://smtlib.cs.uiowa.edu/logics.shtml)
+        ///
+        /// ![This is a graph :)](https://smtlib.cs.uiowa.edu/Logics/logics.png)
         #[allow(nonstandard_style)]
         pub enum Logic {{
         "
@@ -67,6 +74,9 @@ fn main() -> miette::Result<()> {
     writeln!(
         logic_file,
         "
+            /// A fallback variant in case the user wants to specify
+            /// some logic which is not part of the predefined
+            /// collection.
             Custom(String),
         }}"
     )
