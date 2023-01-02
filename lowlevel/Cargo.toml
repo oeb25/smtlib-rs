@@ -28,4 +28,4 @@ insta = { version = "1.23.0", features = ["ron"] }
 smtlib-lowlevel = { path = ".", features = ["serde"] }
 
 [build-dependencies]
-build-util = { version = "0.1.0", path = "../build-util" }
+smtlib-build-util = { version = "0.1.0", path = "../build-util" }

@@ -3,7 +3,7 @@ name = "smtlib"
 version = "0.1.1"
 edition = "2021"
 description = "A high-level API for interacting with SMT solvers"
-homepage = "https://github.com/oeb25/smtlib-rs"
+homepage = "https://github.com/oeb25/smtlib-rs/tree/main/smtlib"
 license = "MIT/Apache-2.0"
 authors = ["Oliver Bøving <oliver@bvng.dk>"]
 readme = "README.md"
@@ -30,5 +30,5 @@ miette = { version = "5.5.0", features = ["fancy"] }
 smtlib = { path = ".", features = ["serde", "z3", "cvc5", "const-bit-vec"] }
 
 [build-dependencies]
-build-util = { version = "0.1.0", path = "../build-util" }
+smtlib-build-util = { version = "0.1.0", path = "../build-util" }
 smtlib-lowlevel = { version = "0.1.1", path = "../lowlevel" }

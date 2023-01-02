@@ -3,7 +3,7 @@ use std::{
     io::Write,
 };
 
-use build_util::{
+use smtlib_build_util::{
     itertools::Itertools,
     miette::{self, Context, IntoDiagnostic},
 };
@@ -16,7 +16,7 @@ fn logics() -> miette::Result<Vec<Logic>> {
         let p = p.into_diagnostic()?;
         let p = p.path();
         if let Some("smt2") = p.extension().and_then(|c| c.to_str()) {
-            let s = build_util::read_to_string(&p)?;
+            let s = smtlib_build_util::read_to_string(&p)?;
             let l = Logic::parse(&s).with_context(|| format!("parsing {p:?}"))?;
             logics.push(l);
         }
@@ -26,7 +26,7 @@ fn logics() -> miette::Result<Vec<Logic>> {
 }
 
 fn main() -> miette::Result<()> {
-    let out = build_util::out_dir();
+    let out = smtlib_build_util::out_dir();
 
     let mut logic_file = File::create(out.join("logic.rs")).unwrap();
 

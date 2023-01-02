@@ -257,8 +257,8 @@ mod tests {
         let b: [bool; 4] = model.eval(b).unwrap().try_into()?;
         let c: [bool; 10] = model.eval(c).unwrap().try_into()?;
         insta::assert_ron_snapshot!(a, @"(false, true, false, false, true, false)");
-        insta::assert_ron_snapshot!(b, @"(false, false, true, false)");
-        insta::assert_ron_snapshot!(c, @"(false, false, true, false, false, true, false, false, true, false)");
+        insta::assert_ron_snapshot!(b, @"(false, true, false, false)");
+        insta::assert_ron_snapshot!(c, @"(false, true, false, false, true, false, false, true, false, false)");
 
         Ok(())
     }

@@ -88,18 +88,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 
 [[package]]
-name = "build-util"
-version = "0.1.0"
-dependencies = [
- "heck",
- "indexmap",
- "itertools",
- "miette",
- "serde",
- "toml",
-]
-
-[[package]]
 name = "cc"
 version = "1.0.78"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -419,26 +407,38 @@ checksum = "f67ad224767faa3c7d8b6d91985b78e70a1324408abcb1cfcc2be4c06bc06043"
 name = "smtlib"
 version = "0.1.1"
 dependencies = [
- "build-util",
  "insta",
  "itertools",
  "miette",
  "serde",
  "smtlib",
+ "smtlib-build-util",
  "smtlib-lowlevel",
  "thiserror",
+]
+
+[[package]]
+name = "smtlib-build-util"
+version = "0.1.0"
+dependencies = [
+ "heck",
+ "indexmap",
+ "itertools",
+ "miette",
+ "serde",
+ "toml",
 ]
 
 [[package]]
 name = "smtlib-lowlevel"
 version = "0.1.1"
 dependencies = [
- "build-util",
  "insta",
  "itertools",
  "logos",
  "miette",
  "serde",
+ "smtlib-build-util",
  "smtlib-lowlevel",
  "thiserror",
 ]

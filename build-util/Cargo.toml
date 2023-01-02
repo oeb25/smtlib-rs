@@ -1,7 +1,12 @@
 [package]
-name = "build-util"
+name = "smtlib-build-util"
 version = "0.1.0"
 edition = "2021"
+description = "The build utils for building the smtlib family of crates"
+homepage = "https://github.com/oeb25/smtlib-rs"
+license = "MIT/Apache-2.0"
+authors = ["Oliver Bøving <oliver@bvng.dk>"]
+repository = "https://github.com/oeb25/smtlib-rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
