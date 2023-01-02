@@ -1,1 +1,4 @@
 /target
+*.pending-snap
+*.snap.new
+/smtlib.cs.uiowa.edu

@@ -56,6 +56,7 @@ where
         Ok(driver)
     }
     pub fn exec(&mut self, cmd: &Command) -> Result<GeneralResponse, Error> {
+        println!("> {cmd}");
         writeln!(self.backend, "{cmd}")?;
         self.backend.flush()?;
 
@@ -72,8 +73,11 @@ where
             {
                 continue;
             }
-            // println!("<< {}", self.buf);
-            let res = GeneralResponse::parse(&self.buf)?;
+            let res = if let Some(res) = cmd.parse_response(&self.buf)? {
+                GeneralResponse::SpecificSuccessResponse(res)
+            } else {
+                GeneralResponse::parse(&self.buf)?
+            };
             self.buf.clear();
             return Ok(res);
         }

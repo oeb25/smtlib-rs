@@ -1,5 +1,5 @@
 ---
 source: lowlevel/src/tests.rs
-expression: "d.exec(&Command::Echo(r#\"\"Hello, world!\"\"#.to_string()))?"
+expression: "d.exec(&Command::parse(r#\"(echo \"Hello, world!\")\"#)?)?"
 ---
-SpecificSuccessResponse(GetProofResponse(GetProofResponse(SpecConstant(String("\"Hello, world!\"")))))
+SpecificSuccessResponse(EchoResponse(EchoResponse("\"Hello, world!\"")))

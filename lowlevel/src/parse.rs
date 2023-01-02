@@ -260,6 +260,7 @@ impl<'src> Parser<'src> {
     pub(crate) fn current_str(&self) -> &'src str {
         self.nth_str(0)
     }
+    #[allow(unused)]
     pub(crate) fn current_src_str(&self) -> Spanned<&'src str> {
         let span = self.current_span();
         Spanned(self.current_str(), span)
@@ -274,9 +275,12 @@ impl<'src> Parser<'src> {
     pub(crate) fn nth(&self, n: usize) -> Token {
         self.nth_raw(n).0
     }
+    // TODO: Maybe we should assert end of stream when parsing scripts?
+    #[allow(unused)]
     pub(crate) fn eoi(&self) -> bool {
         self.cursor >= self.lexer.len()
     }
+    #[allow(unused)]
     pub(crate) fn pos(&self) -> usize {
         self.cursor
     }

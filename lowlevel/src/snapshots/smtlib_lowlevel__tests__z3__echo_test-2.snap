@@ -1,5 +1,5 @@
 ---
 source: lowlevel/src/tests.rs
-expression: "d.exec(&Command::Echo(r#\"\"Hello, unmatched paren! :)\"\"#.to_string()))?"
+expression: "d.exec(&Command::parse(r#\"(echo \"Hello, unmatched paren! :)\")\"#)?)?"
 ---
-SpecificSuccessResponse(GetProofResponse(GetProofResponse(SpecConstant(String("\"Hello, unmatched paren! :)\"")))))
+SpecificSuccessResponse(EchoResponse(EchoResponse("\"Hello, unmatched paren! :)\"")))

@@ -5,6 +5,8 @@ use smtlib_lowlevel::{
     lexicon::{Keyword, Symbol},
 };
 
+use crate::Bool;
+
 pub(crate) fn fun(name: &str, args: Vec<Term>) -> Term {
     Term::Application(qual_ident(name.to_string(), None), args)
 }
@@ -21,7 +23,7 @@ pub trait Quantifiable<Args, Ret> {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct Const<T>(&'static str, T);
+pub struct Const<T>(pub(crate) &'static str, pub(crate) T);
 
 impl<T> Const<T> {
     pub fn name(&self) -> &'static str {
@@ -37,56 +39,10 @@ impl<T> std::ops::Deref for Const<T> {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum Bool {
-    Const(&'static str),
-    Term(&'static Term),
-}
-impl From<Const<Bool>> for Bool {
-    fn from(c: Const<Bool>) -> Self {
-        c.1
-    }
-}
-impl std::fmt::Display for Bool {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Term::from(*self).fmt(f)
-    }
-}
-#[derive(Debug, Clone, Copy)]
-pub struct Int(&'static Term);
-impl From<Const<Int>> for Int {
-    fn from(c: Const<Int>) -> Self {
-        c.1
-    }
-}
-impl std::fmt::Display for Int {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Term::from(*self).fmt(f)
-    }
-}
-#[derive(Debug, Clone, Copy)]
-pub struct Real(&'static Term);
-impl std::fmt::Display for Real {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Term::from(*self).fmt(f)
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
 pub struct Dynamic(&'static Term);
 impl std::fmt::Display for Dynamic {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         Term::from(*self).fmt(f)
-    }
-}
-
-impl From<Int> for Dynamic {
-    fn from(i: Int) -> Self {
-        Term::from(i).into()
-    }
-}
-impl From<Bool> for Dynamic {
-    fn from(b: Bool) -> Self {
-        Term::from(b).into()
     }
 }
 
@@ -97,6 +53,7 @@ pub trait Sort: Into<Term> {
     where
         Self: From<Term>,
     {
+        // TODO: Only add |_| if necessary
         let name = format!("|{}|", name.into());
         Const(
             Box::leak(name.clone().into_boxed_str()),
@@ -161,96 +118,6 @@ impl<T> Label<T> {
     }
 }
 
-impl From<Int> for Term {
-    fn from(i: Int) -> Self {
-        i.0.clone()
-    }
-}
-impl From<Term> for Int {
-    fn from(t: Term) -> Self {
-        Int(Box::leak(Box::new(t)))
-    }
-}
-impl Sort for Int {
-    type Inner = Self;
-    fn sort() -> ast::Sort {
-        ast::Sort::Sort(Identifier::Simple(Symbol("Int".into())))
-    }
-}
-impl From<i64> for Int {
-    fn from(i: i64) -> Self {
-        Term::Identifier(qual_ident(i.to_string(), None)).into()
-    }
-}
-impl Int {
-    fn binop<T: From<Term>>(self, op: &str, other: Int) -> T {
-        fun(op, vec![self.into(), other.into()]).into()
-    }
-    pub fn gt(self, other: impl Into<Self>) -> Bool {
-        self.binop(">", other.into())
-    }
-    pub fn ge(self, other: impl Into<Self>) -> Bool {
-        self.binop(">=", other.into())
-    }
-    pub fn lt(self, other: impl Into<Self>) -> Bool {
-        self.binop("<", other.into())
-    }
-    pub fn le(self, other: impl Into<Self>) -> Bool {
-        self.binop("<=", other.into())
-    }
-}
-impl From<Real> for Term {
-    fn from(b: Real) -> Self {
-        Term::Identifier(qual_ident(b.to_string(), None))
-    }
-}
-impl Sort for Real {
-    type Inner = Self;
-    fn sort() -> ast::Sort {
-        ast::Sort::Sort(Identifier::Simple(Symbol("Real".into())))
-    }
-}
-impl From<bool> for Bool {
-    fn from(b: bool) -> Self {
-        let s = match b {
-            true => "true",
-            false => "false",
-        };
-
-        Term::Identifier(qual_ident(s.into(), None)).into()
-    }
-}
-impl From<Bool> for Term {
-    fn from(b: Bool) -> Self {
-        match b {
-            Bool::Const(name) => Term::Identifier(qual_ident(name.into(), None)),
-            Bool::Term(t) => t.clone(),
-        }
-    }
-}
-impl From<Term> for Bool {
-    fn from(t: Term) -> Self {
-        Bool::Term(Box::leak(Box::new(t)))
-    }
-}
-impl Sort for Bool {
-    type Inner = Self;
-    fn sort() -> ast::Sort {
-        ast::Sort::Sort(Identifier::Simple(Symbol("Bool".into())))
-    }
-}
-impl Bool {
-    fn binop(self, op: &str, other: Bool) -> Self {
-        fun(op, vec![self.into(), other.into()]).into()
-    }
-    pub fn implies(self, other: Bool) -> Bool {
-        self.binop("=>", other)
-    }
-    pub fn ite(self, then: Bool, otherwise: Bool) -> Bool {
-        fun("ite", vec![self.into(), then.into(), otherwise.into()]).into()
-    }
-}
-
 impl<T> From<Const<T>> for Dynamic
 where
     T: Into<Dynamic>,
@@ -276,12 +143,8 @@ impl Sort for Dynamic {
     }
 }
 
-impl std::ops::Neg for Int {
-    type Output = Self;
-    fn neg(self) -> Self::Output {
-        fun("-", vec![self.into()]).into()
-    }
-}
+#[macro_export]
+#[doc(hidden)]
 macro_rules! impl_op {
     ($ty:ty, $other:ty, $trait:tt, $fn:ident, $op:literal, $a_trait:tt, $a_fn:tt, $a_op:tt) => {
         impl<R> std::ops::$trait<R> for Const<$ty>
@@ -324,22 +187,6 @@ macro_rules! impl_op {
         }
     };
 }
-impl_op!(Int, i64, Add, add, "+", AddAssign, add_assign, +);
-impl_op!(Int, i64, Sub, sub, "-", SubAssign, sub_assign, -);
-impl_op!(Int, i64, Mul, mul, "*", MulAssign, mul_assign, *);
-impl_op!(Int, i64, Div, div, "div", DivAssign, div_assign, /);
-impl_op!(Bool, bool, BitAnd, bitand, "and", BitAndAssign, bitand_assign, &);
-impl_op!(Bool, bool, BitOr,  bitor,  "or", BitOrAssign,  bitor_assign,  |);
-impl_op!(Bool, bool, BitXor, bitxor, "xor",  BitXorAssign, bitxor_assign, ^);
-
-impl std::ops::Not for Bool {
-    type Output = Bool;
-
-    fn not(self) -> Self::Output {
-        fun("not", vec![self.into()]).into()
-    }
-}
-
 pub trait QuantifierVars {
     fn into_vars(self) -> Vec<SortedVar>;
 }

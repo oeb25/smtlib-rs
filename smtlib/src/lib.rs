@@ -1,3 +1,5 @@
+#![cfg_attr(feature = "const-bit-vec", feature(generic_const_exprs))]
+
 //! # smtlib
 //!
 //! _A high-level API for interacting with SMT solvers._
@@ -10,13 +12,16 @@ use smtlib_lowlevel::{
     lexicon::Symbol,
     Driver,
 };
-use terms::{fun, Bool, Const, Sort};
+use terms::{Const, Sort};
 
 pub use logic::Logic;
 pub use smtlib_lowlevel::{backend, Backend};
 
 mod logic;
 pub mod terms;
+pub mod theories;
+
+pub use theories::{core::*, fixed_size_bit_vectors::*, ints::*, reals::*};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SatResult {
@@ -27,7 +32,7 @@ pub enum SatResult {
 
 #[cfg(test)]
 mod tests {
-    use crate::terms::{forall, Int, Sort};
+    use crate::terms::{forall, Sort};
 
     use super::*;
 
@@ -50,19 +55,6 @@ mod tests {
         let res = forall((x, y), (x + 2)._eq(y));
         println!("{}", ast::Term::from(res));
     }
-}
-
-pub fn and<const N: usize>(terms: [Bool; N]) -> Bool {
-    fun("and", terms.map(Into::into).to_vec()).into()
-}
-pub fn or<const N: usize>(terms: [Bool; N]) -> Bool {
-    fun("or", terms.map(Into::into).to_vec()).into()
-}
-pub fn distinct<T, const N: usize>(terms: [T; N]) -> Bool
-where
-    T: Into<ast::Term>,
-{
-    fun("distinct", terms.map(Into::into).to_vec()).into()
 }
 
 #[derive(Debug)]
@@ -141,7 +133,7 @@ where
                 ast::CheckSatResponse::Unknown => SatResult::Unknown,
             }),
             ast::GeneralResponse::Error(msg) => Err(Error::Smt(msg, format!("{cmd}"))),
-            _ => todo!(),
+            res => todo!("{res:?}"),
         }
     }
     pub fn get_model(&mut self) -> Result<Model, Error> {
@@ -154,6 +146,7 @@ where
     }
 }
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Model {
     values: HashMap<String, ast::Term>,
 }

@@ -64,6 +64,11 @@ impl SmtlibParse for Hexadecimal {
         Ok(Self(tokens.expect(Token::Hexadecimal)?.into()))
     }
 }
+impl Hexadecimal {
+    pub fn parse(&self) -> Result<i64, std::num::ParseIntError> {
+        i64::from_str_radix(&self.0[2..], 16)
+    }
+}
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Binary(pub String);
@@ -78,6 +83,11 @@ impl SmtlibParse for Binary {
     }
     fn parse(tokens: &mut Parser) -> Result<Self, ParseError> {
         Ok(Self(tokens.expect(Token::Binary)?.into()))
+    }
+}
+impl Binary {
+    pub fn parse(&self) -> Result<i64, std::num::ParseIntError> {
+        i64::from_str_radix(&self.0[2..], 2)
     }
 }
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
