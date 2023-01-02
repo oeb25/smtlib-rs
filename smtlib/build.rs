@@ -12,7 +12,7 @@ use smtlib_lowlevel::ast::{Logic, LogicAttribute};
 fn logics() -> miette::Result<Vec<Logic>> {
     let mut logics = vec![];
 
-    for p in fs::read_dir("../spec/logics").into_diagnostic()? {
+    for p in fs::read_dir("./src/logics").into_diagnostic()? {
         let p = p.into_diagnostic()?;
         let p = p.path();
         if let Some("smt2") = p.extension().and_then(|c| c.to_str()) {

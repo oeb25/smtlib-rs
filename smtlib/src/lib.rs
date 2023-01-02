@@ -14,10 +14,10 @@ use smtlib_lowlevel::{
 };
 use terms::{Const, Sort};
 
-pub use logic::Logic;
+pub use logics::Logic;
 pub use smtlib_lowlevel::{backend, Backend};
 
-mod logic;
+mod logics;
 pub mod terms;
 pub mod theories;
 
