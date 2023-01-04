@@ -2,3 +2,4 @@
 *.pending-snap
 *.snap.new
 /smtlib.cs.uiowa.edu
+.z3-trace

@@ -32,3 +32,24 @@ mod z3 {
         Ok(())
     }
 }
+
+#[cfg(feature = "z3-static")]
+mod z3_static {
+    use crate::{ast::Command, backend::Z3Static, Driver};
+
+    macro_rules! cmd {
+        ($d:expr, $cmd:literal) => {
+            insta::assert_ron_snapshot!($d.exec(&Command::parse($cmd)?)?);
+        };
+    }
+
+    #[test]
+    fn echo_test() -> Result<(), Box<dyn std::error::Error>> {
+        let mut d = Driver::new(Z3Static::new()?)?;
+
+        cmd!(d, r#"(echo "Hello, world!")"#);
+        cmd!(d, r#"(echo "Hello, unmatched paren! :)")"#);
+
+        Ok(())
+    }
+}

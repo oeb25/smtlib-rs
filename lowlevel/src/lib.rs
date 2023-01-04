@@ -8,8 +8,7 @@ use std::collections::HashSet;
 
 use ast::{QualIdentifier, Term};
 use backend::Backend;
-use logos::Lexer;
-use parse::{ParseError, Token};
+use parse::ParseError;
 
 use crate::ast::{Command, GeneralResponse};
 
@@ -23,7 +22,6 @@ mod tests;
 #[derive(Debug)]
 pub struct Driver<B> {
     backend: B,
-    buf: String,
 }
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
@@ -44,10 +42,7 @@ where
     B: Backend,
 {
     pub fn new(backend: B) -> Result<Self, Error> {
-        let mut driver = Self {
-            backend,
-            buf: Default::default(),
-        };
+        let mut driver = Self { backend };
 
         driver.exec(&Command::SetOption(ast::Option::PrintSuccess(true)))?;
 
@@ -55,30 +50,13 @@ where
     }
     pub fn exec(&mut self, cmd: &Command) -> Result<GeneralResponse, Error> {
         // println!("> {cmd}");
-        writeln!(self.backend, "{cmd}")?;
-        self.backend.flush()?;
-
-        loop {
-            let n = self.backend.read_line(&mut self.buf)?;
-            if n == 0 {
-                continue;
-            }
-            if Lexer::new(self.buf.as_str()).fold(0i32, |acc, tok| match tok {
-                Token::LParen => acc + 1,
-                Token::RParen => acc - 1,
-                _ => acc,
-            }) != 0
-            {
-                continue;
-            }
-            let res = if let Some(res) = cmd.parse_response(&self.buf)? {
-                GeneralResponse::SpecificSuccessResponse(res)
-            } else {
-                GeneralResponse::parse(&self.buf)?
-            };
-            self.buf.clear();
-            return Ok(res);
-        }
+        let res = self.backend.exec(cmd)?;
+        let res = if let Some(res) = cmd.parse_response(&res)? {
+            GeneralResponse::SpecificSuccessResponse(res)
+        } else {
+            GeneralResponse::parse(&res)?
+        };
+        Ok(res)
     }
 }
 

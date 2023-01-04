@@ -13,6 +13,7 @@ documentation = "https://docs.rs/smtlib-lowlevel"
 [features]
 default = []
 z3 = []
+z3-static = ["dep:z3-sys"]
 cvc5 = []
 serde = ["dep:serde"]
 
@@ -22,6 +23,7 @@ logos = "0.12.1"
 miette = { version = "5.5.0" }
 serde = { version = "1.0.152", features = ["derive"], optional = true }
 thiserror = "1.0.38"
+z3-sys = { version = "0.7.1", features = ["static-link-z3"], optional = true }
 
 [dev-dependencies]
 insta = { version = "1.23.0", features = ["ron"] }

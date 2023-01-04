@@ -14,6 +14,7 @@ documentation = "https://docs.rs/smtlib"
 default = []
 serde = ["dep:serde", "smtlib-lowlevel/serde"]
 z3 = ["smtlib-lowlevel/z3"]
+z3-static = ["smtlib-lowlevel/z3-static"]
 cvc5 = ["smtlib-lowlevel/cvc5"]
 const-bit-vec = []
 
@@ -27,7 +28,13 @@ serde = { version = "1.0.152", features = ["derive"], optional = true }
 [dev-dependencies]
 insta = { version = "1.23.0", features = ["ron"] }
 miette = { version = "5.5.0", features = ["fancy"] }
-smtlib = { path = ".", features = ["serde", "z3", "cvc5", "const-bit-vec"] }
+smtlib = { path = ".", features = [
+    "serde",
+    "z3",
+    "z3-static",
+    "cvc5",
+    "const-bit-vec",
+] }
 
 [build-dependencies]
 smtlib-build-util = { version = "0.1.0", path = "../build-util" }

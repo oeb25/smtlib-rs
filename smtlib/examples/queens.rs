@@ -2,7 +2,7 @@ use itertools::Itertools;
 use miette::IntoDiagnostic;
 use smtlib::{
     and,
-    backend::{Backend, Cvc5Binary, Z3Binary},
+    backend::{Backend, Cvc5Binary, Z3Binary, Z3Static},
     distinct, or,
     terms::Sort,
     Int, Logic, SatResultWithModel, Solver,
@@ -77,9 +77,10 @@ fn main() -> miette::Result<()> {
 
     match std::env::args().nth(1).as_deref().unwrap_or("z3") {
         "z3" => queens(Z3Binary::new("z3").into_diagnostic()?)?,
+        "z3-static" => queens(Z3Static::new().into_diagnostic()?)?,
         "cvc5" => queens(Cvc5Binary::new("cvc5").into_diagnostic()?)?,
         given => miette::bail!(
-            "Invalid backend: '{}'. Available backends are: 'z3', 'cvc5'",
+            "Invalid backend: '{}'. Available backends are: 'z3', 'z3-static', 'cvc5'",
             given
         ),
     }
