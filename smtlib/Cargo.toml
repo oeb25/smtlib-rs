@@ -17,6 +17,7 @@ z3 = ["smtlib-lowlevel/z3"]
 z3-static = ["smtlib-lowlevel/z3-static"]
 cvc5 = ["smtlib-lowlevel/cvc5"]
 const-bit-vec = []
+async = ["smtlib-lowlevel/async"]
 
 [dependencies]
 itertools = "0.10.5"
@@ -34,6 +35,7 @@ smtlib = { path = ".", features = [
     "z3-static",
     "cvc5",
     "const-bit-vec",
+    "async",
 ] }
 
 [build-dependencies]

@@ -7,6 +7,8 @@
 use std::collections::HashSet;
 
 use ast::{QualIdentifier, Term};
+#[cfg(feature = "async")]
+use backend::AsyncBackend;
 use backend::Backend;
 use parse::ParseError;
 
@@ -19,11 +21,6 @@ mod parse;
 #[cfg(test)]
 mod tests;
 
-#[derive(Debug)]
-pub struct Driver<B> {
-    backend: B,
-}
-
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum Error {
     #[error(transparent)]
@@ -35,6 +32,11 @@ pub enum Error {
     ),
     #[error(transparent)]
     IO(#[from] std::io::Error),
+}
+
+#[derive(Debug)]
+pub struct Driver<B> {
+    backend: B,
 }
 
 impl<B> Driver<B>
@@ -51,6 +53,38 @@ where
     pub fn exec(&mut self, cmd: &Command) -> Result<GeneralResponse, Error> {
         // println!("> {cmd}");
         let res = self.backend.exec(cmd)?;
+        let res = if let Some(res) = cmd.parse_response(&res)? {
+            GeneralResponse::SpecificSuccessResponse(res)
+        } else {
+            GeneralResponse::parse(&res)?
+        };
+        Ok(res)
+    }
+}
+
+#[cfg(feature = "async")]
+#[derive(Debug)]
+pub struct AsyncDriver<B> {
+    backend: B,
+}
+
+#[cfg(feature = "async")]
+impl<B> AsyncDriver<B>
+where
+    B: AsyncBackend,
+{
+    pub async fn new(backend: B) -> Result<Self, Error> {
+        let mut driver = Self { backend };
+
+        driver
+            .exec(&Command::SetOption(ast::Option::PrintSuccess(true)))
+            .await?;
+
+        Ok(driver)
+    }
+    pub async fn exec(&mut self, cmd: &Command) -> Result<GeneralResponse, Error> {
+        // println!("> {cmd}");
+        let res = self.backend.exec(cmd).await?;
         let res = if let Some(res) = cmd.parse_response(&res)? {
             GeneralResponse::SpecificSuccessResponse(res)
         } else {

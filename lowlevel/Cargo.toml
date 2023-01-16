@@ -16,8 +16,10 @@ z3 = []
 z3-static = ["dep:z3-sys"]
 cvc5 = []
 serde = ["dep:serde"]
+async = ["dep:async-trait"]
 
 [dependencies]
+async-trait = { version = "0.1.61", optional = true }
 itertools = "0.10.5"
 logos = "0.12.1"
 miette = { version = "5.5.0" }

@@ -47,6 +47,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-trait"
+version = "0.1.61"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "705339e0e4a9690e2908d2b3d049d85682cf19fbd5782494498fbf7003a6a282"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "atty"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -587,6 +598,7 @@ dependencies = [
 name = "smtlib-lowlevel"
 version = "0.1.4"
 dependencies = [
+ "async-trait",
  "insta",
  "itertools",
  "logos",

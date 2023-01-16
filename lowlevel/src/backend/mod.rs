@@ -44,6 +44,15 @@ pub trait Backend {
     fn exec(&mut self, cmd: &crate::Command) -> Result<String, crate::Error>;
 }
 
+#[cfg(feature = "async")]
+/// The [`AsyncBackend`] trait is used to interact with SMT solver using the SMT-LIB language.
+///
+/// For more details read the [`backend`](crate::backend) module documentation.
+#[async_trait::async_trait(?Send)]
+pub trait AsyncBackend {
+    async fn exec(&mut self, cmd: &crate::Command) -> Result<String, crate::Error>;
+}
+
 struct BinaryBackend {
     #[allow(unused)]
     child: Child,
