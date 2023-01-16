@@ -23,7 +23,7 @@ async = ["smtlib-lowlevel/async"]
 itertools = "0.10.5"
 miette = { version = "5.5.0", features = ["fancy"] }
 thiserror = "1.0.38"
-smtlib-lowlevel = { path = "../lowlevel", version = "0.1.4" }
+smtlib-lowlevel = { path = "../lowlevel", version = "0.1.5" }
 serde = { version = "1.0.152", features = ["derive"], optional = true }
 
 [dev-dependencies]
@@ -40,7 +40,7 @@ smtlib = { path = ".", features = [
 
 [build-dependencies]
 smtlib-build-util = { version = "0.1.0", path = "../build-util" }
-smtlib-lowlevel = { version = "0.1.4", path = "../lowlevel" }
+smtlib-lowlevel = { version = "0.1.5", path = "../lowlevel" }
 
 [package.metadata.docs.rs]
 all-features = true
