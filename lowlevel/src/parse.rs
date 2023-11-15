@@ -110,7 +110,6 @@ pub(crate) enum Token {
     #[regex(r":[~!@$%^&*_\-+=<>.?/a-zA-Z0-9]+")]
     Keyword,
 
-    #[error]
     /// White Space Characters. A ⟨white_space_char⟩ is one of the following
     /// characters: 9dec (tab), 10dec (line feed), 13dec (carriage return), and
     /// 32dec (space).
@@ -234,7 +233,12 @@ impl<'src> Parser<'src> {
     pub(crate) fn new(src: &'src str) -> Self {
         let lexer = logos::Lexer::<'src, Token>::new(src)
             .spanned()
-            .map(|(t, r)| (t, SourceSpan::from((r.start, r.len()))))
+            .map(|(t, r)| {
+                (
+                    t.unwrap_or(Token::Error),
+                    SourceSpan::from((r.start, r.len())),
+                )
+            })
             .collect_vec();
 
         Parser {

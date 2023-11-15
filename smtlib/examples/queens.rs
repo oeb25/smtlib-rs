@@ -1,8 +1,10 @@
 use itertools::Itertools;
 use miette::IntoDiagnostic;
+#[cfg(feature = "z3-static")]
+use smtlib::backend::Z3Static;
 use smtlib::{
     and,
-    backend::{Backend, Cvc5Binary, Z3Binary, Z3Static},
+    backend::{Backend, Cvc5Binary, Z3Binary},
     distinct, or,
     terms::Sort,
     Int, Logic, SatResultWithModel, Solver,
@@ -77,6 +79,7 @@ fn main() -> miette::Result<()> {
 
     match std::env::args().nth(1).as_deref().unwrap_or("z3") {
         "z3" => queens(Z3Binary::new("z3").into_diagnostic()?)?,
+        #[cfg(feature = "z3-static")]
         "z3-static" => queens(Z3Static::new().into_diagnostic()?)?,
         "cvc5" => queens(Cvc5Binary::new("cvc5").into_diagnostic()?)?,
         given => miette::bail!(

@@ -92,11 +92,14 @@ impl BinaryBackend {
             if n == 0 {
                 continue;
             }
-            if Lexer::new(self.buf.as_str()).fold(0i32, |acc, tok| match tok {
-                Token::LParen => acc + 1,
-                Token::RParen => acc - 1,
-                _ => acc,
-            }) != 0
+            if Lexer::new(self.buf.as_str())
+                .map(|tok| tok.unwrap_or(Token::Error))
+                .fold(0i32, |acc, tok| match tok {
+                    Token::LParen => acc + 1,
+                    Token::RParen => acc - 1,
+                    _ => acc,
+                })
+                != 0
             {
                 continue;
             }

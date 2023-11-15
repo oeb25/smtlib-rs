@@ -12,8 +12,8 @@ repository = "https://github.com/oeb25/smtlib-rs"
 
 [dependencies]
 heck = "0.4.0"
-indexmap = { version = "1.9.2", features = ["serde"] }
-itertools = "0.10.5"
-miette = { version = "5.5.0", features = ["fancy"] }
-serde = { version = "1.0.152", features = ["derive"] }
-toml = { version = "0.5.10", features = ["indexmap"] }
+indexmap = { version = "2.1.0", features = ["serde"] }
+itertools.workspace = true
+miette = { workspace = true, features = ["fancy"] }
+serde.workspace = true
+toml = { version = "0.8.8", features = ["indexmap"] }

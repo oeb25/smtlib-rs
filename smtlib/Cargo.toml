@@ -20,19 +20,18 @@ const-bit-vec = []
 async = ["smtlib-lowlevel/async"]
 
 [dependencies]
-itertools = "0.10.5"
-miette = { version = "5.5.0", features = ["fancy"] }
-thiserror = "1.0.38"
+itertools.workspace = true
+miette.workspace = true
 smtlib-lowlevel = { path = "../lowlevel", version = "0.1.5" }
-serde = { version = "1.0.152", features = ["derive"], optional = true }
+serde = { workspace = true, optional = true }
+thiserror.workspace = true
 
 [dev-dependencies]
-insta = { version = "1.23.0", features = ["ron"] }
-miette = { version = "5.5.0", features = ["fancy"] }
+insta.workspace = true
+miette = { workspace = true, features = ["fancy"] }
 smtlib = { path = ".", features = [
     "serde",
     "z3",
-    "z3-static",
     "cvc5",
     "const-bit-vec",
     "async",
@@ -43,4 +42,4 @@ smtlib-build-util = { version = "0.1.0", path = "../build-util" }
 smtlib-lowlevel = { version = "0.1.5", path = "../lowlevel" }
 
 [package.metadata.docs.rs]
-all-features = true
+features = ["serde", "z3", "cvc5", "const-bit-vec", "async"]

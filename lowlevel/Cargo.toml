@@ -19,20 +19,20 @@ serde = ["dep:serde"]
 async = ["dep:async-trait"]
 
 [dependencies]
-async-trait = { version = "0.1.61", optional = true }
-itertools = "0.10.5"
-logos = "0.12.1"
-miette = { version = "5.5.0" }
-serde = { version = "1.0.152", features = ["derive"], optional = true }
-thiserror = "1.0.38"
-z3-sys = { version = "0.7.1", features = ["static-link-z3"], optional = true }
+async-trait = { version = "0.1.74", optional = true }
+itertools.workspace = true
+logos = "0.13.0"
+miette.workspace = true
+serde = { workspace = true, optional = true }
+thiserror.workspace = true
+z3-sys = { version = "0.8.1", features = ["static-link-z3"], optional = true }
 
 [dev-dependencies]
-insta = { version = "1.23.0", features = ["ron"] }
+insta.workspace = true
 smtlib-lowlevel = { path = ".", features = ["serde"] }
 
 [build-dependencies]
 smtlib-build-util = { version = "0.1.0", path = "../build-util" }
 
 [package.metadata.docs.rs]
-all-features = true
+features = ["z3", "cvc5", "serde", "async"]
