@@ -693,7 +693,7 @@ checksum = "b7c388c1b5e93756d0c740965c41e8822f866621d41acbdf6336a6a168f8840c"
 
 [[package]]
 name = "smtlib"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "futures",
  "insta",
@@ -720,7 +720,7 @@ dependencies = [
 
 [[package]]
 name = "smtlib-lowlevel"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "async-trait",
  "insta",

@@ -1,6 +1,6 @@
 [package]
 name = "smtlib"
-version = "0.1.6"
+version = "0.1.7"
 edition = "2021"
 description = "A high-level API for interacting with SMT solvers"
 homepage = "https://github.com/oeb25/smtlib-rs/tree/main/smtlib"
@@ -22,7 +22,7 @@ async = ["smtlib-lowlevel/async"]
 [dependencies]
 itertools.workspace = true
 miette.workspace = true
-smtlib-lowlevel = { path = "../lowlevel", version = "0.1.5" }
+smtlib-lowlevel = { path = "../lowlevel", version = "0.1.6" }
 serde = { workspace = true, optional = true }
 thiserror.workspace = true
 
@@ -34,7 +34,7 @@ smtlib = { path = ".", features = ["serde", "z3", "cvc5", "async"] }
 
 [build-dependencies]
 smtlib-build-util = { version = "0.1.0", path = "../build-util" }
-smtlib-lowlevel = { version = "0.1.5", path = "../lowlevel" }
+smtlib-lowlevel = { version = "0.1.6", path = "../lowlevel" }
 
 [package.metadata.docs.rs]
 features = ["serde", "z3", "cvc5", "const-bit-vec", "async"]
