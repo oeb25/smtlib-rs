@@ -1,0 +1,145 @@
+# Based on: https://github.com/clap-rs/clap/blob/master/.github/workflows/ci.yml
+
+name: CI
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+  push:
+
+env:
+  RUST_BACKTRACE: 1
+  CARGO_TERM_COLOR: always
+  CLICOLOR: 1
+
+jobs:
+  ci:
+    permissions:
+      contents: none
+    name: CI
+    needs: [test, check, docs, rustfmt, clippy]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Done
+        run: exit 0
+  test:
+    name: Test
+    strategy:
+      matrix:
+        build: [linux, windows, mac]
+        include:
+          - build: linux
+            os: ubuntu-latest
+            rust: "stable"
+          - build: windows
+            os: windows-latest
+            rust: "stable"
+          - build: mac
+            os: macos-latest
+            rust: "stable"
+    continue-on-error: ${{ matrix.rust != 'stable' }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ matrix.rust }}
+      - uses: Swatinem/rust-cache@v2
+      - name: Build
+        run: cargo build
+      - name: Test
+        run: cargo test
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        build: [msrv, debug, release]
+        include:
+          - build: msrv
+            rust: 1.70.0 # MSRV
+            target: x86_64-unknown-linux-gnu
+            features: full
+          - build: debug
+            rust: stable
+            target: x86_64-unknown-linux-gnu
+            features: debug
+          - build: release
+            rust: stable
+            target: x86_64-unknown-linux-gnu
+            features: release
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Install rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ matrix.rust }}
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+      - name: Check
+        run: cargo check
+        env:
+          TOOLCHAIN_TARGET: ${{ matrix.target }}
+  lockfile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@v2
+      - name: "Is lockfile updated?"
+        run: cargo fetch --locked
+  docs:
+    name: Docs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.70.0 # MSRV
+      - uses: Swatinem/rust-cache@v2
+      - name: Check documentation
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --workspace --all-features --no-deps --document-private-items
+  rustfmt:
+    name: rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          # Not MSRV because its harder to jump between versions and people are
+          # more likely to have stable
+          toolchain: stable
+          components: rustfmt
+      - uses: Swatinem/rust-cache@v2
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+  clippy:
+    name: clippy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.70.0 # MSRV
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Lint
+        run: cargo clippy
