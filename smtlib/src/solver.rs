@@ -7,7 +7,7 @@ use smtlib_lowlevel::{
     Driver,
 };
 
-use crate::{Bool, Error, Logic, Model, SatResult, SatResultWithModel};
+use crate::{terms::Dynamic, Bool, Error, Logic, Model, SatResult, SatResultWithModel};
 
 /// The [`Solver`] type is the primary entrypoint to interaction with the
 /// solver. Checking for validity of a set of assertions requires:
@@ -140,6 +140,37 @@ where
             ast::GeneralResponse::SpecificSuccessResponse(
                 ast::SpecificSuccessResponse::GetModelResponse(model),
             ) => Ok(Model::new(model)),
+            res => todo!("{res:?}"),
+        }
+    }
+    /// Simplifies the given term
+    pub fn simplify(&mut self, t: Dynamic) -> Result<smtlib_lowlevel::ast::Term, Error> {
+        let term = ast::Term::from(t);
+        for q in term.all_consts() {
+            match q {
+                QualIdentifier::Identifier(_) => {}
+                QualIdentifier::Sorted(i, s) => match self.decls.entry(i.clone()) {
+                    Entry::Occupied(stored) => assert_eq!(s, stored.get()),
+                    Entry::Vacant(v) => {
+                        v.insert(s.clone());
+                        match i {
+                            Identifier::Simple(sym) => {
+                                self.driver
+                                    .exec(&ast::Command::DeclareConst(sym.clone(), s.clone()))?;
+                            }
+                            Identifier::Indexed(_, _) => todo!(),
+                        }
+                    }
+                },
+            }
+        }
+
+        let cmd = ast::Command::Simplify(t.into());
+
+        match self.driver.exec(&cmd)? {
+            ast::GeneralResponse::SpecificSuccessResponse(
+                ast::SpecificSuccessResponse::SimplifyResponse(t),
+            ) => Ok(t.0),
             res => todo!("{res:?}"),
         }
     }

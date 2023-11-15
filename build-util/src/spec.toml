@@ -259,6 +259,10 @@ syntax = "( set-logic <symbol> )"
 [command.set-option]
 syntax = "( set-option <option> )"
 
+[command.simplify]
+syntax = "( simplify <term> )"
+response = "<simplify_response>"
+
 [script]
 syntax = "<command>*"
 separator = "\n"
@@ -373,6 +377,9 @@ syntax = "( <symbol>* )"
 [get_value_response]
 syntax = "( <valuation_pair>+ )"
 
+[simplify_response]
+syntax = "<term>"
+
 [specific_success_response]
 get_unsat_assumptions_response = { syntax = "<get_unsat_assumptions_response>" }
 check_sat_response = { syntax = "<check_sat_response>" }
@@ -385,6 +392,7 @@ get_option_response = { syntax = "<get_option_response>" }
 get_proof_response = { syntax = "<get_proof_response>" }
 get_unsat_core_response = { syntax = "<get_unsat_core_response>" }
 get_value_response = { syntax = "<get_value_response>" }
+simplify_response = { syntax = "<simplify_response>" }
 
 [general_response]
 success = { syntax = "success" }
