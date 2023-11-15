@@ -27,15 +27,10 @@ serde = { workspace = true, optional = true }
 thiserror.workspace = true
 
 [dev-dependencies]
+futures = "0.3.29"
 insta.workspace = true
 miette = { workspace = true, features = ["fancy"] }
-smtlib = { path = ".", features = [
-    "serde",
-    "z3",
-    "cvc5",
-    "const-bit-vec",
-    "async",
-] }
+smtlib = { path = ".", features = ["serde", "z3", "cvc5", "async"] }
 
 [build-dependencies]
 smtlib-build-util = { version = "0.1.0", path = "../build-util" }

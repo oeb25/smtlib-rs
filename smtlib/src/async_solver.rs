@@ -14,16 +14,17 @@ use crate::{Bool, Error, Logic, Model, SatResult, SatResultWithModel};
 /// ```
 /// # use smtlib::{Int, Sort};
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// # futures::executor::block_on(async {
 /// // 1. Set up the backend (in this case z3)
 /// let backend = smtlib::backend::Z3Binary::new("z3")?;
 /// // 2. Set up the solver
-/// let mut solver = smtlib::AsyncSolver::new(backend)?;
+/// let mut solver = smtlib::AsyncSolver::new(backend).await?;
 /// // 3. Declare the necessary constants
 /// let x = Int::from_name("x");
 /// // 4. Add assertions to the solver
-/// solver.assert(x._eq(12))?;
+/// solver.assert(x._eq(12)).await?;
 /// // 5. Check for validity, and optionally construct a model
-/// let sat_res = solver.check_sat_with_model()?;
+/// let sat_res = solver.check_sat_with_model().await?;
 /// // 6. In this case we expect sat, and thus want to extract the model
 /// let model = sat_res.expect_sat()?;
 /// // 7. Interpret the result by extract the values of constants which
@@ -33,6 +34,7 @@ use crate::{Bool, Error, Logic, Model, SatResult, SatResultWithModel};
 ///     None => panic!("Oh no! This should never happen, as x was part of an assert"),
 /// }
 /// # Ok(())
+/// # })
 /// # }
 /// ```
 #[derive(Debug)]

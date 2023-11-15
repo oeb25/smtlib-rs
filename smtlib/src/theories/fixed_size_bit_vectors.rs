@@ -224,6 +224,7 @@ impl_op!(BitVec<M>, [bool; M], Rem, rem, bvurem, RemAssign, rem_assign, %);
 impl_op!(BitVec<M>, [bool; M], Shr, shr, bvshr, ShrAssign, shr_assign, >>);
 impl_op!(BitVec<M>, [bool; M], Shl, shl, bvlshr, ShlAssign, shl_assign, <<);
 
+#[cfg(feature = "const-bit-vec")]
 #[cfg(test)]
 mod tests {
     use smtlib_lowlevel::backend::Z3Binary;
