@@ -76,33 +76,6 @@ impl SatResultWithModel {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::terms::{forall, Sort};
-
-    use super::*;
-
-    #[test]
-    fn int_math() {
-        let x = Int::from_name("x");
-        let y = Int::from_name("hello");
-        // let x_named = x.labeled();
-        let mut z = 12 + y * 4;
-        z += 3;
-        let w = x * x + z;
-        println!("{w}");
-    }
-
-    #[test]
-    fn quantifiers() {
-        let x = Int::from_name("x");
-        let y = Int::from_name("y");
-
-        let res = forall((x, y), (x + 2)._eq(y));
-        println!("{}", ast::Term::from(res));
-    }
-}
-
 /// An error that occurred during any stage of using `smtlib`.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum Error {
@@ -198,5 +171,32 @@ impl Model {
         T::Inner: From<ast::Term>,
     {
         Some(self.values.get(x.name().trim_matches('|'))?.clone().into())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::terms::{forall, Sort};
+
+    use super::*;
+
+    #[test]
+    fn int_math() {
+        let x = Int::from_name("x");
+        let y = Int::from_name("hello");
+        // let x_named = x.labeled();
+        let mut z = 12 + y * 4;
+        z += 3;
+        let w = x * x + z;
+        println!("{w}");
+    }
+
+    #[test]
+    fn quantifiers() {
+        let x = Int::from_name("x");
+        let y = Int::from_name("y");
+
+        let res = forall((x, y), (x + 2)._eq(y));
+        println!("{}", ast::Term::from(res));
     }
 }
