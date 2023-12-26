@@ -13,4 +13,5 @@ thiserror = "1.0.38"
 insta = { version = "1.23.0", features = ["ron"] }
 
 [workspace.metadata.release]
+shared-version = true
 pre-release-hook = ["just", "release-hook"]
