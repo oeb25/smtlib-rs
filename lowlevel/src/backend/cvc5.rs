@@ -23,3 +23,11 @@ impl Backend for Cvc5Binary {
         self.bin.exec(cmd).map(Into::into)
     }
 }
+
+#[cfg(feature = "async")]
+#[async_trait::async_trait(?Send)]
+impl super::AsyncBackend for Cvc5Binary {
+    async fn exec(&mut self, cmd: &crate::Command) -> Result<String, crate::Error> {
+        self.bin.exec(cmd).map(Into::into)
+    }
+}

@@ -1,6 +1,6 @@
 use std::ffi::OsStr;
 
-use super::{AsyncBackend, Backend, BinaryBackend};
+use super::{Backend, BinaryBackend};
 
 pub struct Z3Binary {
     bin: BinaryBackend,
@@ -22,8 +22,9 @@ impl Backend for Z3Binary {
     }
 }
 
+#[cfg(feature = "async")]
 #[async_trait::async_trait(?Send)]
-impl AsyncBackend for Z3Binary {
+impl super::AsyncBackend for Z3Binary {
     async fn exec(&mut self, cmd: &crate::Command) -> Result<String, crate::Error> {
         self.bin.exec(cmd).map(Into::into)
     }
