@@ -1,6 +1,6 @@
 [package]
 name = "smtlib-build-util"
-version = "0.1.0"
+version.workspace = true
 edition = "2021"
 description = "The build utils for building the smtlib family of crates"
 homepage = "https://github.com/oeb25/smtlib-rs"
