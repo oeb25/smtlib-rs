@@ -11,3 +11,6 @@ miette = { version = "5.5.0" }
 serde = { version = "1.0.152", features = ["derive"] }
 thiserror = "1.0.38"
 insta = { version = "1.23.0", features = ["ron"] }
+
+[workspace.metadata.release]
+pre-release-hook = ["just", "release-hook"]
