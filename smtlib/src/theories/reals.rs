@@ -51,12 +51,17 @@ impl Sort for Real {
 }
 impl From<i64> for Real {
     fn from(i: i64) -> Self {
-        Term::Identifier(qual_ident(i.to_string(), None)).into()
+        (i as f64).into()
     }
 }
 impl From<f64> for Real {
     fn from(i: f64) -> Self {
-        Term::Identifier(qual_ident(i.to_string(), None)).into()
+        let s = Term::Identifier(qual_ident(format!("{:?}", i.abs()), None));
+        if i.is_sign_negative() {
+            Term::Application(qual_ident("-".to_string(), None), vec![s]).into()
+        } else {
+            s.into()
+        }
     }
 }
 impl Real {
