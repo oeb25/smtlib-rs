@@ -22,7 +22,7 @@ async = ["smtlib-lowlevel/async"]
 [dependencies]
 itertools.workspace = true
 miette.workspace = true
-smtlib-lowlevel = { path = "../lowlevel", version = "0.1.6" }
+smtlib-lowlevel = { path = "../lowlevel", version = "0.1.8" }
 serde = { workspace = true, optional = true }
 thiserror.workspace = true
 
@@ -33,8 +33,8 @@ miette = { workspace = true, features = ["fancy"] }
 smtlib = { path = ".", features = ["serde", "z3", "cvc5", "async"] }
 
 [build-dependencies]
-smtlib-build-util = { version = "0.1.0", path = "../build-util" }
-smtlib-lowlevel = { version = "0.1.6", path = "../lowlevel" }
+smtlib-build-util = { version = "0.1.8", path = "../build-util" }
+smtlib-lowlevel = { version = "0.1.8", path = "../lowlevel" }
 
 [package.metadata.docs.rs]
 features = ["serde", "z3", "cvc5", "const-bit-vec", "async"]

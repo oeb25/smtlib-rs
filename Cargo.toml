@@ -3,7 +3,7 @@ members = ["smtlib", "lowlevel", "build-util"]
 resolver = "2"
 
 [workspace.package]
-version = "0.1.7"
+version = "0.1.8"
 
 [workspace.dependencies]
 itertools = "0.12.0"

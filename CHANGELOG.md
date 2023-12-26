@@ -16,19 +16,54 @@ All notable changes to this project will be documented in this file.
 
 ### Miscellaneous Tasks
 
-- Release
-- Release
-- Release
-- Release
-- Release
-- Release
-- Release
-- Release
-- Unify the versions of all crates
-
-### Ci
-
 - Check docs on Nightly due to `#![cfg_attr(feature = "const-bit-vec", feature(generic_const_exprs))]`
+- Unify the versions of all crates
+- Add CHANGELOG generation and Justfile for making releases
+- Checkout CHANGELOG before generating CHANGELOG
+- Make sure that all crates are published with the same version number
+
+## [smtlib-v0.1.7] - 2023-11-15
+
+### Miscellaneous Tasks
+
+- Release
+
+## [smtlib-v0.1.6] - 2023-01-16
+
+### Miscellaneous Tasks
+
+- Release
+
+## [smtlib-lowlevel-v0.1.5] - 2023-01-16
+
+### Miscellaneous Tasks
+
+- Release
+
+## [smtlib-v0.1.5] - 2023-01-14
+
+### Miscellaneous Tasks
+
+- Release
+
+## [smtlib-lowlevel-v0.1.4] - 2023-01-14
+
+### Miscellaneous Tasks
+
+- Release
+
+## [smtlib-v0.1.4] - 2023-01-02
+
+### Miscellaneous Tasks
+
+- Release
+
+## [smtlib-v0.1.3] - 2023-01-02
+
+### Miscellaneous Tasks
+
+- Release
+- Release
 
 ## [0.1.1] - 2022-12-30
 
