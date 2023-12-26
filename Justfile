@@ -1,7 +1,7 @@
 # CI/Release
 
 release-patch args="":
-    # git checkout HEAD -- CHANGELOG.md
+    git checkout HEAD -- CHANGELOG.md
     cargo release patch {{args}}
 
 release-hook:
