@@ -6,7 +6,10 @@ use smtlib_lowlevel::{
     lexicon::{Numeral, Symbol},
 };
 
-use crate::terms::{fun, qual_ident, Const, Dynamic, Sort};
+use crate::{
+    terms::{fun, qual_ident, Const, Dynamic, Sort},
+    Bool,
+};
 
 /// A bit-vec is a fixed size sequence of boolean values. You can [read more
 /// about it
@@ -142,13 +145,59 @@ impl<const M: usize> BitVec<M> {
     }
 
     // Unary
-    /// Calls `(bvnot self)`
+    /// Calls `(bvnot self)` i.e. bitwise not
     pub fn bvnot(self) -> Self {
         self.unop("bvnot")
     }
-    /// Calls `(bvneg self)`
+    /// Calls `(bvneg self)` i.e. two's complement negation
     pub fn bvneg(self) -> Self {
         self.unop("bvneg")
+    }
+
+    // Binary
+    /// Calls `(bvnand self other)` i.e. bitwise nand
+    pub fn bvnand(self, other: impl Into<Self>) -> Self {
+        self.binop("bvnand", other.into())
+    }
+    /// Calls `(bvnor self other)` i.e. bitwise nor
+    pub fn bvnor(self, other: impl Into<Self>) -> Self {
+        self.binop("bvnor", other.into())
+    }
+    /// Calls `(bvxnor self other)` i.e. bitwise xnor
+    pub fn bvxnor(self, other: impl Into<Self>) -> Self {
+        self.binop("bvxnor", other.into())
+    }
+    /// Calls `(bvult self other)`
+    pub fn bvult(self, other: impl Into<Self>) -> Bool {
+        self.binop("bvult", other.into())
+    }
+    /// Calls `(bvule self other)` i.e. unsigned less or equal
+    pub fn bvule(self, other: impl Into<Self>) -> Bool {
+        self.binop("bvule", other.into())
+    }
+    /// Calls `(bvugt self other)` i.e. unsigned greater than
+    pub fn bvugt(self, other: impl Into<Self>) -> Bool {
+        self.binop("bvugt", other.into())
+    }
+    /// Calls `(bvuge self other)` i.e. unsigned greater or equal
+    pub fn bvuge(self, other: impl Into<Self>) -> Bool {
+        self.binop("bvuge", other.into())
+    }
+    /// Calls `(bvslt self other)` i.e. signed less than
+    pub fn bvslt(self, other: impl Into<Self>) -> Bool {
+        self.binop("bvslt", other.into())
+    }
+    /// Calls `(bvsle self other)` i.e. signed less or equal
+    pub fn bvsle(self, other: impl Into<Self>) -> Bool {
+        self.binop("bvsle", other.into())
+    }
+    /// Calls `(bvsgt self other)` i.e. signed greater than
+    pub fn bvsgt(self, other: impl Into<Self>) -> Bool {
+        self.binop("bvsgt", other.into())
+    }
+    /// Calls `(bvsge self other)` i.e. signed greater or equal
+    pub fn bvsge(self, other: impl Into<Self>) -> Bool {
+        self.binop("bvsge", other.into())
     }
 }
 
@@ -216,13 +265,14 @@ macro_rules! impl_op {
 
 impl_op!(BitVec<M>, [bool; M], BitAnd, bitand, bvand, BitAndAssign, bitand_assign, &);
 impl_op!(BitVec<M>, [bool; M], BitOr, bitor, bvor, BitOrAssign, bitor_assign, |);
+impl_op!(BitVec<M>, [bool; M], BitXor, bitxor, bvxor, BitXorAssign, bitxor_assign, ^);
 impl_op!(BitVec<M>, [bool; M], Add, add, bvadd, AddAssign, add_assign, +);
 // impl_op!(BitVec<M>, [bool; M], Sub, sub, bvsub, SubAssign, sub_assign, -);
 impl_op!(BitVec<M>, [bool; M], Mul, mul, bvmul, MulAssign, mul_assign, *);
 impl_op!(BitVec<M>, [bool; M], Div, div, bvudiv, DivAssign, div_assign, /);
 impl_op!(BitVec<M>, [bool; M], Rem, rem, bvurem, RemAssign, rem_assign, %);
-impl_op!(BitVec<M>, [bool; M], Shr, shr, bvshr, ShrAssign, shr_assign, >>);
-impl_op!(BitVec<M>, [bool; M], Shl, shl, bvlshr, ShlAssign, shl_assign, <<);
+impl_op!(BitVec<M>, [bool; M], Shr, shr, bvlshr, ShrAssign, shr_assign, >>);
+impl_op!(BitVec<M>, [bool; M], Shl, shl, bvshl, ShlAssign, shl_assign, <<);
 
 #[cfg(feature = "const-bit-vec")]
 #[cfg(test)]
