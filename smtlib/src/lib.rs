@@ -1,3 +1,4 @@
+#![cfg_attr(feature = "const-bit-vec", allow(incomplete_features))]
 #![cfg_attr(feature = "const-bit-vec", feature(generic_const_exprs))]
 #![doc = include_str!("../README.md")]
 #![warn(missing_docs)]
