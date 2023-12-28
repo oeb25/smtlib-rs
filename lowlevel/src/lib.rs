@@ -1,4 +1,5 @@
 #![deny(rustdoc::broken_intra_doc_links)]
+#![allow(clippy::manual_async_fn)]
 
 //! # smtlib-lowlevel
 //!
@@ -7,9 +8,7 @@
 use std::collections::HashSet;
 
 use ast::{QualIdentifier, Term};
-#[cfg(feature = "async")]
-use backend::AsyncBackend;
-use backend::Backend;
+use backend::{AsyncBackend, Backend};
 use parse::ParseError;
 
 use crate::ast::{Command, GeneralResponse};
@@ -62,13 +61,11 @@ where
     }
 }
 
-#[cfg(feature = "async")]
 #[derive(Debug)]
 pub struct AsyncDriver<B> {
     backend: B,
 }
 
-#[cfg(feature = "async")]
 impl<B> AsyncDriver<B>
 where
     B: AsyncBackend,
@@ -84,7 +81,7 @@ where
     }
     pub async fn exec(&mut self, cmd: &Command) -> Result<GeneralResponse, Error> {
         // println!("> {cmd}");
-        let res = self.backend.exec(cmd).await?;
+        let res = self.backend.exec_async(cmd).await?;
         let res = if let Some(res) = cmd.parse_response(&res)? {
             GeneralResponse::SpecificSuccessResponse(res)
         } else {

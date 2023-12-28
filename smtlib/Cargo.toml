@@ -13,11 +13,8 @@ documentation = "https://docs.rs/smtlib"
 [features]
 default = []
 serde = ["dep:serde", "smtlib-lowlevel/serde"]
-z3 = ["smtlib-lowlevel/z3"]
 z3-static = ["smtlib-lowlevel/z3-static"]
-cvc5 = ["smtlib-lowlevel/cvc5"]
 const-bit-vec = []
-async = ["smtlib-lowlevel/async"]
 
 [dependencies]
 itertools.workspace = true
@@ -30,11 +27,11 @@ thiserror.workspace = true
 futures = "0.3.29"
 insta.workspace = true
 miette = { workspace = true, features = ["fancy"] }
-smtlib = { path = ".", features = ["serde", "z3", "cvc5", "async"] }
+smtlib = { path = ".", features = ["serde"] }
 
 [build-dependencies]
 smtlib-build-util = { version = "0.1.8", path = "../build-util" }
 smtlib-lowlevel = { version = "0.1.8", path = "../lowlevel" }
 
 [package.metadata.docs.rs]
-features = ["serde", "z3", "cvc5", "const-bit-vec", "async"]
+features = ["serde", "const-bit-vec"]

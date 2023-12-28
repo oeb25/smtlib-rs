@@ -12,14 +12,10 @@ documentation = "https://docs.rs/smtlib-lowlevel"
 
 [features]
 default = []
-z3 = []
 z3-static = ["dep:z3-sys"]
-cvc5 = []
 serde = ["dep:serde"]
-async = ["dep:async-trait"]
 
 [dependencies]
-async-trait = { version = "0.1.74", optional = true }
 itertools.workspace = true
 logos = "0.13.0"
 miette.workspace = true
@@ -35,4 +31,4 @@ smtlib-lowlevel = { path = ".", features = ["serde"] }
 smtlib-build-util = { version = "0.1.8", path = "../build-util" }
 
 [package.metadata.docs.rs]
-features = ["z3", "cvc5", "serde", "async"]
+features = ["serde"]

@@ -14,14 +14,12 @@ pub use backend::Backend;
 pub use logics::Logic;
 pub use smtlib_lowlevel::backend;
 
-#[cfg(feature = "async")]
 mod async_solver;
 mod logics;
 mod solver;
 pub mod terms;
 pub mod theories;
 
-#[cfg(feature = "async")]
 pub use async_solver::AsyncSolver;
 pub use solver::Solver;
 pub use theories::{core::*, fixed_size_bit_vectors::*, ints::*, reals::*};
