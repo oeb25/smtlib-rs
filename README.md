@@ -20,10 +20,10 @@ Thus the goal of `smtlib` (and [`smtlib-lowlevel`](https://crates.io/crates/smtl
 
 ## Usage
 
-The primary way to use `smtlib` is by constructing a [`smtlib::Solver`](https://docs.rs/smtlib/latest/smtlib/struct.Solver.html). A solver takes as argument a [`smtlib::Backend`](https://docs.rs/smtlib/latest/smtlib/trait.Backend.html). To see which backends are provided with the library check out the [`smtlib::backend`](https://docs.rs/smtlib/latest/smtlib/backend/index.html) module. Each backend is behind a feature flag, so for example to use the [Z3](https://github.com/Z3Prover/z3) binary backend install `smtlib` by running
+The primary way to use `smtlib` is by constructing a [`smtlib::Solver`](https://docs.rs/smtlib/latest/smtlib/struct.Solver.html). A solver takes as argument a [`smtlib::Backend`](https://docs.rs/smtlib/latest/smtlib/trait.Backend.html). To see which backends are provided with the library check out the [`smtlib::backend`](https://docs.rs/smtlib/latest/smtlib/backend/index.html) module. Some backend is behind a feature flag, so for example to use the [Z3](https://github.com/Z3Prover/z3) statically backend install `smtlib` by running `cargo add smtlib -F z3-static`, but otherwise add it by running:
 
 ```bash
-cargo add smtlib --features z3
+cargo add smtlib
 ```
 
 Now you can go ahead and use the library in your project.

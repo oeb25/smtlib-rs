@@ -1,4 +1,4 @@
-use std::ffi::OsStr;
+use std::{ffi::OsStr, future::Future};
 
 use super::{Backend, BinaryBackend};
 
@@ -22,10 +22,11 @@ impl Backend for Z3Binary {
     }
 }
 
-#[cfg(feature = "async")]
-#[async_trait::async_trait(?Send)]
 impl super::AsyncBackend for Z3Binary {
-    async fn exec(&mut self, cmd: &crate::Command) -> Result<String, crate::Error> {
-        self.bin.exec(cmd).map(Into::into)
+    fn exec_async(
+        &mut self,
+        cmd: &crate::Command,
+    ) -> impl Future<Output = Result<String, crate::Error>> {
+        async { self.bin.exec(cmd).map(Into::into) }
     }
 }

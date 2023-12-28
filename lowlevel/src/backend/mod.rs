@@ -8,26 +8,21 @@
 //! ## Backends
 //!
 //! - **[`Z3Binary`]**: A [Z3](https://github.com/Z3Prover/z3) backend using the binary CLI interface.
-//!     - **Enabled by feature:** `z3`
 //! - **[`Z3Static`]**: A [Z3](https://github.com/Z3Prover/z3) backend using the [`z3-sys` crate](https://github.com/prove-rs/z3.rs).
 //!     - **Enabled by feature:** `z3-static`
 //! - **[`Cvc5Binary`]**: A [cvc5](https://cvc5.github.io/) backend using the binary CLI interface.
-//!     - **Enabled by feature:** `cvc5`
 
 use std::{
+    future::Future,
     io::{BufRead, BufReader, Write},
     process::{Child, ChildStdin, ChildStdout},
 };
 
-#[cfg(feature = "cvc5")]
 mod cvc5;
-#[cfg(feature = "cvc5")]
 pub use cvc5::*;
 
-#[cfg(feature = "z3")]
 mod z3_binary;
 use logos::Lexer;
-#[cfg(feature = "z3")]
 pub use z3_binary::*;
 
 #[cfg(feature = "z3-static")]
@@ -44,13 +39,14 @@ pub trait Backend {
     fn exec(&mut self, cmd: &crate::Command) -> Result<String, crate::Error>;
 }
 
-#[cfg(feature = "async")]
 /// The [`AsyncBackend`] trait is used to interact with SMT solver using the SMT-LIB language.
 ///
 /// For more details read the [`backend`](crate::backend) module documentation.
-#[async_trait::async_trait(?Send)]
 pub trait AsyncBackend {
-    async fn exec(&mut self, cmd: &crate::Command) -> Result<String, crate::Error>;
+    fn exec_async(
+        &mut self,
+        cmd: &crate::Command,
+    ) -> impl Future<Output = Result<String, crate::Error>>;
 }
 
 struct BinaryBackend {
