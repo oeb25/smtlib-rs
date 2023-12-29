@@ -27,8 +27,5 @@ z3-sys = { version = "0.8.1", features = ["static-link-z3"], optional = true }
 insta.workspace = true
 smtlib-lowlevel = { path = ".", features = ["serde"] }
 
-[build-dependencies]
-smtlib-build-util = { version = "0.1.8", path = "../build-util" }
-
 [package.metadata.docs.rs]
 features = ["serde"]

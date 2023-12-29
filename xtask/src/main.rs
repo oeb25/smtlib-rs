@@ -1,3 +1,4 @@
+mod ast;
 mod logics;
 
 use std::path::{Path, PathBuf};
@@ -9,8 +10,8 @@ mod flags {
         // src "./xtask/src/main.rs"
 
         cmd xtask {
-            /// Generate the spec from the SMT-LIB standard
-            cmd spec {}
+            /// Generate the ast from the SMT-LIB standard
+            cmd ast {}
             cmd logics {}
         }
     }
@@ -24,7 +25,10 @@ fn main() -> Result<()> {
 
     let e = flags::Xtask::from_env_or_exit();
     match e.subcommand {
-        flags::XtaskCmd::Spec(_) => {}
+        flags::XtaskCmd::Ast(_) => {
+            let output = add_preamble("cargo xtask ast", ast::generate()?);
+            sh.write_file("./lowlevel/src/ast.rs", output)?;
+        }
         flags::XtaskCmd::Logics(_) => {
             let output = add_preamble("cargo xtask logics", logics::generate(&sh)?);
             sh.write_file("./smtlib/src/logics.rs", output)?;

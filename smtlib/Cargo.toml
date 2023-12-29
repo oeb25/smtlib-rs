@@ -29,9 +29,5 @@ insta.workspace = true
 miette = { workspace = true, features = ["fancy"] }
 smtlib = { path = ".", features = ["serde"] }
 
-[build-dependencies]
-smtlib-build-util = { version = "0.1.8", path = "../build-util" }
-smtlib-lowlevel = { version = "0.1.8", path = "../lowlevel" }
-
 [package.metadata.docs.rs]
 features = ["serde", "const-bit-vec"]
