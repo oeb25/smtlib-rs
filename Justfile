@@ -1,3 +1,15 @@
+@_default:
+    just --list
+
+# Code generation
+
+# generate the ast and logics
+generate:
+    cargo xtask ast
+    cargo xtask logics
+
+alias gen := generate
+
 # CI/Release
 
 release-patch args="":
