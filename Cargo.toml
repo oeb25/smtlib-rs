@@ -1,5 +1,5 @@
 [workspace]
-members = ["smtlib", "lowlevel", "build-util"]
+members = ["smtlib", "lowlevel", "build-util", "xtask"]
 resolver = "2"
 
 [workspace.package]
