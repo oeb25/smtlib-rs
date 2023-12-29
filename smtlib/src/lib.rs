@@ -15,6 +15,7 @@ pub use logics::Logic;
 pub use smtlib_lowlevel::backend;
 
 mod async_solver;
+#[rustfmt::skip]
 mod logics;
 mod solver;
 pub mod terms;

@@ -13,6 +13,7 @@ use parse::ParseError;
 
 use crate::ast::{Command, GeneralResponse};
 
+#[rustfmt::skip]
 pub mod ast;
 pub mod backend;
 pub mod lexicon;
