@@ -1,0 +1,13 @@
+[workspace]
+changelog_config = "cliff.toml"
+changelog_update = false
+git_release_enable = false
+git_tag_enable = false
+
+[[package]]
+name = "smtlib"
+changelog_update = true
+changelog_path = "CHANGELOG.md"
+git_tag_enable = true
+git_release_enable = true
+git_tag_name = "v{{ version }}"
