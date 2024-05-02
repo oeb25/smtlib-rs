@@ -20,7 +20,7 @@ tokio = ["smtlib-lowlevel/tokio"]
 [dependencies]
 itertools.workspace = true
 miette.workspace = true
-smtlib-lowlevel = { path = "../lowlevel", version = "0.1.8" }
+smtlib-lowlevel.workspace = true
 serde = { workspace = true, optional = true }
 thiserror.workspace = true
 
