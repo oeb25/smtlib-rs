@@ -9,6 +9,8 @@ version = "0.1.8"
 itertools = "0.12.0"
 miette = { version = "5.5.0" }
 serde = { version = "1.0.152", features = ["derive"] }
+smtlib = { path = "./smtlib" }
+smtlib-lowlevel = { path = "./lowlevel", version = "0.1.8" }
 thiserror = "1.0.38"
 insta = { version = "1.23.0", features = ["ron"] }
 
