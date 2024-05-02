@@ -32,4 +32,4 @@ smtlib = { path = ".", features = ["serde", "tokio"] }
 tokio-test = "0.4.4"
 
 [package.metadata.docs.rs]
-features = ["serde", "const-bit-vec"]
+features = ["serde", "const-bit-vec", "tokio"]
