@@ -7,10 +7,14 @@
 //!
 //! ## Backends
 //!
-//! - **[`Z3Binary`]**: A [Z3](https://github.com/Z3Prover/z3) backend using the binary CLI interface.
-//! - **[`Z3Static`]**: A [Z3](https://github.com/Z3Prover/z3) backend using the [`z3-sys` crate](https://github.com/prove-rs/z3.rs).
+//! - **[`Z3Binary`](z3_binary::Z3Binary)**: A [Z3](https://github.com/Z3Prover/z3) backend using the binary CLI interface.
+//! - **[`Z3BinaryTokio`](z3_binary::tokio::Z3BinaryTokio)**: An async [Z3](https://github.com/Z3Prover/z3) backend using the binary CLI interface with [`tokio`](::tokio).
+//!     - **Enabled by feature:** `tokio`
+//! - **`Z3Static`**: A [Z3](https://github.com/Z3Prover/z3) backend using the [`z3-sys` crate](https://github.com/prove-rs/z3.rs).
 //!     - **Enabled by feature:** `z3-static`
-//! - **[`Cvc5Binary`]**: A [cvc5](https://cvc5.github.io/) backend using the binary CLI interface.
+//! - **[`Cvc5Binary`](cvc5_binary::Cvc5Binary)**: A [cvc5](https://cvc5.github.io/) backend using the binary CLI interface.
+//! - **[`Cvc5BinaryTokio`](cvc5_binary::tokio::Cvc5BinaryTokio)**: An async [cvc5](https://cvc5.github.io/) backend using the binary CLI interface with [`tokio`](::tokio).
+//!     - **Enabled by feature:** `tokio`
 
 use std::{
     io::{BufRead, BufReader, Write},
