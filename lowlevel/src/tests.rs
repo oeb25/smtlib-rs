@@ -13,7 +13,7 @@ fn bubble_sort() {
 }
 
 mod z3 {
-    use crate::{ast::Command, backend::Z3Binary, Driver};
+    use crate::{ast::Command, backend::z3_binary::Z3Binary, Driver};
 
     macro_rules! cmd {
         ($d:expr, $cmd:literal) => {

@@ -12,18 +12,20 @@ pub use terms::Sort;
 
 pub use backend::Backend;
 pub use logics::Logic;
-pub use smtlib_lowlevel::backend;
+pub use smtlib_lowlevel::{self as lowlevel, backend};
 
-mod async_solver;
+#[cfg(feature = "tokio")]
+mod tokio_solver;
 #[rustfmt::skip]
 mod logics;
 mod solver;
 pub mod terms;
 pub mod theories;
 
-pub use async_solver::AsyncSolver;
 pub use solver::Solver;
 pub use theories::{core::*, fixed_size_bit_vectors::*, ints::*, reals::*};
+#[cfg(feature = "tokio")]
+pub use tokio_solver::TokioSolver;
 
 /// The satisfiability result produced by a solver
 #[derive(Debug)]
@@ -155,7 +157,7 @@ impl Model {
     /// ```
     /// # use smtlib::{Int, Sort};
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// # let mut solver = smtlib::Solver::new(smtlib::backend::Z3Binary::new("z3")?)?;
+    /// # let mut solver = smtlib::Solver::new(smtlib::backend::z3_binary::Z3Binary::new("z3")?)?;
     /// let x = Int::from_name("x");
     /// solver.assert(x._eq(12))?;
     /// let model = solver.check_sat_with_model()?.expect_sat()?;

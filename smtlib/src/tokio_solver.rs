@@ -4,21 +4,21 @@ use smtlib_lowlevel::{
     ast::{self, Identifier, QualIdentifier},
     backend,
     lexicon::Symbol,
-    AsyncDriver,
+    tokio::TokioDriver,
 };
 
 use crate::{Bool, Error, Logic, Model, SatResult, SatResultWithModel};
 
-/// The [`AsyncSolver`] type is the primary entrypoint to interaction with the
+/// The [`TokioSolver`] type is the primary entrypoint to interaction with the
 /// solver. Checking for validity of a set of assertions requires:
 /// ```
 /// # use smtlib::{Int, Sort};
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// # futures::executor::block_on(async {
+/// # tokio_test::block_on(async {
 /// // 1. Set up the backend (in this case z3)
-/// let backend = smtlib::backend::Z3Binary::new("z3")?;
+/// let backend = smtlib::backend::z3_binary::tokio::Z3BinaryTokio::new("z3").await?;
 /// // 2. Set up the solver
-/// let mut solver = smtlib::AsyncSolver::new(backend).await?;
+/// let mut solver = smtlib::TokioSolver::new(backend).await?;
 /// // 3. Declare the necessary constants
 /// let x = Int::from_name("x");
 /// // 4. Add assertions to the solver
@@ -38,14 +38,14 @@ use crate::{Bool, Error, Logic, Model, SatResult, SatResultWithModel};
 /// # }
 /// ```
 #[derive(Debug)]
-pub struct AsyncSolver<B> {
-    driver: AsyncDriver<B>,
+pub struct TokioSolver<B> {
+    driver: TokioDriver<B>,
     decls: HashMap<Identifier, ast::Sort>,
 }
 
-impl<B> AsyncSolver<B>
+impl<B> TokioSolver<B>
 where
-    B: backend::AsyncBackend,
+    B: backend::tokio::TokioBackend,
 {
     /// Construct a new solver provided with the backend to use.
     ///
@@ -53,7 +53,7 @@ where
     /// documentation of the [`backend`] module.
     pub async fn new(backend: B) -> Result<Self, Error> {
         Ok(Self {
-            driver: AsyncDriver::new(backend).await?,
+            driver: TokioDriver::new(backend).await?,
             decls: Default::default(),
         })
     }
@@ -70,9 +70,13 @@ where
             ast::GeneralResponse::Error(_) => todo!(),
         }
     }
+    /// Runs the given command on the solver, and returns the result.
+    pub async fn run_command(&mut self, cmd: &ast::Command) -> Result<ast::GeneralResponse, Error> {
+        Ok(self.driver.exec(cmd).await?)
+    }
     /// Adds the constraint of `b` as an assertion to the solver. To check for
-    /// satisfiability call [`AsyncSolver::check_sat`] or
-    /// [`AsyncSolver::check_sat_with_model`].
+    /// satisfiability call [`TokioSolver::check_sat`] or
+    /// [`TokioSolver::check_sat_with_model`].
     pub async fn assert(&mut self, b: Bool) -> Result<(), Error> {
         let term = ast::Term::from(b);
         for q in term.all_consts() {
@@ -102,10 +106,10 @@ where
         }
     }
     /// Checks for satisfiability of the assertions sent to the solver using
-    /// [`AsyncSolver::assert`].
+    /// [`TokioSolver::assert`].
     ///
     /// If you are interested in producing a model satisfying the assertions
-    /// check out [`AsyncSolver::check_sat`].
+    /// check out [`TokioSolver::check_sat`].
     pub async fn check_sat(&mut self) -> Result<SatResult, Error> {
         let cmd = ast::Command::CheckSat;
         match self.driver.exec(&cmd).await? {
@@ -121,10 +125,10 @@ where
         }
     }
     /// Checks for satisfiability of the assertions sent to the solver using
-    /// [`AsyncSolver::assert`], and produces a [model](Model) in case of `sat`.
+    /// [`TokioSolver::assert`], and produces a [model](Model) in case of `sat`.
     ///
     /// If you are not interested in the produced model, check out
-    /// [`AsyncSolver::check_sat`].
+    /// [`TokioSolver::check_sat`].
     pub async fn check_sat_with_model(&mut self) -> Result<SatResultWithModel, Error> {
         match self.check_sat().await? {
             SatResult::Unsat => Ok(SatResultWithModel::Unsat),
@@ -133,11 +137,11 @@ where
         }
     }
     /// Produces the model for satisfying the assertions. If you are looking to
-    /// retrieve a model after calling [`AsyncSolver::check_sat`], consider using
-    /// [`AsyncSolver::check_sat_with_model`] instead.
+    /// retrieve a model after calling [`TokioSolver::check_sat`], consider using
+    /// [`TokioSolver::check_sat_with_model`] instead.
     ///
     /// > **NOTE:** This must only be called after having called
-    /// > [`AsyncSolver::check_sat`] and it returning [`SatResult::Sat`].
+    /// > [`TokioSolver::check_sat`] and it returning [`SatResult::Sat`].
     pub async fn get_model(&mut self) -> Result<Model, Error> {
         match self.driver.exec(&ast::Command::GetModel).await? {
             ast::GeneralResponse::SpecificSuccessResponse(
