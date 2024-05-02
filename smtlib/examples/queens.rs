@@ -4,7 +4,7 @@ use miette::IntoDiagnostic;
 use smtlib::backend::Z3Static;
 use smtlib::{
     and,
-    backend::{Backend, Cvc5Binary, Z3Binary},
+    backend::{cvc5_binary::Cvc5Binary, z3_binary::Z3Binary, Backend},
     distinct, or,
     terms::Sort,
     Int, Logic, SatResultWithModel, Solver,

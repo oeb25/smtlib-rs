@@ -166,7 +166,8 @@ fn main() -> miette::Result<()> {
     let (expr, _) = parse_expr(&src);
     let smt = expr_to_smt(&expr);
 
-    let mut solver = smtlib::Solver::new(smtlib::backend::Z3Binary::new("z3").into_diagnostic()?)?;
+    let mut solver =
+        smtlib::Solver::new(smtlib::backend::z3_binary::Z3Binary::new("z3").into_diagnostic()?)?;
 
     let sexpr = solver.simplify(smt)?;
     let s = smt_to_expr(&sexpr);

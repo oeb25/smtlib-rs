@@ -29,7 +29,7 @@ cargo add smtlib
 Now you can go ahead and use the library in your project.
 
 ```rust
-use smtlib::{backend::Z3Binary, Int, SatResultWithModel, Solver, Sort};
+use smtlib::{backend::z3_binary::Z3Binary, Int, SatResultWithModel, Solver, Sort};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize the solver with the Z3 backend. The "z3" string refers the

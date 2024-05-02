@@ -8,7 +8,7 @@
 use std::collections::HashSet;
 
 use ast::{QualIdentifier, Term};
-use backend::{AsyncBackend, Backend};
+use backend::Backend;
 use parse::ParseError;
 
 use crate::ast::{Command, GeneralResponse};
@@ -62,33 +62,42 @@ where
     }
 }
 
-#[derive(Debug)]
-pub struct AsyncDriver<B> {
-    backend: B,
-}
+#[cfg(feature = "tokio")]
+pub mod tokio {
+    use crate::{
+        ast::{self, Command, GeneralResponse},
+        backend::tokio::TokioBackend,
+        Error,
+    };
 
-impl<B> AsyncDriver<B>
-where
-    B: AsyncBackend,
-{
-    pub async fn new(backend: B) -> Result<Self, Error> {
-        let mut driver = Self { backend };
-
-        driver
-            .exec(&Command::SetOption(ast::Option::PrintSuccess(true)))
-            .await?;
-
-        Ok(driver)
+    #[derive(Debug)]
+    pub struct TokioDriver<B> {
+        backend: B,
     }
-    pub async fn exec(&mut self, cmd: &Command) -> Result<GeneralResponse, Error> {
-        // println!("> {cmd}");
-        let res = self.backend.exec_async(cmd).await?;
-        let res = if let Some(res) = cmd.parse_response(&res)? {
-            GeneralResponse::SpecificSuccessResponse(res)
-        } else {
-            GeneralResponse::parse(&res)?
-        };
-        Ok(res)
+
+    impl<B> TokioDriver<B>
+    where
+        B: TokioBackend,
+    {
+        pub async fn new(backend: B) -> Result<Self, Error> {
+            let mut driver = Self { backend };
+
+            driver
+                .exec(&Command::SetOption(ast::Option::PrintSuccess(true)))
+                .await?;
+
+            Ok(driver)
+        }
+        pub async fn exec(&mut self, cmd: &Command) -> Result<GeneralResponse, Error> {
+            // println!("> {cmd}");
+            let res = self.backend.exec(cmd).await?;
+            let res = if let Some(res) = cmd.parse_response(&res)? {
+                GeneralResponse::SpecificSuccessResponse(res)
+            } else {
+                GeneralResponse::parse(&res)?
+            };
+            Ok(res)
+        }
     }
 }
 

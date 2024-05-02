@@ -4,7 +4,7 @@ use itertools::Itertools;
 use miette::IntoDiagnostic;
 use smtlib::{
     and,
-    backend::{Backend, Cvc5Binary, Z3Binary},
+    backend::{cvc5_binary::Cvc5Binary, z3_binary::Z3Binary, Backend},
     distinct, or,
     terms::Sort,
     BitVec, Logic, SatResultWithModel, Solver,

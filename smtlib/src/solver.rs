@@ -15,7 +15,7 @@ use crate::{terms::Dynamic, Bool, Error, Logic, Model, SatResult, SatResultWithM
 /// # use smtlib::{Int, Sort};
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// // 1. Set up the backend (in this case z3)
-/// let backend = smtlib::backend::Z3Binary::new("z3")?;
+/// let backend = smtlib::backend::z3_binary::Z3Binary::new("z3")?;
 /// // 2. Set up the solver
 /// let mut solver = smtlib::Solver::new(backend)?;
 /// // 3. Declare the necessary constants
@@ -68,29 +68,18 @@ where
             ast::GeneralResponse::Error(_) => todo!(),
         }
     }
+    /// Runs the given command on the solver, and returns the result.
+    pub fn run_command(&mut self, cmd: &ast::Command) -> Result<ast::GeneralResponse, Error> {
+        Ok(self.driver.exec(cmd)?)
+    }
     /// Adds the constraint of `b` as an assertion to the solver. To check for
     /// satisfiability call [`Solver::check_sat`] or
     /// [`Solver::check_sat_with_model`].
     pub fn assert(&mut self, b: Bool) -> Result<(), Error> {
-        let term = ast::Term::from(b);
-        for q in term.all_consts() {
-            match q {
-                QualIdentifier::Identifier(_) => {}
-                QualIdentifier::Sorted(i, s) => match self.decls.entry(i.clone()) {
-                    Entry::Occupied(stored) => assert_eq!(s, stored.get()),
-                    Entry::Vacant(v) => {
-                        v.insert(s.clone());
-                        match i {
-                            Identifier::Simple(sym) => {
-                                self.driver
-                                    .exec(&ast::Command::DeclareConst(sym.clone(), s.clone()))?;
-                            }
-                            Identifier::Indexed(_, _) => todo!(),
-                        }
-                    }
-                },
-            }
-        }
+        let term = b.into();
+
+        self.declare_all_consts(&term)?;
+
         let cmd = ast::Command::Assert(term);
         match self.driver.exec(&cmd)? {
             ast::GeneralResponse::Success => Ok(()),
@@ -145,8 +134,20 @@ where
     }
     /// Simplifies the given term
     pub fn simplify(&mut self, t: Dynamic) -> Result<smtlib_lowlevel::ast::Term, Error> {
-        let term = ast::Term::from(t);
-        for q in term.all_consts() {
+        self.declare_all_consts(&t.into())?;
+
+        let cmd = ast::Command::Simplify(t.into());
+
+        match self.driver.exec(&cmd)? {
+            ast::GeneralResponse::SpecificSuccessResponse(
+                ast::SpecificSuccessResponse::SimplifyResponse(t),
+            ) => Ok(t.0),
+            res => todo!("{res:?}"),
+        }
+    }
+
+    fn declare_all_consts(&mut self, t: &ast::Term) -> Result<(), Error> {
+        for q in t.all_consts() {
             match q {
                 QualIdentifier::Identifier(_) => {}
                 QualIdentifier::Sorted(i, s) => match self.decls.entry(i.clone()) {
@@ -164,14 +165,6 @@ where
                 },
             }
         }
-
-        let cmd = ast::Command::Simplify(t.into());
-
-        match self.driver.exec(&cmd)? {
-            ast::GeneralResponse::SpecificSuccessResponse(
-                ast::SpecificSuccessResponse::SimplifyResponse(t),
-            ) => Ok(t.0),
-            res => todo!("{res:?}"),
-        }
+        Ok(())
     }
 }
