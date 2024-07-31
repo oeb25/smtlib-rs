@@ -12,7 +12,7 @@ use crate::{Bool, Error, Logic, Model, SatResult, SatResultWithModel};
 /// The [`TokioSolver`] type is the primary entrypoint to interaction with the
 /// solver. Checking for validity of a set of assertions requires:
 /// ```
-/// # use smtlib::{Int, Sort};
+/// # use smtlib::{Int, prelude::*};
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// # tokio_test::block_on(async {
 /// // 1. Set up the backend (in this case z3)
@@ -20,7 +20,7 @@ use crate::{Bool, Error, Logic, Model, SatResult, SatResultWithModel};
 /// // 2. Set up the solver
 /// let mut solver = smtlib::TokioSolver::new(backend).await?;
 /// // 3. Declare the necessary constants
-/// let x = Int::from_name("x");
+/// let x = Int::new_const("x");
 /// // 4. Add assertions to the solver
 /// solver.assert(x._eq(12)).await?;
 /// // 5. Check for validity, and optionally construct a model

@@ -167,10 +167,10 @@ impl Model {
     /// expression asserted.
     ///
     /// ```
-    /// # use smtlib::{Int, Sort};
+    /// # use smtlib::{Int, prelude::*};
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # let mut solver = smtlib::Solver::new(smtlib::backend::z3_binary::Z3Binary::new("z3")?)?;
-    /// let x = Int::from_name("x");
+    /// let x = Int::new_const("x");
     /// solver.assert(x._eq(12))?;
     /// let model = solver.check_sat_with_model()?.expect_sat()?;
     /// match model.eval(x) {
