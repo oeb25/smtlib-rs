@@ -1,13 +1,11 @@
 #![doc = concat!("```ignore\n", include_str!("./Core.smt2"), "```")]
 
-use smtlib_lowlevel::{
-    ast::{self, Identifier, Term},
-    lexicon::Symbol,
-};
+use smtlib_lowlevel::ast::{self, Term};
 
 use crate::{
     impl_op,
-    terms::{fun, qual_ident, Const, Dynamic, Sort},
+    sorts::Sort,
+    terms::{fun, qual_ident, Const, Dynamic, Sorted, StaticSorted},
 };
 
 /// A [`Bool`] is a term containing a
@@ -15,6 +13,12 @@ use crate::{
 /// here.](https://smtlib.cs.uiowa.edu/theories-Core.shtml).
 #[derive(Clone, Copy)]
 pub struct Bool(BoolImpl);
+
+impl Bool {
+    pub fn new(value: bool) -> Bool {
+        value.into()
+    }
+}
 
 impl std::fmt::Debug for Bool {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -40,7 +44,7 @@ impl std::fmt::Display for Bool {
 }
 impl From<Bool> for Dynamic {
     fn from(b: Bool) -> Self {
-        Term::from(b).into()
+        b.into_dynamic()
     }
 }
 impl From<bool> for Bool {
@@ -66,13 +70,25 @@ impl From<Term> for Bool {
         Bool(BoolImpl::Term(Box::leak(Box::new(t))))
     }
 }
-impl Sort for Bool {
+impl From<(Term, Sort)> for Bool {
+    fn from((t, _): (Term, Sort)) -> Self {
+        t.into()
+    }
+}
+impl StaticSorted for Bool {
     type Inner = Self;
-    fn sort() -> ast::Sort {
-        ast::Sort::Sort(Identifier::Simple(Symbol("Bool".into())))
+    fn static_sort() -> Sort {
+        Sort::new("Bool")
+    }
+    fn new_const(name: impl Into<String>) -> Const<Self> {
+        let name = String::leak(name.into());
+        Const(name, Bool(BoolImpl::Const(name)))
     }
 }
 impl Bool {
+    pub fn sort() -> Sort {
+        Self::static_sort()
+    }
     fn binop(self, op: &str, other: Bool) -> Self {
         fun(op, vec![self.into(), other.into()]).into()
     }
@@ -91,8 +107,11 @@ impl Bool {
     /// and an if statement:
     /// - **C-style notation:** `self ? then : otherwise`
     /// - **Rust notation:**  `if self { then } else { otherwise }`
-    pub fn ite(self, then: Bool, otherwise: Bool) -> Bool {
-        fun("ite", vec![self.into(), then.into(), otherwise.into()]).into()
+    pub fn ite<T: Sorted + From<(Term, Sort)>>(self, then: T, otherwise: T) -> T {
+        let sort = then.sort();
+        let term = fun("ite", vec![self.into(), then.into(), otherwise.into()]);
+        let dyn_term = Dynamic::from_term_sort(term, sort);
+        T::from_dynamic(dyn_term)
     }
 }
 

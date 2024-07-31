@@ -11,7 +11,7 @@ use smtlib_lowlevel::{
     lexicon::{Keyword, Symbol},
 };
 
-use crate::Bool;
+use crate::{sorts::Sort, Bool};
 
 pub(crate) fn fun(name: &str, args: Vec<Term>) -> Term {
     Term::Application(qual_ident(name.to_string(), None), args)
@@ -50,10 +50,21 @@ impl<T> std::ops::Deref for Const<T> {
 /// This type wraps terms loosing all static type information. It is particular
 /// useful when constructing terms dynamically.
 #[derive(Debug, Clone, Copy)]
-pub struct Dynamic(&'static Term);
+pub struct Dynamic(&'static Term, &'static Sort);
 impl std::fmt::Display for Dynamic {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         Term::from(*self).fmt(f)
+    }
+}
+
+pub trait StaticSorted: Into<Term> + From<Term> {
+    type Inner: StaticSorted;
+    fn static_sort() -> Sort;
+    fn new_const(name: impl Into<String>) -> Const<Self> {
+        let name = name.into();
+        let bv = Term::Identifier(qual_ident(name.clone(), Some(Self::static_sort().ast()))).into();
+        let name = String::leak(name);
+        Const(name, bv)
     }
 }
 
@@ -62,30 +73,48 @@ impl std::fmt::Display for Dynamic {
 /// This trait indicates that a type can construct a [`Term`] which is the
 /// low-level primitive that is used to define expressions for the SMT solvers
 /// to evaluate.
-pub trait Sort: Into<Term> {
+pub trait Sorted: Into<Term> {
     /// The inner type of the term. This is used for [`Const<T>`](Const) where the inner type is `T`.
-    type Inner: Sort;
+    type Inner: Sorted;
     /// The sort of the term
-    fn sort() -> ast::Sort;
-    /// Construct a constant of this sort. See the documentation of [`Const`]
-    /// for more information about constants.
-    fn from_name(name: impl Into<String>) -> Const<Self>
-    where
-        Self: From<Term>,
-    {
-        // TODO: Only add |_| if necessary
-        let name = format!("|{}|", name.into());
-        Const(
-            Box::leak(name.clone().into_boxed_str()),
-            Term::Identifier(qual_ident(name, Some(Self::sort()))).into(),
-        )
-    }
+    fn sort(&self) -> Sort;
+    /// The sort of the term
+    fn is_sort(sort: &Sort) -> bool;
+    // /// Construct a constant of this sort. See the documentation of [`Const`]
+    // /// for more information about constants.
+    // fn from_name(name: impl Into<String>) -> Const<Self>
+    // where
+    //     Self: From<Term>,
+    // {
+    //     // TODO: Only add |_| if necessary
+    //     let name = format!("|{}|", name.into());
+    //     Const(
+    //         Box::leak(name.clone().into_boxed_str()),
+    //         Term::Identifier(qual_ident(name, Some(Self::sort().ast()))).into(),
+    //     )
+    // }
     /// Casts a dynamically typed term into a concrete type
     fn from_dynamic(d: Dynamic) -> Self
     where
-        Self: From<Term>,
+        Self: From<(Term, Sort)>,
     {
-        d.0.clone().into()
+        (d.0.clone(), d.1.clone()).into()
+    }
+    /// Casts a dynamically typed term into a concrete type iff the dynamic sort
+    /// matches
+    fn try_from_dynamic(d: Dynamic) -> Option<Self>
+    where
+        Self: From<(Term, Sort)>,
+    {
+        if Self::is_sort(d.sort()) {
+            Some((d.0.clone(), d.1.clone()).into())
+        } else {
+            None
+        }
+    }
+    fn into_dynamic(self) -> Dynamic {
+        let sort = self.sort();
+        Dynamic::from_term_sort(self.into(), sort)
     }
     /// Construct the term representing `(= self other)`
     fn _eq(self, other: impl Into<Self::Inner>) -> Bool {
@@ -122,10 +151,25 @@ impl<T: Into<Term>> From<Const<T>> for Term {
         c.1.into()
     }
 }
-impl<T: Sort> Sort for Const<T> {
+impl<T: Sorted> Sorted for Const<T> {
     type Inner = T;
-    fn sort() -> ast::Sort {
-        T::sort()
+    fn sort(&self) -> Sort {
+        T::sort(self)
+    }
+    fn is_sort(sort: &Sort) -> bool {
+        T::is_sort(sort)
+    }
+}
+
+impl<T: StaticSorted> Sorted for T {
+    type Inner = T::Inner;
+
+    fn sort(&self) -> Sort {
+        Self::static_sort()
+    }
+
+    fn is_sort(sort: &Sort) -> bool {
+        sort == &Self::static_sort()
     }
 }
 
@@ -162,15 +206,45 @@ impl From<Dynamic> for Term {
         d.0.clone()
     }
 }
-impl From<Term> for Dynamic {
-    fn from(t: Term) -> Self {
-        Dynamic(Box::leak(Box::new(t)))
+impl From<(Term, Sort)> for Dynamic {
+    fn from((t, sort): (Term, Sort)) -> Self {
+        Dynamic::from_term_sort(t, sort)
     }
 }
-impl Sort for Dynamic {
+impl Dynamic {
+    pub fn from_term_sort(t: Term, sort: Sort) -> Self {
+        Dynamic(Box::leak(Box::new(t)), Box::leak(Box::new(sort)))
+    }
+
+    pub fn sort(&self) -> &Sort {
+        &self.1
+    }
+
+    pub fn as_int(&self) -> Result<crate::Int, crate::Error> {
+        crate::Int::try_from_dynamic(self.clone()).ok_or_else(|| {
+            crate::Error::DynamicCastSortMismatch {
+                expected: crate::Int::static_sort(),
+                actual: self.1.clone(),
+            }
+        })
+    }
+
+    pub fn as_bool(&self) -> Result<crate::Bool, crate::Error> {
+        crate::Bool::try_from_dynamic(self.clone()).ok_or_else(|| {
+            crate::Error::DynamicCastSortMismatch {
+                expected: crate::Bool::static_sort(),
+                actual: self.1.clone(),
+            }
+        })
+    }
+}
+impl Sorted for Dynamic {
     type Inner = Self;
-    fn sort() -> ast::Sort {
-        ast::Sort::Sort(Identifier::Simple(Symbol("dynamic".into())))
+    fn sort(&self) -> Sort {
+        self.1.clone()
+    }
+    fn is_sort(_sort: &Sort) -> bool {
+        true
     }
 }
 
@@ -228,21 +302,24 @@ pub trait QuantifierVars {
 
 impl<A> QuantifierVars for Const<A>
 where
-    A: Sort,
+    A: StaticSorted,
 {
     fn into_vars(self) -> Vec<SortedVar> {
-        vec![SortedVar(Symbol(self.0.to_string()), A::sort())]
+        vec![SortedVar(
+            Symbol(self.0.to_string()),
+            A::static_sort().ast(),
+        )]
     }
 }
 macro_rules! impl_quantifiers {
     ($($x:ident $n:tt),+ $(,)?) => {
         impl<$($x,)+> QuantifierVars for ($(Const<$x>),+)
         where
-            $($x: Sort),+
+            $($x: StaticSorted),+
         {
             fn into_vars(self) -> Vec<SortedVar> {
                 vec![
-                    $(SortedVar(Symbol((self.$n).0.into()), $x::sort())),+
+                    $(SortedVar(Symbol((self.$n).0.into()), $x::static_sort().ast())),+
                 ]
             }
         }
@@ -260,6 +337,13 @@ impl_quantifiers!(A 0, B 1, C 2, D 3, E 4);
 //             .collect()
 //     }
 // }
+impl QuantifierVars for Vec<Const<Dynamic>> {
+    fn into_vars(self) -> Vec<SortedVar> {
+        self.into_iter()
+            .map(|v| SortedVar(Symbol(v.0.into()), v.1 .1.ast()))
+            .collect()
+    }
+}
 impl QuantifierVars for Vec<SortedVar> {
     fn into_vars(self) -> Vec<SortedVar> {
         self

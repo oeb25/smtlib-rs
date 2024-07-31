@@ -23,6 +23,7 @@ miette.workspace = true
 smtlib-lowlevel.workspace = true
 serde = { workspace = true, optional = true }
 thiserror.workspace = true
+indexmap = "2.2.6"
 
 [dev-dependencies]
 futures = "0.3.29"

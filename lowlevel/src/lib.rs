@@ -34,9 +34,44 @@ pub enum Error {
     IO(#[from] std::io::Error),
 }
 
-#[derive(Debug)]
+pub trait Logger: 'static {
+    fn exec(&self, cmd: &ast::Command);
+    fn response(&self, cmd: &ast::Command, res: &str);
+}
+
+impl<F, G> Logger for (F, G)
+where
+    F: Fn(&ast::Command) + 'static,
+    G: Fn(&ast::Command, &str) + 'static,
+{
+    fn exec(&self, cmd: &ast::Command) {
+        (self.0)(cmd)
+    }
+
+    fn response(&self, cmd: &ast::Command, res: &str) {
+        (self.1)(cmd, res)
+    }
+}
+
 pub struct Driver<B> {
     backend: B,
+    logger: Option<Box<dyn Logger>>,
+}
+
+impl<B: std::fmt::Debug> std::fmt::Debug for Driver<B> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Driver")
+            .field("backend", &self.backend)
+            .field(
+                "logger",
+                if self.logger.is_some() {
+                    &"Some(...)"
+                } else {
+                    &"None"
+                },
+            )
+            .finish()
+    }
 }
 
 impl<B> Driver<B>
@@ -44,15 +79,26 @@ where
     B: Backend,
 {
     pub fn new(backend: B) -> Result<Self, Error> {
-        let mut driver = Self { backend };
+        let mut driver = Self {
+            backend,
+            logger: None,
+        };
 
         driver.exec(&Command::SetOption(ast::Option::PrintSuccess(true)))?;
 
         Ok(driver)
     }
+    pub fn set_logger(&mut self, logger: impl Logger) {
+        self.logger = Some(Box::new(logger))
+    }
     pub fn exec(&mut self, cmd: &Command) -> Result<GeneralResponse, Error> {
-        // println!("> {cmd}");
+        if let Some(logger) = &self.logger {
+            logger.exec(cmd);
+        }
         let res = self.backend.exec(cmd)?;
+        if let Some(logger) = &self.logger {
+            logger.response(cmd, &res);
+        }
         let res = if let Some(res) = cmd.parse_response(&res)? {
             GeneralResponse::SpecificSuccessResponse(res)
         } else {
@@ -67,12 +113,28 @@ pub mod tokio {
     use crate::{
         ast::{self, Command, GeneralResponse},
         backend::tokio::TokioBackend,
-        Error,
+        Error, Logger,
     };
 
-    #[derive(Debug)]
     pub struct TokioDriver<B> {
         backend: B,
+        logger: Option<Box<dyn Logger>>,
+    }
+
+    impl<B: std::fmt::Debug> std::fmt::Debug for TokioDriver<B> {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.debug_struct("TokioDriver")
+                .field("backend", &self.backend)
+                .field(
+                    "logger",
+                    if self.logger.is_some() {
+                        &"Some(...)"
+                    } else {
+                        &"None"
+                    },
+                )
+                .finish()
+        }
     }
 
     impl<B> TokioDriver<B>
@@ -80,7 +142,10 @@ pub mod tokio {
         B: TokioBackend,
     {
         pub async fn new(backend: B) -> Result<Self, Error> {
-            let mut driver = Self { backend };
+            let mut driver = Self {
+                backend,
+                logger: None,
+            };
 
             driver
                 .exec(&Command::SetOption(ast::Option::PrintSuccess(true)))
@@ -88,9 +153,17 @@ pub mod tokio {
 
             Ok(driver)
         }
+        pub fn set_logger(&mut self, logger: impl Logger) {
+            self.logger = Some(Box::new(logger))
+        }
         pub async fn exec(&mut self, cmd: &Command) -> Result<GeneralResponse, Error> {
-            // println!("> {cmd}");
+            if let Some(logger) = &self.logger {
+                logger.exec(cmd);
+            }
             let res = self.backend.exec(cmd).await?;
+            if let Some(logger) = &self.logger {
+                logger.response(cmd, &res);
+            }
             let res = if let Some(res) = cmd.parse_response(&res)? {
                 GeneralResponse::SpecificSuccessResponse(res)
             } else {
@@ -107,9 +180,7 @@ impl Term {
         match self {
             Term::SpecConstant(_) => HashSet::new(),
             Term::Identifier(q) => std::iter::once(q).collect(),
-            Term::Application(q, args) => std::iter::once(q)
-                .chain(args.iter().flat_map(|arg| arg.all_consts()))
-                .collect(),
+            Term::Application(_, args) => args.iter().flat_map(|arg| arg.all_consts()).collect(),
             Term::Let(_, _) => todo!(),
             // TODO
             Term::Forall(_, _) => HashSet::new(),

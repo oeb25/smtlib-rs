@@ -1,13 +1,11 @@
 #![doc = concat!("```ignore\n", include_str!("./Reals.smt2"), "```")]
 
-use smtlib_lowlevel::{
-    ast::{self, Identifier, Term},
-    lexicon::Symbol,
-};
+use smtlib_lowlevel::ast::Term;
 
 use crate::{
     impl_op,
-    terms::{fun, qual_ident, Const, Dynamic, Sort},
+    sorts::Sort,
+    terms::{fun, qual_ident, Const, Dynamic, Sorted, StaticSorted},
     Bool,
 };
 
@@ -29,7 +27,7 @@ impl std::fmt::Display for Real {
 
 impl From<Real> for Dynamic {
     fn from(i: Real) -> Self {
-        Term::from(i).into()
+        i.into_dynamic()
     }
 }
 
@@ -43,10 +41,10 @@ impl From<Term> for Real {
         Real(Box::leak(Box::new(t)))
     }
 }
-impl Sort for Real {
+impl StaticSorted for Real {
     type Inner = Self;
-    fn sort() -> ast::Sort {
-        ast::Sort::Sort(Identifier::Simple(Symbol("Real".into())))
+    fn static_sort() -> Sort {
+        Sort::new("Real")
     }
 }
 impl From<i64> for Real {
@@ -65,6 +63,9 @@ impl From<f64> for Real {
     }
 }
 impl Real {
+    pub fn sort() -> Sort {
+        Self::static_sort()
+    }
     fn binop<T: From<Term>>(self, op: &str, other: Real) -> T {
         fun(op, vec![self.into(), other.into()]).into()
     }

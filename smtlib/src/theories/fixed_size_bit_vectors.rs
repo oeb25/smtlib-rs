@@ -1,13 +1,11 @@
 #![doc = concat!("```ignore\n", include_str!("./FixedSizeBitVectors.smt2"), "```")]
 
 use itertools::Itertools;
-use smtlib_lowlevel::{
-    ast::{self, Identifier, Index, Term},
-    lexicon::{Numeral, Symbol},
-};
+use smtlib_lowlevel::ast::{self, Term};
 
 use crate::{
-    terms::{fun, qual_ident, Const, Dynamic, Sort},
+    sorts::{Index, Sort},
+    terms::{fun, qual_ident, Const, Dynamic, Sorted, StaticSorted},
     Bool,
 };
 
@@ -30,7 +28,7 @@ impl<const M: usize> std::fmt::Display for BitVec<M> {
 
 impl<const M: usize> From<BitVec<M>> for Dynamic {
     fn from(i: BitVec<M>) -> Self {
-        Term::from(i).into()
+        i.into_dynamic()
     }
 }
 
@@ -78,13 +76,10 @@ impl<const M: usize> TryFrom<BitVec<M>> for [bool; M] {
     }
 }
 
-impl<const M: usize> Sort for BitVec<M> {
+impl<const M: usize> StaticSorted for BitVec<M> {
     type Inner = Self;
-    fn sort() -> ast::Sort {
-        ast::Sort::Sort(Identifier::Indexed(
-            Symbol("BitVec".to_string()),
-            vec![Index::Numeral(Numeral(M.to_string()))],
-        ))
+    fn static_sort() -> Sort {
+        Sort::new_indexed("BitVec", vec![Index::Numeral(M)])
     }
 }
 impl<const M: usize> From<[bool; M]> for BitVec<M> {
@@ -279,7 +274,7 @@ impl_op!(BitVec<M>, [bool; M], Shl, shl, bvshl, ShlAssign, shl_assign, <<);
 mod tests {
     use smtlib_lowlevel::backend::Z3Binary;
 
-    use crate::{terms::Sort, Solver};
+    use crate::{terms::Sorted, Solver};
 
     use super::BitVec;
 

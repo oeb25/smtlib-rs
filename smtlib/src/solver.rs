@@ -1,13 +1,16 @@
-use std::collections::{hash_map::Entry, HashMap};
-
+use indexmap::{map::Entry, IndexMap, IndexSet};
 use smtlib_lowlevel::{
     ast::{self, Identifier, QualIdentifier},
     backend,
-    lexicon::Symbol,
-    Driver,
+    lexicon::{Numeral, Symbol},
+    Driver, Logger,
 };
 
-use crate::{terms::Dynamic, Bool, Error, Logic, Model, SatResult, SatResultWithModel};
+use crate::{
+    funs, sorts,
+    terms::{qual_ident, Dynamic},
+    Bool, Error, Logic, Model, SatResult, SatResultWithModel,
+};
 
 /// The [`Solver`] type is the primary entrypoint to interaction with the
 /// solver. Checking for validity of a set of assertions requires:
@@ -38,7 +41,15 @@ use crate::{terms::Dynamic, Bool, Error, Logic, Model, SatResult, SatResultWithM
 #[derive(Debug)]
 pub struct Solver<B> {
     driver: Driver<B>,
-    decls: HashMap<Identifier, ast::Sort>,
+    push_pop_stack: Vec<StackSizes>,
+    decls: IndexMap<Identifier, ast::Sort>,
+    declared_sorts: IndexSet<ast::Sort>,
+}
+
+#[derive(Debug)]
+struct StackSizes {
+    decls: usize,
+    declared_sorts: usize,
 }
 
 impl<B> Solver<B>
@@ -52,8 +63,24 @@ where
     pub fn new(backend: B) -> Result<Self, Error> {
         Ok(Self {
             driver: Driver::new(backend)?,
+            push_pop_stack: Vec::new(),
             decls: Default::default(),
+            declared_sorts: Default::default(),
         })
+    }
+    pub fn set_logger(&mut self, logger: impl Logger) {
+        self.driver.set_logger(logger)
+    }
+    pub fn set_timeout(&mut self, ms: usize) -> Result<(), Error> {
+        let cmd = ast::Command::SetOption(ast::Option::Attribute(ast::Attribute::WithValue(
+            smtlib_lowlevel::lexicon::Keyword(":timeout".to_string()),
+            ast::AttributeValue::SpecConstant(ast::SpecConstant::Numeral(Numeral(ms.to_string()))),
+        )));
+        match self.driver.exec(&cmd)? {
+            ast::GeneralResponse::Success => Ok(()),
+            ast::GeneralResponse::Error(e) => Err(Error::Smt(e, cmd.to_string())),
+            _ => todo!(),
+        }
     }
     /// Explicitly sets the logic for the solver. For some backends this is not
     /// required, as they will infer what ever logic fits the current program.
@@ -132,6 +159,27 @@ where
             res => todo!("{res:?}"),
         }
     }
+    pub fn declare_fun(&mut self, fun: &funs::Fun) -> Result<(), Error> {
+        for var in &fun.vars {
+            self.declare_sort(&var.ast())?;
+        }
+        self.declare_sort(&fun.return_sort.ast())?;
+
+        if fun.vars.is_empty() {
+            return self.declare_const(&qual_ident(fun.name.clone(), Some(fun.return_sort.ast())));
+        }
+
+        let cmd = ast::Command::DeclareFun(
+            Symbol(fun.name.clone()),
+            fun.vars.iter().map(|s| s.ast()).collect(),
+            fun.return_sort.ast(),
+        );
+        match self.driver.exec(&cmd)? {
+            ast::GeneralResponse::Success => Ok(()),
+            ast::GeneralResponse::Error(e) => Err(Error::Smt(e, cmd.to_string())),
+            _ => todo!(),
+        }
+    }
     /// Simplifies the given term
     pub fn simplify(&mut self, t: Dynamic) -> Result<smtlib_lowlevel::ast::Term, Error> {
         self.declare_all_consts(&t.into())?;
@@ -146,11 +194,58 @@ where
         }
     }
 
+    pub fn scope<T>(
+        &mut self,
+        f: impl FnOnce(&mut Solver<B>) -> Result<T, Error>,
+    ) -> Result<T, Error> {
+        self.push(1)?;
+        let res = f(self)?;
+        self.pop(1)?;
+        Ok(res)
+    }
+
+    fn push(&mut self, levels: usize) -> Result<(), Error> {
+        self.push_pop_stack.push(StackSizes {
+            decls: self.decls.len(),
+            declared_sorts: self.declared_sorts.len(),
+        });
+
+        let cmd = ast::Command::Push(Numeral(levels.to_string()));
+        Ok(match self.driver.exec(&cmd)? {
+            ast::GeneralResponse::Success => {}
+            ast::GeneralResponse::Error(e) => return Err(Error::Smt(e, cmd.to_string())),
+            _ => todo!(),
+        })
+    }
+
+    fn pop(&mut self, levels: usize) -> Result<(), Error> {
+        if let Some(sizes) = self.push_pop_stack.pop() {
+            self.decls.truncate(sizes.decls);
+            self.declared_sorts.truncate(sizes.declared_sorts);
+        }
+
+        let cmd = ast::Command::Pop(Numeral(levels.to_string()));
+        Ok(match self.driver.exec(&cmd)? {
+            ast::GeneralResponse::Success => {}
+            ast::GeneralResponse::Error(e) => return Err(Error::Smt(e, cmd.to_string())),
+            _ => todo!(),
+        })
+    }
+
     fn declare_all_consts(&mut self, t: &ast::Term) -> Result<(), Error> {
         for q in t.all_consts() {
-            match q {
-                QualIdentifier::Identifier(_) => {}
-                QualIdentifier::Sorted(i, s) => match self.decls.entry(i.clone()) {
+            self.declare_const(q)?;
+        }
+        Ok(())
+    }
+
+    fn declare_const(&mut self, q: &QualIdentifier) -> Result<(), Error> {
+        Ok(match q {
+            QualIdentifier::Identifier(_) => {}
+            QualIdentifier::Sorted(i, s) => {
+                self.declare_sort(s)?;
+
+                match self.decls.entry(i.clone()) {
                     Entry::Occupied(stored) => assert_eq!(s, stored.get()),
                     Entry::Vacant(v) => {
                         v.insert(s.clone());
@@ -162,9 +257,51 @@ where
                             Identifier::Indexed(_, _) => todo!(),
                         }
                     }
-                },
+                }
             }
+        })
+    }
+
+    fn declare_sort(&mut self, s: &ast::Sort) -> Result<(), Error> {
+        if self.declared_sorts.contains(s) {
+            return Ok(());
         }
-        Ok(())
+        self.declared_sorts.insert(s.clone());
+
+        let cmd = match s {
+            ast::Sort::Sort(ident) => {
+                let sym = match ident {
+                    Identifier::Simple(sym) => sym,
+                    Identifier::Indexed(_, _) => {
+                        // TODO: is it correct that only sorts from theores can
+                        // be indexed, and thus does not need to be declared?
+                        return Ok(());
+                    }
+                };
+                if sorts::is_built_in_sort(&sym.0) {
+                    return Ok(());
+                }
+                ast::Command::DeclareSort(sym.clone(), Numeral("0".to_string()))
+            }
+            ast::Sort::Parametric(ident, params) => {
+                let sym = match ident {
+                    Identifier::Simple(sym) => sym,
+                    Identifier::Indexed(_, _) => {
+                        // TODO: is it correct that only sorts from theores can
+                        // be indexed, and thus does not need to be declared?
+                        return Ok(());
+                    }
+                };
+                if sorts::is_built_in_sort(&sym.0) {
+                    return Ok(());
+                }
+                ast::Command::DeclareSort(sym.clone(), Numeral(params.len().to_string()))
+            }
+        };
+        match self.driver.exec(&cmd)? {
+            ast::GeneralResponse::Success => Ok(()),
+            ast::GeneralResponse::Error(e) => return Err(Error::Smt(e, cmd.to_string())),
+            _ => todo!(),
+        }
     }
 }

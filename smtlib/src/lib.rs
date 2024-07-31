@@ -8,17 +8,19 @@ use std::collections::HashMap;
 use itertools::Itertools;
 use smtlib_lowlevel::ast;
 use terms::Const;
-pub use terms::Sort;
+pub use terms::Sorted;
 
 pub use backend::Backend;
 pub use logics::Logic;
-pub use smtlib_lowlevel::{self as lowlevel, backend};
+pub use smtlib_lowlevel::{self as lowlevel, backend, Logger};
 
 #[cfg(feature = "tokio")]
 mod tokio_solver;
 #[rustfmt::skip]
 mod logics;
+pub mod funs;
 mod solver;
+pub mod sorts;
 pub mod terms;
 pub mod theories;
 
@@ -26,6 +28,10 @@ pub use solver::Solver;
 pub use theories::{core::*, fixed_size_bit_vectors::*, ints::*, reals::*};
 #[cfg(feature = "tokio")]
 pub use tokio_solver::TokioSolver;
+
+pub mod prelude {
+    pub use crate::terms::{Sorted, StaticSorted};
+}
 
 /// The satisfiability result produced by a solver
 #[derive(Debug)]
@@ -80,6 +86,7 @@ impl SatResultWithModel {
 
 /// An error that occurred during any stage of using `smtlib`.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[non_exhaustive]
 pub enum Error {
     #[error(transparent)]
     #[diagnostic(transparent)]
@@ -104,6 +111,11 @@ pub enum Error {
         expected: SatResult,
         /// The actual sat result
         actual: SatResult,
+    },
+    #[error("tried to cast a dynamic of sort {expected} to {actual}")]
+    DynamicCastSortMismatch {
+        expected: sorts::Sort,
+        actual: sorts::Sort,
     },
 }
 
@@ -168,7 +180,7 @@ impl Model {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn eval<T: Sort>(&self, x: Const<T>) -> Option<T::Inner>
+    pub fn eval<T: Sorted>(&self, x: Const<T>) -> Option<T::Inner>
     where
         T::Inner: From<ast::Term>,
     {
@@ -178,14 +190,16 @@ impl Model {
 
 #[cfg(test)]
 mod tests {
-    use crate::terms::{forall, Sort};
+    use terms::StaticSorted;
+
+    use crate::terms::{forall, Sorted};
 
     use super::*;
 
     #[test]
     fn int_math() {
-        let x = Int::from_name("x");
-        let y = Int::from_name("hello");
+        let x = Int::new_const("x");
+        let y = Int::new_const("hello");
         // let x_named = x.labeled();
         let mut z = 12 + y * 4;
         z += 3;
@@ -195,8 +209,8 @@ mod tests {
 
     #[test]
     fn quantifiers() {
-        let x = Int::from_name("x");
-        let y = Int::from_name("y");
+        let x = Int::new_const("x");
+        let y = Int::new_const("y");
 
         let res = forall((x, y), (x + 2)._eq(y));
         println!("{}", ast::Term::from(res));

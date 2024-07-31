@@ -1,13 +1,11 @@
 #![doc = concat!("```ignore\n", include_str!("./Ints.smt2"), "```")]
 
-use smtlib_lowlevel::{
-    ast::{self, Identifier, Term},
-    lexicon::Symbol,
-};
+use smtlib_lowlevel::ast::Term;
 
 use crate::{
     impl_op,
-    terms::{fun, qual_ident, Const, Dynamic, Sort},
+    sorts::Sort,
+    terms::{fun, qual_ident, Const, Dynamic, Sorted, StaticSorted},
     Bool,
 };
 
@@ -29,7 +27,7 @@ impl std::fmt::Display for Int {
 
 impl From<Int> for Dynamic {
     fn from(i: Int) -> Self {
-        Term::from(i).into()
+        i.into_dynamic()
     }
 }
 
@@ -43,10 +41,15 @@ impl From<Term> for Int {
         Int(Box::leak(Box::new(t)))
     }
 }
-impl Sort for Int {
+impl From<(Term, Sort)> for Int {
+    fn from((t, _): (Term, Sort)) -> Self {
+        t.into()
+    }
+}
+impl StaticSorted for Int {
     type Inner = Self;
-    fn sort() -> ast::Sort {
-        ast::Sort::Sort(Identifier::Simple(Symbol("Int".into())))
+    fn static_sort() -> Sort {
+        Sort::new("Int")
     }
 }
 impl From<i64> for Int {
@@ -55,6 +58,9 @@ impl From<i64> for Int {
     }
 }
 impl Int {
+    pub fn sort() -> Sort {
+        Self::static_sort()
+    }
     fn binop<T: From<Term>>(self, op: &str, other: Int) -> T {
         fun(op, vec![self.into(), other.into()]).into()
     }
@@ -92,3 +98,6 @@ impl_op!(Int, i64, Add, add, "+", AddAssign, add_assign, +);
 impl_op!(Int, i64, Sub, sub, "-", SubAssign, sub_assign, -);
 impl_op!(Int, i64, Mul, mul, "*", MulAssign, mul_assign, *);
 impl_op!(Int, i64, Div, div, "div", DivAssign, div_assign, /);
+impl_op!(Int, i64, Rem, rem, "rem", RemAssign, rem_assign, %);
+impl_op!(Int, i64, Shl, shl, "hsl", ShlAssign, shl_assign, <<);
+impl_op!(Int, i64, Shr, shr, "hsr", ShrAssign, shr_assign, >>);

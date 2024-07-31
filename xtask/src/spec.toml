@@ -143,7 +143,7 @@ syntax = "( <constructor_dec>+ )"
 syntax = "( par ( <symbol>+ ) ( <constructor_dec>+ ) )"
 
 [function_dec]
-syntax = "( <symbol> ( <sorted_var>* ) <sort> )"
+syntax = "( <symbol> ( <sort>* ) <sort> )"
 
 [function_def]
 syntax = "<symbol> ( <sorted_var>* ) <sort> <term>"

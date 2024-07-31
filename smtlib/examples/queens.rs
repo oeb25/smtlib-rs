@@ -6,22 +6,22 @@ use smtlib::{
     and,
     backend::{cvc5_binary::Cvc5Binary, z3_binary::Z3Binary, Backend},
     distinct, or,
-    terms::Sort,
+    prelude::*,
     Int, Logic, SatResultWithModel, Solver,
 };
 
 fn queens<B: Backend>(backend: B) -> miette::Result<()> {
-    let x0 = Int::from_name("x0");
-    let x1 = Int::from_name("x1");
-    let x2 = Int::from_name("x2");
-    let x3 = Int::from_name("x3");
-    let x4 = Int::from_name("x4");
-    let x5 = Int::from_name("x5");
-    let x6 = Int::from_name("x6");
-    let x7 = Int::from_name("x7");
+    let x0 = Int::new_const("x0");
+    let x1 = Int::new_const("x1");
+    let x2 = Int::new_const("x2");
+    let x3 = Int::new_const("x3");
+    let x4 = Int::new_const("x4");
+    let x5 = Int::new_const("x5");
+    let x6 = Int::new_const("x6");
+    let x7 = Int::new_const("x7");
     let xs = [x0, x1, x2, x3, x4, x5, x6, x7];
 
-    let n = Int::from_name("N");
+    let n = Int::new_const("N");
 
     let mut solver = Solver::new(backend)?;
 

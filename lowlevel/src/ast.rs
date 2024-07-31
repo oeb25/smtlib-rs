@@ -1246,10 +1246,10 @@ impl SmtlibParse for DatatypeDec {
         Err(p.stuck("datatype_dec"))
     }
 }
-/// `(<symbol> (<sorted_var>*) <sort>)`
+/// `(<symbol> (<sort>*) <sort>)`
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct FunctionDec(pub Symbol, pub Vec<SortedVar>, pub Sort);
+pub struct FunctionDec(pub Symbol, pub Vec<Sort>, pub Sort);
 impl std::fmt::Display for FunctionDec {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "({} ({}) {})", self.0, self.1.iter().format(" "), self.2)
@@ -1268,7 +1268,7 @@ impl SmtlibParse for FunctionDec {
         p.expect(Token::LParen)?;
         let m0 = <Symbol as SmtlibParse>::parse(p)?;
         p.expect(Token::LParen)?;
-        let m1 = p.any::<SortedVar>()?;
+        let m1 = p.any::<Sort>()?;
         p.expect(Token::RParen)?;
         let m2 = <Sort as SmtlibParse>::parse(p)?;
         p.expect(Token::RParen)?;

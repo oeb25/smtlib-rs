@@ -1,5 +1,5 @@
 use miette::IntoDiagnostic;
-use smtlib::Sort;
+use smtlib::prelude::*;
 
 #[derive(Debug, Clone)]
 enum Expr {
@@ -98,7 +98,7 @@ fn expr_to_smt_bool(expr: &Expr) -> smtlib::Bool {
 fn expr_to_smt(expr: &Expr) -> smtlib::terms::Dynamic {
     match expr {
         Expr::Num(n) => smtlib::Int::from(*n).into(),
-        Expr::Var(v) => smtlib::Int::from_name(v).into(),
+        Expr::Var(v) => smtlib::Int::new_const(v).into(),
         Expr::Bool(b) => smtlib::Bool::from(*b).into(),
         Expr::Add(l, r) => (expr_to_smt_int(l) + expr_to_smt_int(r)).into(),
         Expr::Sub(l, r) => (expr_to_smt_int(l) - expr_to_smt_int(r)).into(),
