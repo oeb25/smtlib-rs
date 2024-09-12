@@ -5,7 +5,11 @@ use crate::parse::{ParseError, Parser, Token};
 pub struct Numeral(pub String);
 impl std::fmt::Display for Numeral {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
+        if let Some(rest) = self.0.strip_prefix('-') {
+            write!(f, "(- {rest})")
+        } else {
+            write!(f, "{}", self.0)
+        }
     }
 }
 impl SmtlibParse for Numeral {

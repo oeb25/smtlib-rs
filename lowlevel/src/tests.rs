@@ -30,6 +30,18 @@ mod z3 {
 
         Ok(())
     }
+
+    #[test]
+    fn negative_numbers() -> Result<(), Box<dyn std::error::Error>> {
+        let mut d = Driver::new(Z3Binary::new("z3")?)?;
+
+        cmd!(d, r#"(declare-const x Int)"#);
+        cmd!(d, r#"(assert (< x (- 1)))"#);
+        cmd!(d, r#"(check-sat)"#);
+        cmd!(d, r#"(get-model)"#);
+
+        Ok(())
+    }
 }
 
 #[cfg(feature = "z3-static")]

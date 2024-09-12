@@ -22,6 +22,8 @@ pub mod funs;
 mod solver;
 pub mod sorts;
 pub mod terms;
+#[cfg(test)]
+mod tests;
 pub mod theories;
 
 pub use solver::Solver;
@@ -185,34 +187,5 @@ impl Model {
         T::Inner: From<ast::Term>,
     {
         Some(self.values.get(x.name().trim_matches('|'))?.clone().into())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use terms::StaticSorted;
-
-    use crate::terms::{forall, Sorted};
-
-    use super::*;
-
-    #[test]
-    fn int_math() {
-        let x = Int::new_const("x");
-        let y = Int::new_const("hello");
-        // let x_named = x.labeled();
-        let mut z = 12 + y * 4;
-        z += 3;
-        let w = x * x + z;
-        println!("{w}");
-    }
-
-    #[test]
-    fn quantifiers() {
-        let x = Int::new_const("x");
-        let y = Int::new_const("y");
-
-        let res = forall((x, y), (x + 2)._eq(y));
-        println!("{}", ast::Term::from(res));
     }
 }

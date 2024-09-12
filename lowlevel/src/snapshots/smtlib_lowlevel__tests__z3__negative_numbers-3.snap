@@ -1,0 +1,5 @@
+---
+source: lowlevel/src/tests.rs
+expression: "d.exec(&Command::parse(r#\"(check-sat)\"#)?)?"
+---
+SpecificSuccessResponse(CheckSatResponse(Sat))

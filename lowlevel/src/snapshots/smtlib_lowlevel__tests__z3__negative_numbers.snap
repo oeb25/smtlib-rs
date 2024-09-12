@@ -1,0 +1,5 @@
+---
+source: lowlevel/src/tests.rs
+expression: "d.exec(&Command::parse(r#\"(declare-const x Int)\"#)?)?"
+---
+Success

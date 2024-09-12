@@ -1,6 +1,6 @@
 #![doc = concat!("```ignore\n", include_str!("./Ints.smt2"), "```")]
 
-use smtlib_lowlevel::ast::Term;
+use smtlib_lowlevel::{ast::Term, lexicon::Numeral};
 
 use crate::{
     impl_op,
@@ -54,7 +54,10 @@ impl StaticSorted for Int {
 }
 impl From<i64> for Int {
     fn from(i: i64) -> Self {
-        Term::Identifier(qual_ident(i.to_string(), None)).into()
+        Term::SpecConstant(smtlib_lowlevel::ast::SpecConstant::Numeral(Numeral(
+            i.to_string(),
+        )))
+        .into()
     }
 }
 impl Int {
