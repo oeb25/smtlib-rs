@@ -1,6 +1,6 @@
 use indexmap::{map::Entry, IndexMap, IndexSet};
 use smtlib_lowlevel::{
-    ast::{self, Identifier, QualIdentifier},
+    ast::{self, Identifier, OptimizationPriority, QualIdentifier},
     backend,
     lexicon::{Numeral, Symbol},
     Driver, Logger,
@@ -82,6 +82,18 @@ where
             _ => todo!(),
         }
     }
+
+    /// sets the :opt.priority option to the given value
+    pub fn set_opt_priority(&mut self, priority: ast::OptimizationPriority) -> Result<(), Error> {
+        let cmd = ast::Command::SetOption(ast::Option::OptPriority(priority));
+
+        match self.driver.exec(&cmd)? {
+            ast::GeneralResponse::Success => Ok(()),
+            ast::GeneralResponse::Error(e) => Err(Error::Smt(e, cmd.to_string())),
+            _ => unimplemented!(),
+        }
+    }
+
     /// Explicitly sets the logic for the solver. For some backends this is not
     /// required, as they will infer what ever logic fits the current program.
     ///
@@ -136,7 +148,7 @@ where
 
         self.declare_all_consts(&term)?;
 
-        let cmd = ast::Command::AssertSoft(term);
+        let cmd = ast::Command::AssertSoft(term, vec![]);
 
         match self.driver.exec(&cmd)? {
             ast::GeneralResponse::Success => Ok(()),

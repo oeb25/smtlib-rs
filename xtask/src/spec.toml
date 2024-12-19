@@ -274,7 +274,12 @@ syntax = "( maximize <term> )"
 syntax = "( minimize <term> )"
 
 [command.assert-soft]
-syntax = "( assert-soft <term> )"
+syntax = "( assert-soft <term> <optimization_attribute>* )"
+
+[optimization_attribute]
+weight = { syntax = ":weight <numeral>" }
+id = { syntax = ":id <symbol>"}
+attribute = { syntax = "<attribute>" }
 
 [script]
 syntax = "<command>*"
@@ -303,7 +308,21 @@ random-seed = { syntax = ":random-seed <numeral>" }
 regular-output-channel = { syntax = ":regular-output-channel <string>" }
 reproducible-resource-limit = { syntax = ":reproducible-resource-limit <numeral>" }
 verbosity = { syntax = ":verbosity <numeral>" }
+
+# optimization options
+"opt.priority" = { syntax = ":opt.priority <optimization_priority>"}
+
+# cont'd
 attribute = { syntax = "<attribute>" }
+
+[optimization_priority.pareto]
+syntax = "pareto"
+
+[optimization_priority.lex]
+syntax = "lex"
+
+[optimization_priority.box]
+syntax = "box"
 
 # Info flags.
 
