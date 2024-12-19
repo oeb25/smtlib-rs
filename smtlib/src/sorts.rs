@@ -55,7 +55,7 @@ impl Index {
 
 pub(crate) fn is_built_in_sort(name: &str) -> bool {
     match name {
-        "Int" | "Bool" => true,
+        "Int" | "Bool" | "Real" => true,
         _ => false,
     }
 }
@@ -63,10 +63,6 @@ pub(crate) fn is_built_in_sort(name: &str) -> bool {
 impl Sort {
     pub fn new(name: impl Into<String>) -> Self {
         let mut name = name.into();
-        if !is_built_in_sort(&name) {
-            // HACK: how should we handle this? or should we event handle it?
-            name += "_xxx";
-        }
         Self {
             name,
             index: Vec::new(),
