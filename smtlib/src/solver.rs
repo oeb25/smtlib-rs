@@ -130,6 +130,21 @@ where
         }
     }
 
+    /// Adds soft-constraint `b` to the solver.
+    pub fn assert_soft<S>(&mut self, b: Bool) -> Result<(), Error> where S: Sorted {
+        let term = b.into();
+
+        self.declare_all_consts(&term)?;
+
+        let cmd = ast::Command::AssertSoft(term);
+
+        match self.driver.exec(&cmd)? {
+            ast::GeneralResponse::Success => Ok(()),
+            ast::GeneralResponse::Error(e) => Err(Error::Smt(e, cmd.to_string())),
+            _ => unimplemented!(),
+        }
+    }
+
     /// Adds the optimization goal of `g` as a goal to the solver.
     pub fn minimize<S>(&mut self, g: S) -> Result<(), Error> where S: Sorted {
         let term = g.into();
