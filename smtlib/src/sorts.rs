@@ -11,12 +11,12 @@
 
 use itertools::Itertools;
 use smtlib_lowlevel::{
+    Storage,
     ast::{self, Identifier},
     lexicon::{Numeral, Symbol},
-    Storage,
 };
 
-use crate::terms::{self, qual_ident, STerm};
+use crate::terms::{self, STerm, qual_ident};
 
 /// A SMT-LIB sort.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -67,18 +67,13 @@ impl<'st> Index<'st> {
 }
 
 pub(crate) fn is_built_in_sort(name: &str) -> bool {
-    matches!(name, "Int" | "Bool" | "Array" | "BitVec")
+    matches!(name, "Int" | "Bool" | "Real" | "Array" | "BitVec")
 }
 
 impl<'st> Sort<'st> {
     /// Create a new dynamic sort.
     pub fn new(st: &'st Storage, name: impl Into<String>) -> Self {
-        let mut name = name.into();
-        if !is_built_in_sort(&name) {
-            // HACK: how should we handle this? or should we event handle it?
-            name += "_xxx";
-        }
-        let name = st.alloc_str(&name);
+        let name = st.alloc_str(&name.into());
         Self::Dynamic {
             st,
             name,
