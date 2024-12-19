@@ -131,7 +131,7 @@ where
     }
 
     /// Adds soft-constraint `b` to the solver.
-    pub fn assert_soft<S>(&mut self, b: Bool) -> Result<(), Error> where S: Sorted {
+    pub fn assert_soft(&mut self, b: Bool) -> Result<(), Error> {
         let term = b.into();
 
         self.declare_all_consts(&term)?;
