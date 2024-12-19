@@ -89,6 +89,11 @@ impl Real {
     pub fn abs(self) -> Real {
         fun("abs", vec![self.into()]).into()
     }
+
+    /// Construct the term expressing floor division of two terms
+    pub fn floor_div<R>(self, rhs: R) -> Self where R: Into<Real> {
+        self.binop("div", rhs.into())
+    }
 }
 
 impl std::ops::Neg for Real {
@@ -101,4 +106,4 @@ impl std::ops::Neg for Real {
 impl_op!(Real, f64, Add, add, "+", AddAssign, add_assign, +);
 impl_op!(Real, f64, Sub, sub, "-", SubAssign, sub_assign, -);
 impl_op!(Real, f64, Mul, mul, "*", MulAssign, mul_assign, *);
-impl_op!(Real, f64, Div, div, "div", DivAssign, div_assign, /);
+impl_op!(Real, f64, Div, div, "/", DivAssign, div_assign, /);
