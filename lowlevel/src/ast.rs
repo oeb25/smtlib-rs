@@ -1406,6 +1406,12 @@ pub enum Command {
     SetOption(Option),
     /// `(simplify <term>)`
     Simplify(Term),
+    /// `(maximize <term>)`
+    Maximize(Term),
+    /// `(minimize <term>)`
+    Minimize(Term),
+    /// `(assert-soft <term>)`
+    AssertSoft(Term),
 }
 impl std::fmt::Display for Command {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -1459,6 +1465,9 @@ impl std::fmt::Display for Command {
             Self::SetLogic(m0) => write!(f, "(set-logic {})", m0),
             Self::SetOption(m0) => write!(f, "(set-option {})", m0),
             Self::Simplify(m0) => write!(f, "(simplify {})", m0),
+            Self::Maximize(m0) => write!(f, "(maximize {})", m0),
+            Self::Minimize(m0) => write!(f, "(minimize {})", m0),
+            Self::AssertSoft(m0) => write!(f, "(assert-soft {})", m0),
         }
     }
 }
@@ -1485,6 +1494,12 @@ impl SmtlibParse for Command {
             || (p.nth(offset) == Token::LParen
                 && p.nth_matches(offset + 1, Token::Reserved, "check-sat-assuming")
                 && p.nth(offset + 2) == Token::LParen)
+            || (p.nth(offset) == Token::LParen
+                && p.nth_matches(offset + 1, Token::Symbol, "assert-soft"))
+            || (p.nth(offset) == Token::LParen
+                && p.nth_matches(offset + 1, Token::Symbol, "minimize"))
+            || (p.nth(offset) == Token::LParen
+                && p.nth_matches(offset + 1, Token::Symbol, "maximize"))
             || (p.nth(offset) == Token::LParen
                 && p.nth_matches(offset + 1, Token::Symbol, "simplify"))
             || (p.nth(offset) == Token::LParen
@@ -1632,6 +1647,33 @@ impl SmtlibParse for Command {
             p.expect(Token::RParen)?;
             #[allow(clippy::useless_conversion)]
             return Ok(Self::CheckSatAssuming(m0.into()));
+        }
+        if p.nth(offset) == Token::LParen
+            && p.nth_matches(offset + 1, Token::Symbol, "assert-soft")
+        {
+            p.expect(Token::LParen)?;
+            p.expect_matches(Token::Symbol, "assert-soft")?;
+            let m0 = <Term as SmtlibParse>::parse(p)?;
+            p.expect(Token::RParen)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::AssertSoft(m0.into()));
+        }
+        if p.nth(offset) == Token::LParen
+            && p.nth_matches(offset + 1, Token::Symbol, "minimize")
+        {
+            p.expect(Token::LParen)?;
+            p.expect_matches(Token::Symbol, "minimize")?;
+            let m0 = <Term as SmtlibParse>::parse(p)?;
+            p.expect(Token::RParen)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Minimize(m0.into()));
+        }
+        if p.nth(offset) == Token::LParen
+            && p.nth_matches(offset + 1, Token::Symbol, "maximize")
+        {
+            p.expect(Token::LParen)?;
+            p.expect_matches(Token::Symbol, "maximize")?;
+            let m0 = <Term as SmtlibParse>::parse(p)?;
+            p.expect(Token::RParen)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Maximize(m0.into()));
         }
         if p.nth(offset) == Token::LParen
             && p.nth_matches(offset + 1, Token::Symbol, "simplify")
@@ -1902,6 +1944,9 @@ impl Command {
             Self::SetLogic(_) => false,
             Self::SetOption(_) => false,
             Self::Simplify(_) => true,
+            Self::Maximize(_) => false,
+            Self::Minimize(_) => false,
+            Self::AssertSoft(_) => false,
         }
     }
     pub fn parse_response(
@@ -2044,6 +2089,9 @@ impl Command {
                     ),
                 )
             }
+            Self::Maximize(_) => Ok(None),
+            Self::Minimize(_) => Ok(None),
+            Self::AssertSoft(_) => Ok(None),
         }
     }
 }
