@@ -1,15 +1,14 @@
 #![doc = concat!("```ignore\n", include_str!("./Reals.smt2"), "```")]
 
 use smtlib_lowlevel::{
-    ast::{self, Term},
     Storage,
+    ast::{self, Term},
 };
 
 use crate::{
-    impl_op,
+    Bool, impl_op,
     sorts::Sort,
-    terms::{app, qual_ident, Const, Dynamic, IntoWithStorage, STerm, Sorted, StaticSorted},
-    Bool,
+    terms::{Const, Dynamic, IntoWithStorage, STerm, Sorted, StaticSorted, app, qual_ident},
 };
 
 /// A [`Real`] is a term containing a
@@ -105,6 +104,10 @@ impl<'st> Real<'st> {
     pub fn abs(self) -> Real<'st> {
         app(self.st(), "abs", self.term()).into()
     }
+    /// Construct the term expressing floor division of two terms
+    pub fn floor_div<R>(self, rhs: impl Into<Self>) -> Self {
+        self.binop("div", rhs.into())
+    }
 }
 
 impl std::ops::Neg for Real<'_> {
@@ -117,4 +120,4 @@ impl std::ops::Neg for Real<'_> {
 impl_op!(Real<'st>, f64, Add, add, "+", AddAssign, add_assign, +);
 impl_op!(Real<'st>, f64, Sub, sub, "-", SubAssign, sub_assign, -);
 impl_op!(Real<'st>, f64, Mul, mul, "*", MulAssign, mul_assign, *);
-impl_op!(Real<'st>, f64, Div, div, "div", DivAssign, div_assign, /);
+impl_op!(Real<'st>, f64, Div, div, "/", DivAssign, div_assign, /);
