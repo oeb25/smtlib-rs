@@ -9,7 +9,7 @@ use smtlib_lowlevel::{
 use crate::{
     funs, sorts,
     terms::{qual_ident, Dynamic},
-    Bool, Error, Logic, Model, SatResult, SatResultWithModel,
+    Bool, Error, Logic, Model, SatResult, SatResultWithModel, Sorted,
 };
 
 /// The [`Solver`] type is the primary entrypoint to interaction with the
@@ -114,6 +114,37 @@ where
             _ => todo!(),
         }
     }
+
+    /// Adds the optimization goal of `g` as a goal to the solver.
+    pub fn maximize<S>(&mut self, g: S) -> Result<(), Error> where S: Sorted {
+        let term = g.into();
+
+        self.declare_all_consts(&term)?;
+
+        let cmd = ast::Command::Maximize(term);
+
+        match self.driver.exec(&cmd)? {
+            ast::GeneralResponse::Success => Ok(()),
+            ast::GeneralResponse::Error(e) => Err(Error::Smt(e, cmd.to_string())),
+            _ => unimplemented!(),
+        }
+    }
+
+    /// Adds the optimization goal of `g` as a goal to the solver.
+    pub fn minimize<S>(&mut self, g: S) -> Result<(), Error> where S: Sorted {
+        let term = g.into();
+
+        self.declare_all_consts(&term)?;
+
+        let cmd = ast::Command::Minimize(term);
+
+        match self.driver.exec(&cmd)? {
+            ast::GeneralResponse::Success => Ok(()),
+            ast::GeneralResponse::Error(e) => Err(Error::Smt(e, cmd.to_string())),
+            _ => unimplemented!(),
+        }
+    }
+
     /// Checks for satisfiability of the assertions sent to the solver using
     /// [`Solver::assert`].
     ///
