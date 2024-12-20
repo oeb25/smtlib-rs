@@ -9,7 +9,8 @@ pub(crate) enum Token {
     #[token(")")]
     RParen,
 
-    /// A ⟨numeral⟩ is the digit 0 or a non-empty sequence of digits not starting with 0 .
+    /// A ⟨numeral⟩ is the digit 0 or a non-empty sequence of digits not
+    /// starting with 0 .
     #[regex("0|([1-9][0-9]*)", priority = 2)]
     Numeral,
 
@@ -132,14 +133,17 @@ impl SourceSpan {
     pub fn offset(&self) -> usize {
         self.offset
     }
+
     #[must_use]
     pub fn len(&self) -> usize {
         self.length
     }
+
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
+
     #[must_use]
     pub fn join(&self, span: SourceSpan) -> SourceSpan {
         let offset = self.offset.min(span.offset);
@@ -147,10 +151,12 @@ impl SourceSpan {
         let length = end - offset;
         SourceSpan { offset, length }
     }
+
     #[must_use]
     pub fn end(&self) -> usize {
         self.offset + self.length
     }
+
     #[must_use]
     pub fn contains(&self, byte_offset: usize) -> bool {
         self.offset() <= byte_offset && byte_offset < self.end()
@@ -248,27 +254,34 @@ impl<'src> Parser<'src> {
             errors: vec![],
         }
     }
+
     pub(crate) fn current(&self) -> Token {
         self.nth(0)
     }
+
     pub(crate) fn nth_span(&self, n: usize) -> SourceSpan {
         self.nth_raw(n).1
     }
+
     pub(crate) fn current_span(&self) -> SourceSpan {
         self.nth_span(0)
     }
+
     pub(crate) fn nth_str(&self, n: usize) -> &'src str {
         let span = self.nth_span(n);
         &self.src[span.offset()..span.end()]
     }
+
     pub(crate) fn current_str(&self) -> &'src str {
         self.nth_str(0)
     }
+
     #[allow(unused)]
     pub(crate) fn current_src_str(&self) -> Spanned<&'src str> {
         let span = self.current_span();
         Spanned(self.current_str(), span)
     }
+
     pub(crate) fn nth_raw(&self, n: usize) -> (Token, SourceSpan) {
         if self.cursor + n >= self.lexer.len() {
             (Token::Error, SourceSpan::from((self.src.len(), 0)))
@@ -276,24 +289,30 @@ impl<'src> Parser<'src> {
             self.lexer[self.cursor + n]
         }
     }
+
     pub(crate) fn nth(&self, n: usize) -> Token {
         self.nth_raw(n).0
     }
+
     // TODO: Maybe we should assert end of stream when parsing scripts?
     #[allow(unused)]
     pub(crate) fn eoi(&self) -> bool {
         self.cursor >= self.lexer.len()
     }
+
     #[allow(unused)]
     pub(crate) fn pos(&self) -> usize {
         self.cursor
     }
+
     pub(crate) fn bump(&mut self) {
         self.cursor += 1
     }
+
     pub(crate) fn nth_matches(&self, n: usize, t: Token, s: &str) -> bool {
         self.nth(n) == t && self.nth_str(n) == s
     }
+
     pub(crate) fn expect_matches(&mut self, t: Token, s: &str) -> Result<&'src str, ParseError> {
         if self.nth_matches(0, t, s) {
             let s = self.current_str();
@@ -303,6 +322,7 @@ impl<'src> Parser<'src> {
             todo!()
         }
     }
+
     pub(crate) fn expect(&mut self, t: Token) -> Result<&'src str, ParseError> {
         match self.current() {
             found if found == t => {
@@ -324,6 +344,7 @@ impl<'src> Parser<'src> {
             }
         }
     }
+
     pub(crate) fn any<T: SmtlibParse>(&mut self) -> Result<Vec<T>, ParseError> {
         let mut res = vec![];
         while T::is_start_of(0, self) {
@@ -331,6 +352,7 @@ impl<'src> Parser<'src> {
         }
         Ok(res)
     }
+
     pub(crate) fn non_zero<T: SmtlibParse>(&mut self) -> Result<Vec<T>, ParseError> {
         let mut res = vec![T::parse(self)?];
         while T::is_start_of(0, self) {
@@ -338,6 +360,7 @@ impl<'src> Parser<'src> {
         }
         Ok(res)
     }
+
     pub(crate) fn n_plus_one<T: SmtlibParse>(&mut self) -> Result<Vec<T>, ParseError> {
         // TODO
         self.non_zero()

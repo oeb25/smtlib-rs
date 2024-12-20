@@ -1,4 +1,4 @@
-use std::collections::{hash_map::Entry, HashMap};
+use std::collections::{HashMap, hash_map::Entry};
 
 use smtlib_lowlevel::{
     ast::{self, Identifier, QualIdentifier},
@@ -57,6 +57,7 @@ where
             decls: Default::default(),
         })
     }
+
     /// Explicitly sets the logic for the solver. For some backends this is not
     /// required, as they will infer what ever logic fits the current program.
     ///
@@ -70,10 +71,12 @@ where
             ast::GeneralResponse::Error(_) => todo!(),
         }
     }
+
     /// Runs the given command on the solver, and returns the result.
     pub async fn run_command(&mut self, cmd: &ast::Command) -> Result<ast::GeneralResponse, Error> {
         Ok(self.driver.exec(cmd).await?)
     }
+
     /// Adds the constraint of `b` as an assertion to the solver. To check for
     /// satisfiability call [`TokioSolver::check_sat`] or
     /// [`TokioSolver::check_sat_with_model`].
@@ -82,20 +85,22 @@ where
         for q in term.all_consts() {
             match q {
                 QualIdentifier::Identifier(_) => {}
-                QualIdentifier::Sorted(i, s) => match self.decls.entry(i.clone()) {
-                    Entry::Occupied(stored) => assert_eq!(s, stored.get()),
-                    Entry::Vacant(v) => {
-                        v.insert(s.clone());
-                        match i {
-                            Identifier::Simple(sym) => {
-                                self.driver
-                                    .exec(&ast::Command::DeclareConst(sym.clone(), s.clone()))
-                                    .await?;
+                QualIdentifier::Sorted(i, s) => {
+                    match self.decls.entry(i.clone()) {
+                        Entry::Occupied(stored) => assert_eq!(s, stored.get()),
+                        Entry::Vacant(v) => {
+                            v.insert(s.clone());
+                            match i {
+                                Identifier::Simple(sym) => {
+                                    self.driver
+                                        .exec(&ast::Command::DeclareConst(sym.clone(), s.clone()))
+                                        .await?;
+                                }
+                                Identifier::Indexed(..) => todo!(),
                             }
-                            Identifier::Indexed(_, _) => todo!(),
                         }
                     }
-                },
+                }
             }
         }
         let cmd = ast::Command::Assert(term);
@@ -105,6 +110,7 @@ where
             _ => todo!(),
         }
     }
+
     /// Checks for satisfiability of the assertions sent to the solver using
     /// [`TokioSolver::assert`].
     ///
@@ -115,15 +121,18 @@ where
         match self.driver.exec(&cmd).await? {
             ast::GeneralResponse::SpecificSuccessResponse(
                 ast::SpecificSuccessResponse::CheckSatResponse(res),
-            ) => Ok(match res {
-                ast::CheckSatResponse::Sat => SatResult::Sat,
-                ast::CheckSatResponse::Unsat => SatResult::Unsat,
-                ast::CheckSatResponse::Unknown => SatResult::Unknown,
-            }),
+            ) => {
+                Ok(match res {
+                    ast::CheckSatResponse::Sat => SatResult::Sat,
+                    ast::CheckSatResponse::Unsat => SatResult::Unsat,
+                    ast::CheckSatResponse::Unknown => SatResult::Unknown,
+                })
+            }
             ast::GeneralResponse::Error(msg) => Err(Error::Smt(msg, format!("{cmd}"))),
             res => todo!("{res:?}"),
         }
     }
+
     /// Checks for satisfiability of the assertions sent to the solver using
     /// [`TokioSolver::assert`], and produces a [model](Model) in case of `sat`.
     ///
@@ -136,9 +145,10 @@ where
             SatResult::Unknown => Ok(SatResultWithModel::Unknown),
         }
     }
+
     /// Produces the model for satisfying the assertions. If you are looking to
-    /// retrieve a model after calling [`TokioSolver::check_sat`], consider using
-    /// [`TokioSolver::check_sat_with_model`] instead.
+    /// retrieve a model after calling [`TokioSolver::check_sat`], consider
+    /// using [`TokioSolver::check_sat_with_model`] instead.
     ///
     /// > **NOTE:** This must only be called after having called
     /// > [`TokioSolver::check_sat`] and it returning [`SatResult::Sat`].

@@ -16,6 +16,7 @@ impl SmtlibParse for Numeral {
     fn is_start_of(offset: usize, tokens: &mut Parser) -> bool {
         tokens.nth(offset) == Token::Numeral
     }
+
     fn parse(tokens: &mut Parser) -> Result<Self, ParseError> {
         Ok(Self(tokens.expect(Token::Numeral)?.into()))
     }
@@ -32,6 +33,7 @@ impl SmtlibParse for Decimal {
     fn is_start_of(offset: usize, tokens: &mut Parser) -> bool {
         tokens.nth(offset) == Token::Decimal
     }
+
     fn parse(tokens: &mut Parser) -> Result<Self, ParseError> {
         Ok(Self(tokens.expect(Token::Decimal)?.into()))
     }
@@ -48,6 +50,7 @@ impl SmtlibParse for Symbol {
     fn is_start_of(offset: usize, tokens: &mut Parser) -> bool {
         tokens.nth(offset) == Token::Symbol
     }
+
     fn parse(tokens: &mut Parser) -> Result<Self, ParseError> {
         Ok(Self(tokens.expect(Token::Symbol)?.into()))
     }
@@ -64,6 +67,7 @@ impl SmtlibParse for Hexadecimal {
     fn is_start_of(offset: usize, tokens: &mut Parser) -> bool {
         tokens.nth(offset) == Token::Hexadecimal
     }
+
     fn parse(tokens: &mut Parser) -> Result<Self, ParseError> {
         Ok(Self(tokens.expect(Token::Hexadecimal)?.into()))
     }
@@ -85,6 +89,7 @@ impl SmtlibParse for Binary {
     fn is_start_of(offset: usize, tokens: &mut Parser) -> bool {
         tokens.nth(offset) == Token::Binary
     }
+
     fn parse(tokens: &mut Parser) -> Result<Self, ParseError> {
         Ok(Self(tokens.expect(Token::Binary)?.into()))
     }
@@ -106,6 +111,7 @@ impl SmtlibParse for Reserved {
     fn is_start_of(offset: usize, tokens: &mut Parser) -> bool {
         tokens.nth(offset) == Token::Reserved
     }
+
     fn parse(tokens: &mut Parser) -> Result<Self, ParseError> {
         Ok(Self(tokens.expect(Token::Reserved)?.into()))
     }
@@ -122,6 +128,7 @@ impl SmtlibParse for Keyword {
     fn is_start_of(offset: usize, tokens: &mut Parser) -> bool {
         tokens.nth(offset) == Token::Keyword
     }
+
     fn parse(tokens: &mut Parser) -> Result<Self, ParseError> {
         Ok(Self(tokens.expect(Token::Keyword)?.into()))
     }

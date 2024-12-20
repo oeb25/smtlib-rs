@@ -1,15 +1,17 @@
-use indexmap::{map::Entry, IndexMap, IndexSet};
+use indexmap::{IndexMap, IndexSet, map::Entry};
 use smtlib_lowlevel::{
-    ast::{self, Identifier, QualIdentifier},
+    Driver, Logger,
+    ast::{
+        self, EvalResponse, GeneralResponse, Identifier, OptimizationPriority, QualIdentifier,
+        SpecificSuccessResponse, Term,
+    },
     backend,
     lexicon::{Numeral, Symbol},
-    Driver, Logger,
 };
 
 use crate::{
-    funs, sorts,
-    terms::{qual_ident, Dynamic},
-    Bool, Error, Logic, Model, SatResult, SatResultWithModel,
+    Bool, Error, Logic, Model, SatResult, SatResultWithModel, Sorted, funs, sorts,
+    terms::{Dynamic, qual_ident},
 };
 
 /// The [`Solver`] type is the primary entrypoint to interaction with the
@@ -68,9 +70,11 @@ where
             declared_sorts: Default::default(),
         })
     }
+
     pub fn set_logger(&mut self, logger: impl Logger) {
         self.driver.set_logger(logger)
     }
+
     pub fn set_timeout(&mut self, ms: usize) -> Result<(), Error> {
         let cmd = ast::Command::SetOption(ast::Option::Attribute(ast::Attribute::WithValue(
             smtlib_lowlevel::lexicon::Keyword(":timeout".to_string()),
@@ -82,6 +86,18 @@ where
             _ => todo!(),
         }
     }
+
+    /// sets the :opt.priority option to the given value
+    pub fn set_opt_priority(&mut self, priority: ast::OptimizationPriority) -> Result<(), Error> {
+        let cmd = ast::Command::SetOption(ast::Option::OptPriority(priority));
+
+        match self.driver.exec(&cmd)? {
+            ast::GeneralResponse::Success => Ok(()),
+            ast::GeneralResponse::Error(e) => Err(Error::Smt(e, cmd.to_string())),
+            _ => unimplemented!(),
+        }
+    }
+
     /// Explicitly sets the logic for the solver. For some backends this is not
     /// required, as they will infer what ever logic fits the current program.
     ///
@@ -95,10 +111,12 @@ where
             ast::GeneralResponse::Error(_) => todo!(),
         }
     }
+
     /// Runs the given command on the solver, and returns the result.
     pub fn run_command(&mut self, cmd: &ast::Command) -> Result<ast::GeneralResponse, Error> {
         Ok(self.driver.exec(cmd)?)
     }
+
     /// Adds the constraint of `b` as an assertion to the solver. To check for
     /// satisfiability call [`Solver::check_sat`] or
     /// [`Solver::check_sat_with_model`].
@@ -114,6 +132,58 @@ where
             _ => todo!(),
         }
     }
+
+    /// Adds the optimization goal of `g` as a goal to the solver.
+    pub fn maximize<S>(&mut self, g: S) -> Result<(), Error>
+    where
+        S: Sorted,
+    {
+        let term = g.into();
+
+        self.declare_all_consts(&term)?;
+
+        let cmd = ast::Command::Maximize(term);
+
+        match self.driver.exec(&cmd)? {
+            ast::GeneralResponse::Success => Ok(()),
+            ast::GeneralResponse::Error(e) => Err(Error::Smt(e, cmd.to_string())),
+            _ => unimplemented!(),
+        }
+    }
+
+    /// Adds soft-constraint `b` to the solver.
+    pub fn assert_soft(&mut self, b: Bool) -> Result<(), Error> {
+        let term = b.into();
+
+        self.declare_all_consts(&term)?;
+
+        let cmd = ast::Command::AssertSoft(term, vec![]);
+
+        match self.driver.exec(&cmd)? {
+            ast::GeneralResponse::Success => Ok(()),
+            ast::GeneralResponse::Error(e) => Err(Error::Smt(e, cmd.to_string())),
+            _ => unimplemented!(),
+        }
+    }
+
+    /// Adds the optimization goal of `g` as a goal to the solver.
+    pub fn minimize<S>(&mut self, g: S) -> Result<(), Error>
+    where
+        S: Sorted,
+    {
+        let term = g.into();
+
+        self.declare_all_consts(&term)?;
+
+        let cmd = ast::Command::Minimize(term);
+
+        match self.driver.exec(&cmd)? {
+            ast::GeneralResponse::Success => Ok(()),
+            ast::GeneralResponse::Error(e) => Err(Error::Smt(e, cmd.to_string())),
+            _ => unimplemented!(),
+        }
+    }
+
     /// Checks for satisfiability of the assertions sent to the solver using
     /// [`Solver::assert`].
     ///
@@ -124,15 +194,18 @@ where
         match self.driver.exec(&cmd)? {
             ast::GeneralResponse::SpecificSuccessResponse(
                 ast::SpecificSuccessResponse::CheckSatResponse(res),
-            ) => Ok(match res {
-                ast::CheckSatResponse::Sat => SatResult::Sat,
-                ast::CheckSatResponse::Unsat => SatResult::Unsat,
-                ast::CheckSatResponse::Unknown => SatResult::Unknown,
-            }),
+            ) => {
+                Ok(match res {
+                    ast::CheckSatResponse::Sat => SatResult::Sat,
+                    ast::CheckSatResponse::Unsat => SatResult::Unsat,
+                    ast::CheckSatResponse::Unknown => SatResult::Unknown,
+                })
+            }
             ast::GeneralResponse::Error(msg) => Err(Error::Smt(msg, format!("{cmd}"))),
             res => todo!("{res:?}"),
         }
     }
+
     /// Checks for satisfiability of the assertions sent to the solver using
     /// [`Solver::assert`], and produces a [model](Model) in case of `sat`.
     ///
@@ -145,6 +218,7 @@ where
             SatResult::Unknown => Ok(SatResultWithModel::Unknown),
         }
     }
+
     /// Produces the model for satisfying the assertions. If you are looking to
     /// retrieve a model after calling [`Solver::check_sat`], consider using
     /// [`Solver::check_sat_with_model`] instead.
@@ -159,6 +233,7 @@ where
             res => todo!("{res:?}"),
         }
     }
+
     pub fn declare_fun(&mut self, fun: &funs::Fun) -> Result<(), Error> {
         for var in &fun.vars {
             self.declare_sort(&var.ast())?;
@@ -180,6 +255,7 @@ where
             _ => todo!(),
         }
     }
+
     /// Simplifies the given term
     pub fn simplify(&mut self, t: Dynamic) -> Result<smtlib_lowlevel::ast::Term, Error> {
         self.declare_all_consts(&t.into())?;
@@ -191,6 +267,22 @@ where
                 ast::SpecificSuccessResponse::SimplifyResponse(t),
             ) => Ok(t.0),
             res => todo!("{res:?}"),
+        }
+    }
+
+    pub fn eval<S>(&mut self, term: S) -> Result<S::Inner, Error>
+    where
+        S: Sorted,
+        S::Inner: From<Term>,
+    {
+        let cmd = ast::Command::Eval(term.into());
+
+        match self.driver.exec(&cmd)? {
+            GeneralResponse::SpecificSuccessResponse(SpecificSuccessResponse::EvalResponse(
+                EvalResponse(t),
+            )) => Ok(t.into()),
+            GeneralResponse::Error(e) => Err(Error::Smt(e, cmd.to_string())),
+            _ => unimplemented!(),
         }
     }
 
@@ -254,7 +346,7 @@ where
                                 self.driver
                                     .exec(&ast::Command::DeclareConst(sym.clone(), s.clone()))?;
                             }
-                            Identifier::Indexed(_, _) => todo!(),
+                            Identifier::Indexed(..) => todo!(),
                         }
                     }
                 }
@@ -272,7 +364,7 @@ where
             ast::Sort::Sort(ident) => {
                 let sym = match ident {
                     Identifier::Simple(sym) => sym,
-                    Identifier::Indexed(_, _) => {
+                    Identifier::Indexed(..) => {
                         // TODO: is it correct that only sorts from theores can
                         // be indexed, and thus does not need to be declared?
                         return Ok(());
@@ -286,7 +378,7 @@ where
             ast::Sort::Parametric(ident, params) => {
                 let sym = match ident {
                     Identifier::Simple(sym) => sym,
-                    Identifier::Indexed(_, _) => {
+                    Identifier::Indexed(..) => {
                         // TODO: is it correct that only sorts from theores can
                         // be indexed, and thus does not need to be declared?
                         return Ok(());

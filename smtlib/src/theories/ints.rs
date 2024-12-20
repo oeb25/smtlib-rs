@@ -3,10 +3,9 @@
 use smtlib_lowlevel::{ast::Term, lexicon::Numeral};
 
 use crate::{
-    impl_op,
+    Bool, impl_op,
     sorts::Sort,
-    terms::{fun, qual_ident, Const, Dynamic, Sorted, StaticSorted},
-    Bool,
+    terms::{Const, Dynamic, Sorted, StaticSorted, fun, qual_ident},
 };
 
 /// A [`Int`] is a term containing a
@@ -48,6 +47,7 @@ impl From<(Term, Sort)> for Int {
 }
 impl StaticSorted for Int {
     type Inner = Self;
+
     fn static_sort() -> Sort {
         Sort::new("Int")
     }
@@ -64,25 +64,31 @@ impl Int {
     pub fn sort() -> Sort {
         Self::static_sort()
     }
+
     fn binop<T: From<Term>>(self, op: &str, other: Int) -> T {
         fun(op, vec![self.into(), other.into()]).into()
     }
+
     /// Construct the term expressing `(> self other)`
     pub fn gt(self, other: impl Into<Self>) -> Bool {
         self.binop(">", other.into())
     }
+
     /// Construct the term expressing `(>= self other)`
     pub fn ge(self, other: impl Into<Self>) -> Bool {
         self.binop(">=", other.into())
     }
+
     /// Construct the term expressing `(< self other)`
     pub fn lt(self, other: impl Into<Self>) -> Bool {
         self.binop("<", other.into())
     }
+
     /// Construct the term expressing `(<= self other)`
     pub fn le(self, other: impl Into<Self>) -> Bool {
         self.binop("<=", other.into())
     }
+
     // TODO: This seems to not be supported by z3?
     /// Construct the term expressing `(abs self)`
     pub fn abs(self) -> Int {
@@ -92,6 +98,7 @@ impl Int {
 
 impl std::ops::Neg for Int {
     type Output = Self;
+
     fn neg(self) -> Self::Output {
         fun("-", vec![self.into()]).into()
     }

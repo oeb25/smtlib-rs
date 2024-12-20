@@ -2,7 +2,7 @@ use smtlib_lowlevel::{ast, lexicon::Symbol};
 
 use crate::{
     sorts::Sort,
-    terms::{qual_ident, Dynamic},
+    terms::{Dynamic, qual_ident},
 };
 
 #[derive(Debug)]

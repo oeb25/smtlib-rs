@@ -5,7 +5,7 @@ use smtlib_lowlevel::ast::{self, Term};
 use crate::{
     impl_op,
     sorts::Sort,
-    terms::{fun, qual_ident, Const, Dynamic, Sorted, StaticSorted},
+    terms::{Const, Dynamic, Sorted, StaticSorted, fun, qual_ident},
 };
 
 /// A [`Bool`] is a term containing a
@@ -77,9 +77,11 @@ impl From<(Term, Sort)> for Bool {
 }
 impl StaticSorted for Bool {
     type Inner = Self;
+
     fn static_sort() -> Sort {
         Sort::new("Bool")
     }
+
     fn new_const(name: impl Into<String>) -> Const<Self> {
         let name = String::leak(name.into());
         Const(name, Bool(BoolImpl::Const(name)))
@@ -89,9 +91,11 @@ impl Bool {
     pub fn sort() -> Sort {
         Self::static_sort()
     }
+
     fn binop(self, op: &str, other: Bool) -> Self {
         fun(op, vec![self.into(), other.into()]).into()
     }
+
     /// Construct the term expressing `(==> self other)`.
     ///
     /// The value of the returned boolean is true if:
@@ -100,6 +104,7 @@ impl Bool {
     pub fn implies(self, other: Bool) -> Bool {
         self.binop("=>", other)
     }
+
     /// Construct the term expressing `(ite self then otherwise)`.
     ///
     /// This is similar to the [ternary condition
@@ -134,8 +139,8 @@ pub fn and<const N: usize>(terms: [Bool; N]) -> Bool {
     fun("and", terms.map(Into::into).to_vec()).into()
 }
 /// Construct the term expressing `(or ...terms)` representing the disjunction
-/// of all of the terms. That is to say, the result is true iff any of the terms in
-/// `terms` is true.
+/// of all of the terms. That is to say, the result is true iff any of the terms
+/// in `terms` is true.
 pub fn or<const N: usize>(terms: [Bool; N]) -> Bool {
     fun("or", terms.map(Into::into).to_vec()).into()
 }
@@ -152,8 +157,8 @@ where
 {
     fun("=", terms.map(Into::into).to_vec()).into()
 }
-/// Construct the term expressing `(distinct terms)` representing that all of the
-/// terms in `terms` are distinct (or not-equal).
+/// Construct the term expressing `(distinct terms)` representing that all of
+/// the terms in `terms` are distinct (or not-equal).
 pub fn distinct<T, const N: usize>(terms: [T; N]) -> Bool
 where
     T: Into<ast::Term>,

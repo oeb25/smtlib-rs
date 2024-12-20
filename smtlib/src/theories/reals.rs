@@ -3,10 +3,9 @@
 use smtlib_lowlevel::ast::Term;
 
 use crate::{
-    impl_op,
+    Bool, impl_op,
     sorts::Sort,
-    terms::{fun, qual_ident, Const, Dynamic, Sorted, StaticSorted},
-    Bool,
+    terms::{Const, Dynamic, Sorted, StaticSorted, fun, qual_ident},
 };
 
 /// A [`Real`] is a term containing a
@@ -43,6 +42,7 @@ impl From<Term> for Real {
 }
 impl StaticSorted for Real {
     type Inner = Self;
+
     fn static_sort() -> Sort {
         Sort::new("Real")
     }
@@ -66,33 +66,48 @@ impl Real {
     pub fn sort() -> Sort {
         Self::static_sort()
     }
+
     fn binop<T: From<Term>>(self, op: &str, other: Real) -> T {
         fun(op, vec![self.into(), other.into()]).into()
     }
+
     /// Construct the term expressing `(> self other)`
     pub fn gt(self, other: impl Into<Self>) -> Bool {
         self.binop(">", other.into())
     }
+
     /// Construct the term expressing `(>= self other)`
     pub fn ge(self, other: impl Into<Self>) -> Bool {
         self.binop(">=", other.into())
     }
+
     /// Construct the term expressing `(< self other)`
     pub fn lt(self, other: impl Into<Self>) -> Bool {
         self.binop("<", other.into())
     }
+
     /// Construct the term expressing `(<= self other)`
     pub fn le(self, other: impl Into<Self>) -> Bool {
         self.binop("<=", other.into())
     }
+
     /// Construct the term expressing `(abs self)`
     pub fn abs(self) -> Real {
         fun("abs", vec![self.into()]).into()
+    }
+
+    /// Construct the term expressing floor division of two terms
+    pub fn floor_div<R>(self, rhs: R) -> Self
+    where
+        R: Into<Real>,
+    {
+        self.binop("div", rhs.into())
     }
 }
 
 impl std::ops::Neg for Real {
     type Output = Self;
+
     fn neg(self) -> Self::Output {
         fun("-", vec![self.into()]).into()
     }
@@ -101,4 +116,4 @@ impl std::ops::Neg for Real {
 impl_op!(Real, f64, Add, add, "+", AddAssign, add_assign, +);
 impl_op!(Real, f64, Sub, sub, "-", SubAssign, sub_assign, -);
 impl_op!(Real, f64, Mul, mul, "*", MulAssign, mul_assign, *);
-impl_op!(Real, f64, Div, div, "div", DivAssign, div_assign, /);
+impl_op!(Real, f64, Div, div, "/", DivAssign, div_assign, /);
