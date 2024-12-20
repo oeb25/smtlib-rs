@@ -4,9 +4,9 @@ use itertools::Itertools;
 use smtlib_lowlevel::ast::{self, Term};
 
 use crate::{
-    sorts::{Index, Sort},
-    terms::{fun, qual_ident, Const, Dynamic, Sorted, StaticSorted},
     Bool,
+    sorts::{Index, Sort},
+    terms::{Const, Dynamic, Sorted, StaticSorted, fun, qual_ident},
 };
 
 /// A bit-vec is a fixed size sequence of boolean values. You can [read more
@@ -57,13 +57,15 @@ impl<const M: usize> TryFrom<BitVec<M>> for i64 {
 
     fn try_from(value: BitVec<M>) -> Result<Self, Self::Error> {
         match value.0 {
-            Term::SpecConstant(c) => match c {
-                ast::SpecConstant::Numeral(_) => todo!(),
-                ast::SpecConstant::Decimal(_) => todo!(),
-                ast::SpecConstant::Hexadecimal(h) => h.parse(),
-                ast::SpecConstant::Binary(b) => b.parse(),
-                ast::SpecConstant::String(_) => todo!(),
-            },
+            Term::SpecConstant(c) => {
+                match c {
+                    ast::SpecConstant::Numeral(_) => todo!(),
+                    ast::SpecConstant::Decimal(_) => todo!(),
+                    ast::SpecConstant::Hexadecimal(h) => h.parse(),
+                    ast::SpecConstant::Binary(b) => b.parse(),
+                    ast::SpecConstant::String(_) => todo!(),
+                }
+            }
             _ => todo!(),
         }
     }
@@ -78,6 +80,7 @@ impl<const M: usize> TryFrom<BitVec<M>> for [bool; M] {
 
 impl<const M: usize> StaticSorted for BitVec<M> {
     type Inner = Self;
+
     fn static_sort() -> Sort {
         Sort::new_indexed("BitVec", vec![Index::Numeral(M)])
     }
@@ -100,6 +103,7 @@ impl<const M: usize> BitVec<M> {
     fn binop<T: From<Term>>(self, op: &str, other: BitVec<M>) -> T {
         fun(op, vec![self.into(), other.into()]).into()
     }
+
     fn unop<T: From<Term>>(self, op: &str) -> T {
         fun(op, vec![self.into()]).into()
     }
@@ -128,14 +132,15 @@ impl<const M: usize> BitVec<M> {
         )
         .into()
     }
+
     #[cfg(feature = "const-bit-vec")]
     /// Concatenates `self` and `other` bit-vecs to a single contiguous bit-vec
     /// with length `N + M`
     pub fn concat<const N: usize>(self, other: impl Into<BitVec<N>>) -> BitVec<{ N + M }> {
-        Term::Application(
-            qual_ident("concat".to_string(), None),
-            vec![self.into(), other.into().into()],
-        )
+        Term::Application(qual_ident("concat".to_string(), None), vec![
+            self.into(),
+            other.into().into(),
+        ])
         .into()
     }
 
@@ -144,6 +149,7 @@ impl<const M: usize> BitVec<M> {
     pub fn bvnot(self) -> Self {
         self.unop("bvnot")
     }
+
     /// Calls `(bvneg self)` i.e. two's complement negation
     pub fn bvneg(self) -> Self {
         self.unop("bvneg")
@@ -154,42 +160,52 @@ impl<const M: usize> BitVec<M> {
     pub fn bvnand(self, other: impl Into<Self>) -> Self {
         self.binop("bvnand", other.into())
     }
+
     /// Calls `(bvnor self other)` i.e. bitwise nor
     pub fn bvnor(self, other: impl Into<Self>) -> Self {
         self.binop("bvnor", other.into())
     }
+
     /// Calls `(bvxnor self other)` i.e. bitwise xnor
     pub fn bvxnor(self, other: impl Into<Self>) -> Self {
         self.binop("bvxnor", other.into())
     }
+
     /// Calls `(bvult self other)`
     pub fn bvult(self, other: impl Into<Self>) -> Bool {
         self.binop("bvult", other.into())
     }
+
     /// Calls `(bvule self other)` i.e. unsigned less or equal
     pub fn bvule(self, other: impl Into<Self>) -> Bool {
         self.binop("bvule", other.into())
     }
+
     /// Calls `(bvugt self other)` i.e. unsigned greater than
     pub fn bvugt(self, other: impl Into<Self>) -> Bool {
         self.binop("bvugt", other.into())
     }
+
     /// Calls `(bvuge self other)` i.e. unsigned greater or equal
     pub fn bvuge(self, other: impl Into<Self>) -> Bool {
         self.binop("bvuge", other.into())
     }
+
     /// Calls `(bvslt self other)` i.e. signed less than
     pub fn bvslt(self, other: impl Into<Self>) -> Bool {
         self.binop("bvslt", other.into())
     }
+
     /// Calls `(bvsle self other)` i.e. signed less or equal
     pub fn bvsle(self, other: impl Into<Self>) -> Bool {
         self.binop("bvsle", other.into())
     }
+
     /// Calls `(bvsgt self other)` i.e. signed greater than
     pub fn bvsgt(self, other: impl Into<Self>) -> Bool {
         self.binop("bvsgt", other.into())
     }
+
     /// Calls `(bvsge self other)` i.e. signed greater or equal
     pub fn bvsge(self, other: impl Into<Self>) -> Bool {
         self.binop("bvsge", other.into())
@@ -198,12 +214,14 @@ impl<const M: usize> BitVec<M> {
 
 impl<const M: usize> std::ops::Not for BitVec<M> {
     type Output = Self;
+
     fn not(self) -> Self::Output {
         self.bvnot()
     }
 }
 impl<const M: usize> std::ops::Neg for BitVec<M> {
     type Output = Self;
+
     fn neg(self) -> Self::Output {
         self.bvneg()
     }
@@ -274,9 +292,8 @@ impl_op!(BitVec<M>, [bool; M], Shl, shl, bvshl, ShlAssign, shl_assign, <<);
 mod tests {
     use smtlib_lowlevel::backend::Z3Binary;
 
-    use crate::{terms::Sorted, Solver};
-
     use super::BitVec;
+    use crate::{Solver, terms::Sorted};
 
     #[test]
     fn bit_vec_extract_concat() -> Result<(), Box<dyn std::error::Error>> {

@@ -1,8 +1,7 @@
 use terms::StaticSorted;
 
-use crate::terms::{forall, Sorted};
-
 use super::*;
+use crate::terms::{Sorted, forall};
 
 #[test]
 fn int_math() {

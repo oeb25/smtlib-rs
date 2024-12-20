@@ -88,9 +88,11 @@ where
 
         Ok(driver)
     }
+
     pub fn set_logger(&mut self, logger: impl Logger) {
         self.logger = Some(Box::new(logger))
     }
+
     pub fn exec(&mut self, cmd: &Command) -> Result<GeneralResponse, Error> {
         if let Some(logger) = &self.logger {
             logger.exec(cmd);
@@ -111,9 +113,9 @@ where
 #[cfg(feature = "tokio")]
 pub mod tokio {
     use crate::{
+        Error, Logger,
         ast::{self, Command, GeneralResponse},
         backend::tokio::TokioBackend,
-        Error, Logger,
     };
 
     pub struct TokioDriver<B> {
@@ -153,9 +155,11 @@ pub mod tokio {
 
             Ok(driver)
         }
+
         pub fn set_logger(&mut self, logger: impl Logger) {
             self.logger = Some(Box::new(logger))
         }
+
         pub async fn exec(&mut self, cmd: &Command) -> Result<GeneralResponse, Error> {
             if let Some(logger) = &self.logger {
                 logger.exec(cmd);
@@ -181,14 +185,15 @@ impl Term {
             Term::SpecConstant(_) => HashSet::new(),
             Term::Identifier(q) => std::iter::once(q).collect(),
             Term::Application(_, args) => args.iter().flat_map(|arg| arg.all_consts()).collect(),
-            Term::Let(_, _) => todo!(),
+            Term::Let(..) => todo!(),
             // TODO
-            Term::Forall(_, _) => HashSet::new(),
-            Term::Exists(_, _) => todo!(),
-            Term::Match(_, _) => todo!(),
-            Term::Annotation(_, _) => todo!(),
+            Term::Forall(..) => HashSet::new(),
+            Term::Exists(..) => todo!(),
+            Term::Match(..) => todo!(),
+            Term::Annotation(..) => todo!(),
         }
     }
+
     pub fn strip_sort(self) -> Term {
         match self {
             Term::SpecConstant(_) => self,
@@ -198,15 +203,17 @@ impl Term {
             Term::Application(
                 QualIdentifier::Identifier(ident) | QualIdentifier::Sorted(ident, _),
                 args,
-            ) => Term::Application(
-                QualIdentifier::Identifier(ident),
-                args.into_iter().map(|arg| arg.strip_sort()).collect(),
-            ),
-            Term::Let(_, _) => todo!(),
+            ) => {
+                Term::Application(
+                    QualIdentifier::Identifier(ident),
+                    args.into_iter().map(|arg| arg.strip_sort()).collect(),
+                )
+            }
+            Term::Let(..) => todo!(),
             Term::Forall(qs, rs) => Term::Forall(qs, rs),
-            Term::Exists(_, _) => todo!(),
-            Term::Match(_, _) => todo!(),
-            Term::Annotation(_, _) => todo!(),
+            Term::Exists(..) => todo!(),
+            Term::Match(..) => todo!(),
+            Term::Annotation(..) => todo!(),
         }
     }
 }

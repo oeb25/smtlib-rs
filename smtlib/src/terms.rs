@@ -11,7 +11,7 @@ use smtlib_lowlevel::{
     lexicon::{Keyword, Symbol},
 };
 
-use crate::{sorts::Sort, Bool};
+use crate::{Bool, sorts::Sort};
 
 pub(crate) fn fun(name: &str, args: Vec<Term>) -> Term {
     Term::Application(qual_ident(name.to_string(), None), args)
@@ -74,7 +74,8 @@ pub trait StaticSorted: Into<Term> + From<Term> {
 /// low-level primitive that is used to define expressions for the SMT solvers
 /// to evaluate.
 pub trait Sorted: Into<Term> {
-    /// The inner type of the term. This is used for [`Const<T>`](Const) where the inner type is `T`.
+    /// The inner type of the term. This is used for [`Const<T>`](Const) where
+    /// the inner type is `T`.
     type Inner: Sorted;
     /// The sort of the term
     fn sort(&self) -> Sort;
@@ -135,13 +136,10 @@ pub trait Sorted: Into<Term> {
 
         (
             label,
-            Term::Annotation(
-                Box::new(self.into()),
-                vec![Attribute::WithValue(
-                    Keyword("named".to_string()),
-                    AttributeValue::Symbol(Symbol(name)),
-                )],
-            )
+            Term::Annotation(Box::new(self.into()), vec![Attribute::WithValue(
+                Keyword("named".to_string()),
+                AttributeValue::Symbol(Symbol(name)),
+            )])
             .into(),
         )
     }
@@ -153,9 +151,11 @@ impl<T: Into<Term>> From<Const<T>> for Term {
 }
 impl<T: Sorted> Sorted for Const<T> {
     type Inner = T;
+
     fn sort(&self) -> Sort {
         T::sort(self)
     }
+
     fn is_sort(sort: &Sort) -> bool {
         T::is_sort(sort)
     }
@@ -188,6 +188,7 @@ impl<T> Label<T> {
 
         Label(n, PhantomData)
     }
+
     pub(crate) fn name(&self) -> String {
         format!("named-label-{}", self.0)
     }
@@ -240,9 +241,11 @@ impl Dynamic {
 }
 impl Sorted for Dynamic {
     type Inner = Self;
+
     fn sort(&self) -> Sort {
         self.1.clone()
     }
+
     fn is_sort(_sort: &Sort) -> bool {
         true
     }
@@ -293,7 +296,8 @@ macro_rules! impl_op {
     };
 }
 
-/// This trait is implemented for types and sequences which can be used as quantified variables in [`forall`] and [`exists`].
+/// This trait is implemented for types and sequences which can be used as
+/// quantified variables in [`forall`] and [`exists`].
 pub trait QuantifierVars {
     /// The concrete sequence of variable declaration which should be quantified
     /// over.
@@ -340,7 +344,7 @@ impl_quantifiers!(A 0, B 1, C 2, D 3, E 4);
 impl QuantifierVars for Vec<Const<Dynamic>> {
     fn into_vars(self) -> Vec<SortedVar> {
         self.into_iter()
-            .map(|v| SortedVar(Symbol(v.0.into()), v.1 .1.ast()))
+            .map(|v| SortedVar(Symbol(v.0.into()), v.1.1.ast()))
             .collect()
     }
 }

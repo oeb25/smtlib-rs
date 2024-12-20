@@ -3,11 +3,10 @@ use miette::IntoDiagnostic;
 #[cfg(feature = "z3-static")]
 use smtlib::backend::Z3Static;
 use smtlib::{
-    and,
-    backend::{cvc5_binary::Cvc5Binary, z3_binary::Z3Binary, Backend},
+    Int, Logic, SatResultWithModel, Solver, and,
+    backend::{Backend, cvc5_binary::Cvc5Binary, z3_binary::Z3Binary},
     distinct, or,
     prelude::*,
-    Int, Logic, SatResultWithModel, Solver,
 };
 
 fn queens<B: Backend>(backend: B) -> miette::Result<()> {
@@ -82,10 +81,12 @@ fn main() -> miette::Result<()> {
         #[cfg(feature = "z3-static")]
         "z3-static" => queens(Z3Static::new().into_diagnostic()?)?,
         "cvc5" => queens(Cvc5Binary::new("cvc5").into_diagnostic()?)?,
-        given => miette::bail!(
-            "Invalid backend: '{}'. Available backends are: 'z3', 'z3-static', 'cvc5'",
-            given
-        ),
+        given => {
+            miette::bail!(
+                "Invalid backend: '{}'. Available backends are: 'z3', 'z3-static', 'cvc5'",
+                given
+            )
+        }
     }
 
     Ok(())

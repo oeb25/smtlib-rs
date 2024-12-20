@@ -13,7 +13,7 @@ fn bubble_sort() {
 }
 
 mod z3 {
-    use crate::{ast::Command, backend::z3_binary::Z3Binary, Driver};
+    use crate::{Driver, ast::Command, backend::z3_binary::Z3Binary};
 
     macro_rules! cmd {
         ($d:expr, $cmd:literal) => {
@@ -46,7 +46,7 @@ mod z3 {
 
 #[cfg(feature = "z3-static")]
 mod z3_static {
-    use crate::{ast::Command, backend::Z3Static, Driver};
+    use crate::{Driver, ast::Command, backend::Z3Static};
 
     macro_rules! cmd {
         ($d:expr, $cmd:literal) => {

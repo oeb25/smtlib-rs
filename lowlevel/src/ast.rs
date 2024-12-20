@@ -1406,6 +1406,8 @@ pub enum Command {
     SetOption(Option),
     /// `(simplify <term>)`
     Simplify(Term),
+    /// `(eval <term>)`
+    Eval(Term),
     /// `(maximize <term>)`
     Maximize(Term),
     /// `(minimize <term>)`
@@ -1465,6 +1467,7 @@ impl std::fmt::Display for Command {
             Self::SetLogic(m0) => write!(f, "(set-logic {})", m0),
             Self::SetOption(m0) => write!(f, "(set-option {})", m0),
             Self::Simplify(m0) => write!(f, "(simplify {})", m0),
+            Self::Eval(m0) => write!(f, "(eval {})", m0),
             Self::Maximize(m0) => write!(f, "(maximize {})", m0),
             Self::Minimize(m0) => write!(f, "(minimize {})", m0),
             Self::AssertSoft(m0, m1) => {
@@ -1502,6 +1505,8 @@ impl SmtlibParse for Command {
                 && p.nth_matches(offset + 1, Token::Symbol, "minimize"))
             || (p.nth(offset) == Token::LParen
                 && p.nth_matches(offset + 1, Token::Symbol, "maximize"))
+            || (p.nth(offset) == Token::LParen
+                && p.nth_matches(offset + 1, Token::Symbol, "eval"))
             || (p.nth(offset) == Token::LParen
                 && p.nth_matches(offset + 1, Token::Symbol, "simplify"))
             || (p.nth(offset) == Token::LParen
@@ -1678,6 +1683,15 @@ impl SmtlibParse for Command {
             let m0 = <Term as SmtlibParse>::parse(p)?;
             p.expect(Token::RParen)?;
             #[allow(clippy::useless_conversion)] return Ok(Self::Maximize(m0.into()));
+        }
+        if p.nth(offset) == Token::LParen
+            && p.nth_matches(offset + 1, Token::Symbol, "eval")
+        {
+            p.expect(Token::LParen)?;
+            p.expect_matches(Token::Symbol, "eval")?;
+            let m0 = <Term as SmtlibParse>::parse(p)?;
+            p.expect(Token::RParen)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Eval(m0.into()));
         }
         if p.nth(offset) == Token::LParen
             && p.nth_matches(offset + 1, Token::Symbol, "simplify")
@@ -1948,6 +1962,7 @@ impl Command {
             Self::SetLogic(_) => false,
             Self::SetOption(_) => false,
             Self::Simplify(_) => true,
+            Self::Eval(_) => true,
             Self::Maximize(_) => false,
             Self::Minimize(_) => false,
             Self::AssertSoft(_, _) => false,
@@ -2089,6 +2104,15 @@ impl Command {
                     Some(
                         SpecificSuccessResponse::SimplifyResponse(
                             SimplifyResponse::parse(response)?,
+                        ),
+                    ),
+                )
+            }
+            Self::Eval(_) => {
+                Ok(
+                    Some(
+                        SpecificSuccessResponse::EvalResponse(
+                            EvalResponse::parse(response)?,
                         ),
                     ),
                 )
@@ -3108,6 +3132,29 @@ impl SmtlibParse for SimplifyResponse {
         Ok(Self(m0))
     }
 }
+/// `<term>`
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct EvalResponse(pub Term);
+impl std::fmt::Display for EvalResponse {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+impl EvalResponse {
+    pub fn parse(src: &str) -> Result<Self, ParseError> {
+        SmtlibParse::parse(&mut Parser::new(src))
+    }
+}
+impl SmtlibParse for EvalResponse {
+    fn is_start_of(offset: usize, p: &mut Parser) -> bool {
+        Term::is_start_of(offset, p)
+    }
+    fn parse(p: &mut Parser) -> Result<Self, ParseError> {
+        let m0 = <Term as SmtlibParse>::parse(p)?;
+        Ok(Self(m0))
+    }
+}
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum SpecificSuccessResponse {
@@ -3135,6 +3182,8 @@ pub enum SpecificSuccessResponse {
     GetValueResponse(GetValueResponse),
     /// `<simplify_response>`
     SimplifyResponse(SimplifyResponse),
+    /// `<eval_response>`
+    EvalResponse(EvalResponse),
 }
 impl std::fmt::Display for SpecificSuccessResponse {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -3151,6 +3200,7 @@ impl std::fmt::Display for SpecificSuccessResponse {
             Self::GetUnsatCoreResponse(m0) => write!(f, "{}", m0),
             Self::GetValueResponse(m0) => write!(f, "{}", m0),
             Self::SimplifyResponse(m0) => write!(f, "{}", m0),
+            Self::EvalResponse(m0) => write!(f, "{}", m0),
         }
     }
 }
@@ -3161,7 +3211,8 @@ impl SpecificSuccessResponse {
 }
 impl SmtlibParse for SpecificSuccessResponse {
     fn is_start_of(offset: usize, p: &mut Parser) -> bool {
-        (SimplifyResponse::is_start_of(offset, p))
+        (EvalResponse::is_start_of(offset, p))
+            || (SimplifyResponse::is_start_of(offset, p))
             || (GetValueResponse::is_start_of(offset, p))
             || (GetUnsatCoreResponse::is_start_of(offset, p))
             || (GetProofResponse::is_start_of(offset, p))
@@ -3176,6 +3227,11 @@ impl SmtlibParse for SpecificSuccessResponse {
     }
     fn parse(p: &mut Parser) -> Result<Self, ParseError> {
         let offset = 0;
+        if EvalResponse::is_start_of(offset, p) {
+            let m0 = <EvalResponse as SmtlibParse>::parse(p)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(Self::EvalResponse(m0.into()));
+        }
         if SimplifyResponse::is_start_of(offset, p) {
             let m0 = <SimplifyResponse as SmtlibParse>::parse(p)?;
             #[allow(clippy::useless_conversion)]

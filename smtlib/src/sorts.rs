@@ -69,6 +69,7 @@ impl Sort {
             parameters: Vec::new(),
         }
     }
+
     pub fn new_parametric(name: impl Into<String>, parameters: Vec<Sort>) -> Self {
         Self {
             name: name.into(),
@@ -76,6 +77,7 @@ impl Sort {
             parameters,
         }
     }
+
     pub fn new_indexed(name: impl Into<String>, index: Vec<Index>) -> Self {
         Self {
             name: name.into(),

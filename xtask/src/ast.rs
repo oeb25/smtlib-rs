@@ -48,35 +48,40 @@ impl RawSyntax {
                 priority,
                 separator,
                 response,
-            } => Syntax::Rule(Rule {
-                syntax: parse_raw_grammar(syntax),
-                priority: priority.unwrap_or_default(),
-                separator: separator.clone(),
-                response: response.as_ref().map(|s| parse_raw_token(s, 0)),
-            }),
-            RawSyntax::Class { response, cases } => Syntax::Class {
-                response: response.clone(),
-                cases: cases
-                    .iter()
-                    .map(|(n, s)| match s {
-                        RawSyntax::Just {
-                            syntax,
-                            priority,
-                            separator,
-                            response,
-                        } => (
-                            n.clone(),
-                            Rule {
-                                syntax: parse_raw_grammar(syntax),
-                                priority: priority.unwrap_or_default(),
-                                separator: separator.clone(),
-                                response: response.as_ref().map(|r| parse_raw_token(r, 0)),
-                            },
-                        ),
-                        RawSyntax::Class { .. } => todo!(),
-                    })
-                    .collect(),
-            },
+            } => {
+                Syntax::Rule(Rule {
+                    syntax: parse_raw_grammar(syntax),
+                    priority: priority.unwrap_or_default(),
+                    separator: separator.clone(),
+                    response: response.as_ref().map(|s| parse_raw_token(s, 0)),
+                })
+            }
+            RawSyntax::Class { response, cases } => {
+                Syntax::Class {
+                    response: response.clone(),
+                    cases: cases
+                        .iter()
+                        .map(|(n, s)| {
+                            match s {
+                                RawSyntax::Just {
+                                    syntax,
+                                    priority,
+                                    separator,
+                                    response,
+                                } => {
+                                    (n.clone(), Rule {
+                                        syntax: parse_raw_grammar(syntax),
+                                        priority: priority.unwrap_or_default(),
+                                        separator: separator.clone(),
+                                        response: response.as_ref().map(|r| parse_raw_token(r, 0)),
+                                    })
+                                }
+                                RawSyntax::Class { .. } => todo!(),
+                            }
+                        })
+                        .collect(),
+                }
+            }
         }
     }
 }
@@ -128,7 +133,7 @@ impl Token {
             LParen | RParen | Underscore | Annotation | Keyword(_) | Builtin(_) | Reserved(_) => {
                 true
             }
-            Field(_, _) => false,
+            Field(..) => false,
         }
     }
 }
@@ -190,7 +195,7 @@ fn parse_raw_grammar(s: &str) -> Grammar {
         .split(' ')
         .map(|t| {
             let t = parse_raw_token(t, acc);
-            if let Token::Field(_, _) = t {
+            if let Token::Field(..) = t {
                 acc += 1
             }
             t
@@ -198,9 +203,11 @@ fn parse_raw_grammar(s: &str) -> Grammar {
         .collect_vec();
     let fields = p
         .iter()
-        .filter_map(|t| match t {
-            Token::Field(_, f) => Some(f.clone()),
-            _ => None,
+        .filter_map(|t| {
+            match t {
+                Token::Field(_, f) => Some(f.clone()),
+                _ => None,
+            }
         })
         .collect();
     Grammar { tokens: p, fields }
@@ -285,72 +292,86 @@ impl Syntax {
     fn rust_ty_decl_top(&self, name: &str) -> String {
         let derive = r#"#[derive(Debug, Clone, PartialEq, Eq, Hash)] #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]"#;
         match self {
-            Syntax::Rule(r) => format!(
-                "/// `{}`\n{derive}\npub struct {}({});",
-                r.syntax,
-                name.to_pascal_case(),
-                r.syntax
-                    .tuple_fields(&[name.to_string()].into_iter().collect())
-                    .map(|f| format!("pub {f}"))
-                    .format(",")
-            ),
-            Syntax::Class { cases, .. } => format!(
-                "{derive}pub enum {} {{ {} }}",
-                name.to_pascal_case(),
-                cases
-                    .iter()
-                    .map(|(n, c)| c.rust_ty_decl_child(n, [name.to_string()].into_iter().collect()))
-                    .format(", ")
-            ),
+            Syntax::Rule(r) => {
+                format!(
+                    "/// `{}`\n{derive}\npub struct {}({});",
+                    r.syntax,
+                    name.to_pascal_case(),
+                    r.syntax
+                        .tuple_fields(&[name.to_string()].into_iter().collect())
+                        .map(|f| format!("pub {f}"))
+                        .format(",")
+                )
+            }
+            Syntax::Class { cases, .. } => {
+                format!(
+                    "{derive}pub enum {} {{ {} }}",
+                    name.to_pascal_case(),
+                    cases
+                        .iter()
+                        .map(|(n, c)| {
+                            c.rust_ty_decl_child(n, [name.to_string()].into_iter().collect())
+                        })
+                        .format(", ")
+                )
+            }
         }
     }
+
     fn rust_display(&self, name: &str) -> String {
         match self {
-            Syntax::Rule(r) => format!(
-                r#"
+            Syntax::Rule(r) => {
+                format!(
+                    r#"
                 impl std::fmt::Display for {} {{
                     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {{
                         {}
                     }}
                 }}
                 "#,
-                name.to_pascal_case(),
-                r.rust_display_impl("self.")
-            ),
-            Syntax::Class { cases, .. } => format!(
-                r#"
+                    name.to_pascal_case(),
+                    r.rust_display_impl("self.")
+                )
+            }
+            Syntax::Class { cases, .. } => {
+                format!(
+                    r#"
                 impl std::fmt::Display for {} {{
                     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {{
                         match self {{ {} }}
                     }}
                 }}
                 "#,
-                name.to_pascal_case(),
-                cases
-                    .iter()
-                    .map(|(n, c)| if c.syntax.fields.is_empty() {
-                        format!(
-                            "Self::{} => {},",
-                            n.to_pascal_case(),
-                            c.rust_display_impl("todo.")
-                        )
-                    } else {
-                        format!(
-                            "Self::{}({}) => {},",
-                            n.to_pascal_case(),
-                            c.syntax
-                                .fields
-                                .iter()
-                                .enumerate()
-                                .map(|(idx, _)| format!("m{idx}"))
-                                .format(","),
-                            c.rust_display_impl("m")
-                        )
-                    })
-                    .format("\n")
-            ),
+                    name.to_pascal_case(),
+                    cases
+                        .iter()
+                        .map(|(n, c)| {
+                            if c.syntax.fields.is_empty() {
+                                format!(
+                                    "Self::{} => {},",
+                                    n.to_pascal_case(),
+                                    c.rust_display_impl("todo.")
+                                )
+                            } else {
+                                format!(
+                                    "Self::{}({}) => {},",
+                                    n.to_pascal_case(),
+                                    c.syntax
+                                        .fields
+                                        .iter()
+                                        .enumerate()
+                                        .map(|(idx, _)| format!("m{idx}"))
+                                        .format(","),
+                                    c.rust_display_impl("m")
+                                )
+                            }
+                        })
+                        .format("\n")
+                )
+            }
         }
     }
+
     fn rust_parse(&self, name: &str) -> String {
         match self {
             Syntax::Rule(r) => {
@@ -440,6 +461,7 @@ impl Syntax {
             }
         }
     }
+
     fn rust_response(&self, name: &str) -> String {
         match self {
             Syntax::Rule(_) | Syntax::Class { response: None, .. } => "".to_string(),
@@ -482,12 +504,14 @@ impl Syntax {
                                     | Token::Builtin(_)
                                     | Token::Reserved(_)
                                     | Token::Keyword(_) => todo!(),
-                                    Token::Field(_, f) => match f {
-                                        Field::One(t)
-                                        | Field::Any(t)
-                                        | Field::NonZero(t)
-                                        | Field::NPlusOne(t) => t.to_string(),
-                                    },
+                                    Token::Field(_, f) => {
+                                        match f {
+                                            Field::One(t)
+                                            | Field::Any(t)
+                                            | Field::NonZero(t)
+                                            | Field::NPlusOne(t) => t.to_string(),
+                                        }
+                                    }
                                 };
                                 format!(
                                     "Ok(Some({}::{}({}::parse(response)?)))",
@@ -550,7 +574,7 @@ impl Rule {
                         Builtin(s) => s,
                         Reserved(s) => s,
                         Keyword(k) => k,
-                        Field(_, _) => "{}",
+                        Field(..) => "{}",
                     };
                     acc
                 }),
@@ -558,20 +582,23 @@ impl Rule {
                 .fields
                 .iter()
                 .enumerate()
-                .map(|(idx, f)| match f {
-                    Field::One(_) => {
-                        format!(", {scope}{idx}")
-                    }
-                    Field::Any(_) | Field::NonZero(_) | Field::NPlusOne(_) => {
-                        format!(
-                            r#", {scope}{idx}.iter().format({:?})"#,
-                            self.separator.as_deref().unwrap_or(" ")
-                        )
+                .map(|(idx, f)| {
+                    match f {
+                        Field::One(_) => {
+                            format!(", {scope}{idx}")
+                        }
+                        Field::Any(_) | Field::NonZero(_) | Field::NPlusOne(_) => {
+                            format!(
+                                r#", {scope}{idx}.iter().format({:?})"#,
+                                self.separator.as_deref().unwrap_or(" ")
+                            )
+                        }
                     }
                 })
                 .format("")
         )
     }
+
     fn rust_ty_decl_child(&self, name: &str, inside_of: HashSet<String>) -> String {
         if self.syntax.fields.is_empty() {
             format!("/// `{}`\n{}", self.syntax, name.to_pascal_case())
@@ -584,6 +611,7 @@ impl Rule {
             )
         }
     }
+
     fn rust_start_of_check(&self) -> String {
         let is_all_variable = !self.syntax.tokens.iter().any(|t| t.is_concrete());
 
@@ -610,9 +638,11 @@ impl Rule {
                 .to_string()
         }
     }
+
     fn rust_start_of_impl(&self) -> String {
         self.rust_start_of_check()
     }
+
     fn rust_parse_impl(&self) -> String {
         let stmts = self.syntax.tokens.iter().map(rust_parse_token);
         stmts.format("\n").to_string()
@@ -649,19 +679,23 @@ fn rust_parse_token(t: &Token) -> String {
         Token::Builtin(b) => format!("p.expect_matches(Token::Symbol, {b:?})?;"),
         Token::Reserved(b) => format!("p.expect_matches(Token::Reserved, {b:?})?;"),
         Token::Keyword(kw) => format!("p.expect_matches(Token::Keyword, {kw:?})?;"),
-        Token::Field(idx, f) => match f {
-            Field::One(t) => format!(
-                "let m{idx} = <{} as SmtlibParse>::parse(p)?;",
-                t.to_pascal_case()
-            ),
-            Field::Any(t) => format!("let m{idx} = p.any::<{}>()?;", t.to_pascal_case()),
-            Field::NonZero(t) => {
-                format!("let m{idx} = p.non_zero::<{}>()?;", t.to_pascal_case())
+        Token::Field(idx, f) => {
+            match f {
+                Field::One(t) => {
+                    format!(
+                        "let m{idx} = <{} as SmtlibParse>::parse(p)?;",
+                        t.to_pascal_case()
+                    )
+                }
+                Field::Any(t) => format!("let m{idx} = p.any::<{}>()?;", t.to_pascal_case()),
+                Field::NonZero(t) => {
+                    format!("let m{idx} = p.non_zero::<{}>()?;", t.to_pascal_case())
+                }
+                Field::NPlusOne(t) => {
+                    format!("let m{idx} = p.n_plus_one::<{}>()?;", t.to_pascal_case())
+                }
             }
-            Field::NPlusOne(t) => {
-                format!("let m{idx} = p.n_plus_one::<{}>()?;", t.to_pascal_case())
-            }
-        },
+        }
     }
 }
 
@@ -676,12 +710,14 @@ fn rust_check_token(idx: usize, t: &Token) -> String {
         Token::Keyword(kw) => {
             format!("p.nth_matches(offset + {idx}, Token::Keyword, {kw:?})")
         }
-        Token::Field(_, f) => match f {
-            Field::One(t) | Field::NonZero(t) | Field::NPlusOne(t) => {
-                format!("{}::is_start_of(offset + {idx}, p)", t.to_pascal_case())
+        Token::Field(_, f) => {
+            match f {
+                Field::One(t) | Field::NonZero(t) | Field::NPlusOne(t) => {
+                    format!("{}::is_start_of(offset + {idx}, p)", t.to_pascal_case())
+                }
+                Field::Any(_) => "todo!(\"{offset:?}, {p:?}\")".to_string(),
             }
-            Field::Any(_) => "todo!(\"{offset:?}, {p:?}\")".to_string(),
-        },
+        }
     }
 }
 
@@ -690,16 +726,18 @@ impl Grammar {
         &'a self,
         inside_of: &'a HashSet<String>,
     ) -> impl Iterator<Item = String> + 'a {
-        self.fields.iter().map(|f| match &f {
-            Field::One(t) => {
-                if inside_of.contains(t) {
-                    format!("Box<{}>", t.to_pascal_case())
-                } else {
-                    t.to_pascal_case()
+        self.fields.iter().map(|f| {
+            match &f {
+                Field::One(t) => {
+                    if inside_of.contains(t) {
+                        format!("Box<{}>", t.to_pascal_case())
+                    } else {
+                        t.to_pascal_case()
+                    }
                 }
-            }
-            Field::Any(t) | Field::NonZero(t) | Field::NPlusOne(t) => {
-                format!("Vec<{}>", t.to_pascal_case())
+                Field::Any(t) | Field::NonZero(t) | Field::NPlusOne(t) => {
+                    format!("Vec<{}>", t.to_pascal_case())
+                }
             }
         })
     }

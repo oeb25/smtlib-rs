@@ -5,14 +5,13 @@
 
 use std::collections::HashMap;
 
+pub use backend::Backend;
 use itertools::Itertools;
+pub use logics::Logic;
 use smtlib_lowlevel::ast;
+pub use smtlib_lowlevel::{self as lowlevel, Logger, backend};
 use terms::Const;
 pub use terms::Sorted;
-
-pub use backend::Backend;
-pub use logics::Logic;
-pub use smtlib_lowlevel::{self as lowlevel, backend, Logger};
 
 #[cfg(feature = "tokio")]
 mod tokio_solver;
@@ -56,8 +55,9 @@ impl std::fmt::Display for SatResult {
     }
 }
 
-/// The satisfiability result produced by a solver, where the [`Sat`](SatResultWithModel::Sat) variant
-/// carries the satisfying model as well.
+/// The satisfiability result produced by a solver, where the
+/// [`Sat`](SatResultWithModel::Sat) variant carries the satisfying model as
+/// well.
 #[derive(Debug)]
 pub enum SatResultWithModel {
     /// The solver produced `unsat`
@@ -74,14 +74,18 @@ impl SatResultWithModel {
     pub fn expect_sat(self) -> Result<Model, Error> {
         match self {
             SatResultWithModel::Sat(m) => Ok(m),
-            SatResultWithModel::Unsat => Err(Error::UnexpectedSatResult {
-                expected: SatResult::Sat,
-                actual: SatResult::Unsat,
-            }),
-            SatResultWithModel::Unknown => Err(Error::UnexpectedSatResult {
-                expected: SatResult::Sat,
-                actual: SatResult::Unknown,
-            }),
+            SatResultWithModel::Unsat => {
+                Err(Error::UnexpectedSatResult {
+                    expected: SatResult::Sat,
+                    actual: SatResult::Unsat,
+                })
+            }
+            SatResultWithModel::Unknown => {
+                Err(Error::UnexpectedSatResult {
+                    expected: SatResult::Sat,
+                    actual: SatResult::Unknown,
+                })
+            }
         }
     }
 }
@@ -156,14 +160,17 @@ impl Model {
             values: model
                 .0
                 .into_iter()
-                .map(|res| match res {
-                    ast::ModelResponse::DefineFun(f) => (f.0 .0.trim_matches('|').into(), f.3),
-                    ast::ModelResponse::DefineFunRec(_) => todo!(),
-                    ast::ModelResponse::DefineFunsRec(_, _) => todo!(),
+                .map(|res| {
+                    match res {
+                        ast::ModelResponse::DefineFun(f) => (f.0.0.trim_matches('|').into(), f.3),
+                        ast::ModelResponse::DefineFunRec(_) => todo!(),
+                        ast::ModelResponse::DefineFunsRec(..) => todo!(),
+                    }
                 })
                 .collect(),
         }
     }
+
     /// Extract the value of a constant. Returns `None` if the value was not
     /// part of the model, which occurs if the constant was not part of any
     /// expression asserted.

@@ -7,13 +7,18 @@
 //!
 //! ## Backends
 //!
-//! - **[`Z3Binary`](z3_binary::Z3Binary)**: A [Z3](https://github.com/Z3Prover/z3) backend using the binary CLI interface.
-//! - **[`Z3BinaryTokio`](z3_binary::tokio::Z3BinaryTokio)**: An async [Z3](https://github.com/Z3Prover/z3) backend using the binary CLI interface with [`tokio`](::tokio).
+//! - **[`Z3Binary`](z3_binary::Z3Binary)**: A [Z3](https://github.com/Z3Prover/z3)
+//!   backend using the binary CLI interface.
+//! - **[`Z3BinaryTokio`](z3_binary::tokio::Z3BinaryTokio)**: An async [Z3](https://github.com/Z3Prover/z3)
+//!   backend using the binary CLI interface with [`tokio`](::tokio).
 //!     - **Enabled by feature:** `tokio`
-//! - **`Z3Static`**: A [Z3](https://github.com/Z3Prover/z3) backend using the [`z3-sys` crate](https://github.com/prove-rs/z3.rs).
+//! - **`Z3Static`**: A [Z3](https://github.com/Z3Prover/z3) backend using the [`z3-sys`
+//!   crate](https://github.com/prove-rs/z3.rs).
 //!     - **Enabled by feature:** `z3-static`
-//! - **[`Cvc5Binary`](cvc5_binary::Cvc5Binary)**: A [cvc5](https://cvc5.github.io/) backend using the binary CLI interface.
-//! - **[`Cvc5BinaryTokio`](cvc5_binary::tokio::Cvc5BinaryTokio)**: An async [cvc5](https://cvc5.github.io/) backend using the binary CLI interface with [`tokio`](::tokio).
+//! - **[`Cvc5Binary`](cvc5_binary::Cvc5Binary)**: A [cvc5](https://cvc5.github.io/)
+//!   backend using the binary CLI interface.
+//! - **[`Cvc5BinaryTokio`](cvc5_binary::tokio::Cvc5BinaryTokio)**: An async [cvc5](https://cvc5.github.io/)
+//!   backend using the binary CLI interface with [`tokio`](::tokio).
 //!     - **Enabled by feature:** `tokio`
 
 use std::{
@@ -30,7 +35,8 @@ pub mod z3_static;
 
 use crate::parse::Token;
 
-/// The [`Backend`] trait is used to interact with SMT solver using the SMT-LIB language.
+/// The [`Backend`] trait is used to interact with SMT solver using the SMT-LIB
+/// language.
 ///
 /// For more details read the [`backend`](crate::backend) module documentation.
 pub trait Backend {
@@ -65,6 +71,7 @@ impl BinaryBackend {
             buf: String::new(),
         })
     }
+
     pub(crate) fn exec(&mut self, cmd: &crate::Command) -> Result<&str, crate::Error> {
         // println!("> {cmd}");
         writeln!(self.stdin, "{cmd}")?;
@@ -78,10 +85,12 @@ impl BinaryBackend {
             }
             if Lexer::new(self.buf.as_str())
                 .map(|tok| tok.unwrap_or(Token::Error))
-                .fold(0i32, |acc, tok| match tok {
-                    Token::LParen => acc + 1,
-                    Token::RParen => acc - 1,
-                    _ => acc,
+                .fold(0i32, |acc, tok| {
+                    match tok {
+                        Token::LParen => acc + 1,
+                        Token::RParen => acc - 1,
+                        _ => acc,
+                    }
                 })
                 != 0
             {
@@ -101,9 +110,11 @@ pub mod tokio {
 
     use crate::parse::Token;
 
-    /// The [`TokioBackend`] trait is used to interact with SMT solver using the SMT-LIB language.
+    /// The [`TokioBackend`] trait is used to interact with SMT solver using the
+    /// SMT-LIB language.
     ///
-    /// For more details read the [`backend`](crate::backend) module documentation.
+    /// For more details read the [`backend`](crate::backend) module
+    /// documentation.
     pub trait TokioBackend {
         fn exec(
             &mut self,
@@ -126,6 +137,7 @@ pub mod tokio {
             init: impl FnOnce(&mut tokio::process::Command),
         ) -> Result<Self, std::io::Error> {
             use std::process::Stdio;
+
             use tokio::process::Command;
 
             let mut cmd = Command::new(program);
@@ -145,6 +157,7 @@ pub mod tokio {
                 buf: String::new(),
             })
         }
+
         pub(crate) async fn exec(&mut self, cmd: &crate::Command) -> Result<&str, crate::Error> {
             // eprintln!("> {cmd}");
             self.stdin.write_all(cmd.to_string().as_bytes()).await?;
@@ -159,10 +172,12 @@ pub mod tokio {
                 }
                 if Lexer::new(self.buf.as_str())
                     .map(|tok| tok.unwrap_or(Token::Error))
-                    .fold(0i32, |acc, tok| match tok {
-                        Token::LParen => acc + 1,
-                        Token::RParen => acc - 1,
-                        _ => acc,
+                    .fold(0i32, |acc, tok| {
+                        match tok {
+                            Token::LParen => acc + 1,
+                            Token::RParen => acc - 1,
+                            _ => acc,
+                        }
                     })
                     != 0
                 {

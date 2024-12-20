@@ -1,5 +1,4 @@
 use color_eyre::Result;
-
 use itertools::Itertools;
 use quote::{format_ident, quote};
 use xshell::Shell;
