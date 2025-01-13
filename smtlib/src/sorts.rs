@@ -55,7 +55,7 @@ impl Index {
 
 pub(crate) fn is_built_in_sort(name: &str) -> bool {
     match name {
-        "Int" | "Bool" => true,
+        "Int" | "Bool" | "Array" | "BitVec" => true,
         _ => false,
     }
 }
