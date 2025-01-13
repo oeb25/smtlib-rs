@@ -2,13 +2,11 @@
 
 use std::marker::PhantomData;
 
-use itertools::Itertools;
-use smtlib_lowlevel::ast::{self, Term};
+use smtlib_lowlevel::ast::Term;
 
 use crate::{
-    sorts::{Index, Sort},
-    terms::{fun, qual_ident, Const, Sorted, Dynamic, StaticSorted},
-    Bool,
+    sorts::Sort,
+    terms::{fun, Const, Sorted, Dynamic, StaticSorted},
 };
 
 /// Representation of a functional array with extensionality. A possibly
