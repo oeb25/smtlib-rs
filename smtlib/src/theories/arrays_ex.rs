@@ -70,6 +70,7 @@ mod tests {
 
     use super::Array;
 
+    /// Check that an array can be defined using the high-level API
     #[test]
     fn define_array() -> Result<(), Box<dyn std::error::Error>> {
 
@@ -83,6 +84,7 @@ mod tests {
         Ok(())
     }
 
+    /// Check that a value stored at an index can be correctly retrieved
     #[test]
     fn read_stored() -> Result<(), Box<dyn std::error::Error>> {
 
@@ -102,6 +104,7 @@ mod tests {
     }
 
 
+    /// Check that a value stored at an index is guaranteed to be retrieved
     #[test]
     fn read_stored_incorrect() -> Result<(), Box<dyn std::error::Error>> {
 
@@ -123,6 +126,7 @@ mod tests {
         }
     }
 
+    /// Check that a store does not affect values other than the target index
     #[test]
     fn read_untouched() -> Result<(), Box<dyn std::error::Error>> {
 
