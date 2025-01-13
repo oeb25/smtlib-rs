@@ -5,7 +5,7 @@ use smtlib_lowlevel::{ast::Term, lexicon::Numeral};
 use crate::{
     impl_op,
     sorts::Sort,
-    terms::{fun, qual_ident, Const, Dynamic, Sorted, StaticSorted},
+    terms::{fun, Const, Dynamic, Sorted, StaticSorted},
     Bool,
 };
 
