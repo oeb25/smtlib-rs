@@ -6,7 +6,7 @@ use smtlib_lowlevel::ast::Term;
 
 use crate::{
     sorts::Sort,
-    terms::{fun, Const, Sorted, Dynamic, StaticSorted},
+    terms::{fun, Const, Dynamic, Sorted, StaticSorted},
 };
 
 /// Representation of a functional array with extensionality. A possibly
@@ -66,14 +66,16 @@ impl<X: StaticSorted, Y: StaticSorted> Array<X, Y> {
 mod tests {
     use smtlib_lowlevel::backend::z3_binary::Z3Binary;
 
-    use crate::{terms::{Sorted, StaticSorted}, Int, Solver};
+    use crate::{
+        terms::{Sorted, StaticSorted},
+        Int, Solver,
+    };
 
     use super::Array;
 
     /// Check that an array can be defined using the high-level API
     #[test]
     fn define_array() -> Result<(), Box<dyn std::error::Error>> {
-
         let mut solver = Solver::new(Z3Binary::new("z3")?)?;
         let a = Array::<Int, Int>::new_const("a");
 
@@ -87,7 +89,6 @@ mod tests {
     /// Check that a value stored at an index can be correctly retrieved
     #[test]
     fn read_stored() -> Result<(), Box<dyn std::error::Error>> {
-
         let mut solver = Solver::new(Z3Binary::new("z3")?)?;
         let a = Array::<Int, Int>::new_const("a");
         let x = Int::new_const("x");
@@ -103,11 +104,9 @@ mod tests {
         Ok(())
     }
 
-
     /// Check that a value stored at an index is guaranteed to be retrieved
     #[test]
     fn read_stored_incorrect() -> Result<(), Box<dyn std::error::Error>> {
-
         let mut solver = Solver::new(Z3Binary::new("z3")?)?;
         let a = Array::<Int, Int>::new_const("a");
         let x = Int::new_const("x");
@@ -122,14 +121,16 @@ mod tests {
 
         match res {
             crate::SatResult::Unsat => Ok(()),
-            s => Err(Box::new(crate::Error::UnexpectedSatResult { expected: crate::SatResult::Unsat, actual: s })),
+            s => Err(Box::new(crate::Error::UnexpectedSatResult {
+                expected: crate::SatResult::Unsat,
+                actual: s,
+            })),
         }
     }
 
     /// Check that a store does not affect values other than the target index
     #[test]
     fn read_untouched() -> Result<(), Box<dyn std::error::Error>> {
-
         let mut solver = Solver::new(Z3Binary::new("z3")?)?;
         let a = Array::<Int, Int>::new_const("a");
         let x = Int::new_const("x");
@@ -138,7 +139,7 @@ mod tests {
 
         let updated = a.store(x.into(), y.into());
         let read = updated.select(z.into());
-        
+
         solver.assert(x._neq(z))?;
         solver.assert(read._neq(y))?;
 
@@ -146,5 +147,4 @@ mod tests {
 
         Ok(())
     }
-
 }
