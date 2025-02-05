@@ -62,7 +62,10 @@ impl<'st> IntoWithStorage<'st, Real<'st>> for i64 {
 }
 impl<'st> IntoWithStorage<'st, Real<'st>> for f64 {
     fn into_with_storage(self, st: &'st Storage) -> Real<'st> {
-        let s = Term::Identifier(qual_ident(st.alloc_str(&format!("{:?}", self.abs())), None));
+        let s = Term::Identifier(qual_ident(
+            st.alloc_str(&format!("{:.10}", self.abs())),
+            None,
+        ));
         let term = if self.is_sign_negative() {
             Term::Application(qual_ident("-", None), st.alloc_slice(&[st.alloc_term(s)]))
         } else {
