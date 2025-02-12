@@ -313,11 +313,11 @@ syntax = "<keyword>"
 
 # Command responses.
 
-[error_behavior]
+[error-behavior]
 immediate-exit = { syntax = "immediate-exit" }
 continued-execution = { syntax = "continued-execution" }
 
-[reason_unknown]
+[reason-unknown]
 memout = { syntax = "memout" }
 incomplete = { syntax = "incomplete" }
 s_expr = { syntax = "<s_expr>" }

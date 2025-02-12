@@ -1,6 +1,6 @@
 use itertools::Itertools;
 
-use crate::lexicon::SmtlibParse;
+use crate::{lexicon::SmtlibParse, storage::Storage};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, logos::Logos)]
 pub(crate) enum Token {
@@ -222,15 +222,16 @@ pub struct ParseError {
 }
 
 #[derive(Debug)]
-pub(crate) struct Parser<'src> {
+pub(crate) struct Parser<'st, 'src> {
+    pub(crate) storage: &'st Storage,
     src: &'src str,
     cursor: usize,
     lexer: Vec<(Token, SourceSpan)>,
     errors: Vec<ParseError>,
 }
 
-impl<'src> Parser<'src> {
-    pub(crate) fn new(src: &'src str) -> Self {
+impl<'st, 'src> Parser<'st, 'src> {
+    pub(crate) fn new(storage: &'st Storage, src: &'src str) -> Self {
         let lexer = logos::Lexer::<'src, Token>::new(src)
             .spanned()
             .map(|(t, r)| {
@@ -242,6 +243,7 @@ impl<'src> Parser<'src> {
             .collect_vec();
 
         Parser {
+            storage,
             src,
             cursor: 0,
             lexer,
@@ -324,23 +326,30 @@ impl<'src> Parser<'src> {
             }
         }
     }
-    pub(crate) fn any<T: SmtlibParse>(&mut self) -> Result<Vec<T>, ParseError> {
+    pub(crate) fn expect_st(&mut self, t: Token) -> Result<&'st str, ParseError> {
+        Ok(self.storage.alloc_str(self.expect(t)?))
+    }
+    pub(crate) fn any<T: SmtlibParse<'st>>(&mut self) -> Result<&'st [T::Output], ParseError> {
         let mut res = vec![];
         while T::is_start_of(0, self) {
             res.push(T::parse(self)?);
         }
+        let res = self.storage.alloc_slice(&res);
         Ok(res)
     }
-    pub(crate) fn non_zero<T: SmtlibParse>(&mut self) -> Result<Vec<T>, ParseError> {
+    pub(crate) fn non_zero<T: SmtlibParse<'st>>(&mut self) -> Result<&'st [T::Output], ParseError> {
         let mut res = vec![T::parse(self)?];
         while T::is_start_of(0, self) {
             res.push(T::parse(self)?);
         }
+        let res = self.storage.alloc_slice(&res);
         Ok(res)
     }
-    pub(crate) fn n_plus_one<T: SmtlibParse>(&mut self) -> Result<Vec<T>, ParseError> {
+    pub(crate) fn n_plus_one<T: SmtlibParse<'st>>(
+        &mut self,
+    ) -> Result<&'st [T::Output], ParseError> {
         // TODO
-        self.non_zero()
+        self.non_zero::<T>()
     }
 
     pub(crate) fn stuck(&self, parsing: &str) -> ParseError {
