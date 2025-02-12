@@ -34,7 +34,7 @@ use crate::parse::Token;
 ///
 /// For more details read the [`backend`](crate::backend) module documentation.
 pub trait Backend {
-    fn exec(&mut self, cmd: &crate::Command) -> Result<String, crate::Error>;
+    fn exec(&mut self, cmd: crate::Command) -> Result<String, crate::Error>;
 }
 
 struct BinaryBackend {
@@ -65,7 +65,7 @@ impl BinaryBackend {
             buf: String::new(),
         })
     }
-    pub(crate) fn exec(&mut self, cmd: &crate::Command) -> Result<&str, crate::Error> {
+    pub(crate) fn exec(&mut self, cmd: crate::Command) -> Result<&str, crate::Error> {
         // println!("> {cmd}");
         writeln!(self.stdin, "{cmd}")?;
         self.stdin.flush()?;
@@ -107,7 +107,7 @@ pub mod tokio {
     pub trait TokioBackend {
         fn exec(
             &mut self,
-            cmd: &crate::Command,
+            cmd: crate::Command,
         ) -> impl Future<Output = Result<String, crate::Error>>;
     }
 
@@ -145,7 +145,7 @@ pub mod tokio {
                 buf: String::new(),
             })
         }
-        pub(crate) async fn exec(&mut self, cmd: &crate::Command) -> Result<&str, crate::Error> {
+        pub(crate) async fn exec(&mut self, cmd: crate::Command<'_>) -> Result<&str, crate::Error> {
             // eprintln!("> {cmd}");
             self.stdin.write_all(cmd.to_string().as_bytes()).await?;
             self.stdin.write_all(b"\n").await?;

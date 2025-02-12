@@ -9,7 +9,9 @@ use std::collections::HashSet;
 
 use ast::{QualIdentifier, Term};
 use backend::Backend;
+use itertools::Itertools;
 use parse::ParseError;
+use storage::Storage;
 
 use crate::ast::{Command, GeneralResponse};
 
@@ -18,6 +20,7 @@ pub mod ast;
 pub mod backend;
 pub mod lexicon;
 mod parse;
+mod storage;
 #[cfg(test)]
 mod tests;
 
@@ -35,30 +38,31 @@ pub enum Error {
 }
 
 pub trait Logger: 'static {
-    fn exec(&self, cmd: &ast::Command);
-    fn response(&self, cmd: &ast::Command, res: &str);
+    fn exec(&self, cmd: ast::Command);
+    fn response(&self, cmd: ast::Command, res: &str);
 }
 
 impl<F, G> Logger for (F, G)
 where
-    F: Fn(&ast::Command) + 'static,
-    G: Fn(&ast::Command, &str) + 'static,
+    F: Fn(ast::Command) + 'static,
+    G: Fn(ast::Command, &str) + 'static,
 {
-    fn exec(&self, cmd: &ast::Command) {
+    fn exec(&self, cmd: ast::Command) {
         (self.0)(cmd)
     }
 
-    fn response(&self, cmd: &ast::Command, res: &str) {
+    fn response(&self, cmd: ast::Command, res: &str) {
         (self.1)(cmd, res)
     }
 }
 
-pub struct Driver<B> {
+pub struct Driver<'st, B> {
+    st: &'st Storage,
     backend: B,
     logger: Option<Box<dyn Logger>>,
 }
 
-impl<B: std::fmt::Debug> std::fmt::Debug for Driver<B> {
+impl<B: std::fmt::Debug> std::fmt::Debug for Driver<'_, B> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Driver")
             .field("backend", &self.backend)
@@ -74,24 +78,25 @@ impl<B: std::fmt::Debug> std::fmt::Debug for Driver<B> {
     }
 }
 
-impl<B> Driver<B>
+impl<'st, B> Driver<'st, B>
 where
     B: Backend,
 {
-    pub fn new(backend: B) -> Result<Self, Error> {
+    pub fn new(st: &'st Storage, backend: B) -> Result<Self, Error> {
         let mut driver = Self {
+            st,
             backend,
             logger: None,
         };
 
-        driver.exec(&Command::SetOption(ast::Option::PrintSuccess(true)))?;
+        driver.exec(Command::SetOption(ast::Option::PrintSuccess(true)))?;
 
         Ok(driver)
     }
     pub fn set_logger(&mut self, logger: impl Logger) {
         self.logger = Some(Box::new(logger))
     }
-    pub fn exec(&mut self, cmd: &Command) -> Result<GeneralResponse, Error> {
+    pub fn exec(&mut self, cmd: Command<'st>) -> Result<GeneralResponse<'st>, Error> {
         if let Some(logger) = &self.logger {
             logger.exec(cmd);
         }
@@ -99,10 +104,10 @@ where
         if let Some(logger) = &self.logger {
             logger.response(cmd, &res);
         }
-        let res = if let Some(res) = cmd.parse_response(&res)? {
+        let res = if let Some(res) = cmd.parse_response(self.st, &res)? {
             GeneralResponse::SpecificSuccessResponse(res)
         } else {
-            GeneralResponse::parse(&res)?
+            GeneralResponse::parse(self.st, &res)?
         };
         Ok(res)
     }
@@ -113,15 +118,17 @@ pub mod tokio {
     use crate::{
         ast::{self, Command, GeneralResponse},
         backend::tokio::TokioBackend,
+        storage::Storage,
         Error, Logger,
     };
 
-    pub struct TokioDriver<B> {
+    pub struct TokioDriver<'st, B> {
+        st: &'st Storage,
         backend: B,
         logger: Option<Box<dyn Logger>>,
     }
 
-    impl<B: std::fmt::Debug> std::fmt::Debug for TokioDriver<B> {
+    impl<B: std::fmt::Debug> std::fmt::Debug for TokioDriver<'_, B> {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             f.debug_struct("TokioDriver")
                 .field("backend", &self.backend)
@@ -137,18 +144,19 @@ pub mod tokio {
         }
     }
 
-    impl<B> TokioDriver<B>
+    impl<'st, B> TokioDriver<'st, B>
     where
         B: TokioBackend,
     {
-        pub async fn new(backend: B) -> Result<Self, Error> {
+        pub async fn new(st: &'st Storage, backend: B) -> Result<Self, Error> {
             let mut driver = Self {
+                st,
                 backend,
                 logger: None,
             };
 
             driver
-                .exec(&Command::SetOption(ast::Option::PrintSuccess(true)))
+                .exec(Command::SetOption(ast::Option::PrintSuccess(true)))
                 .await?;
 
             Ok(driver)
@@ -156,7 +164,7 @@ pub mod tokio {
         pub fn set_logger(&mut self, logger: impl Logger) {
             self.logger = Some(Box::new(logger))
         }
-        pub async fn exec(&mut self, cmd: &Command) -> Result<GeneralResponse, Error> {
+        pub async fn exec(&mut self, cmd: Command<'st>) -> Result<GeneralResponse<'st>, Error> {
             if let Some(logger) = &self.logger {
                 logger.exec(cmd);
             }
@@ -164,10 +172,10 @@ pub mod tokio {
             if let Some(logger) = &self.logger {
                 logger.response(cmd, &res);
             }
-            let res = if let Some(res) = cmd.parse_response(&res)? {
+            let res = if let Some(res) = cmd.parse_response(self.st, &res)? {
                 GeneralResponse::SpecificSuccessResponse(res)
             } else {
-                GeneralResponse::parse(&res)?
+                GeneralResponse::parse(self.st, &res)?
             };
             Ok(res)
         }
@@ -175,7 +183,7 @@ pub mod tokio {
 }
 
 // TODO: Use the definitions from 3.6.3 Scoping of variables and parameters
-impl Term {
+impl<'st> Term<'st> {
     pub fn all_consts(&self) -> HashSet<&QualIdentifier> {
         match self {
             Term::SpecConstant(_) => HashSet::new(),
@@ -189,21 +197,21 @@ impl Term {
             Term::Annotation(_, _) => todo!(),
         }
     }
-    pub fn strip_sort(self) -> Term {
+    pub fn strip_sort(&'st self, st: &'st Storage) -> &'st Term<'st> {
         match self {
             Term::SpecConstant(_) => self,
             Term::Identifier(
                 QualIdentifier::Identifier(ident) | QualIdentifier::Sorted(ident, _),
-            ) => Term::Identifier(QualIdentifier::Identifier(ident)),
+            ) => st.alloc(Term::Identifier(QualIdentifier::Identifier(*ident))),
             Term::Application(
                 QualIdentifier::Identifier(ident) | QualIdentifier::Sorted(ident, _),
                 args,
-            ) => Term::Application(
-                QualIdentifier::Identifier(ident),
-                args.into_iter().map(|arg| arg.strip_sort()).collect(),
-            ),
+            ) => st.alloc(Term::Application(
+                QualIdentifier::Identifier(*ident),
+                st.alloc_slice(&args.iter().map(|arg| arg.strip_sort(st)).collect_vec()),
+            )),
             Term::Let(_, _) => todo!(),
-            Term::Forall(qs, rs) => Term::Forall(qs, rs),
+            Term::Forall(qs, rs) => st.alloc(Term::Forall(qs, rs)),
             Term::Exists(_, _) => todo!(),
             Term::Match(_, _) => todo!(),
             Term::Annotation(_, _) => todo!(),
