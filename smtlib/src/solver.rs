@@ -1,15 +1,16 @@
 use indexmap::{map::Entry, IndexMap, IndexSet};
+use itertools::Itertools;
 use smtlib_lowlevel::{
     ast::{self, Identifier, QualIdentifier},
     backend,
     lexicon::{Numeral, Symbol},
-    Driver, Logger,
+    Driver, Logger, Storage,
 };
 
 use crate::{
     funs, sorts,
     terms::{qual_ident, Dynamic},
-    Bool, Error, Logic, Model, SatResult, SatResultWithModel,
+    Bool, Error, Logic, Model, SatResult, SatResultWithModel, Sorted,
 };
 
 /// The [`Solver`] type is the primary entrypoint to interaction with the
@@ -39,11 +40,11 @@ use crate::{
 /// # }
 /// ```
 #[derive(Debug)]
-pub struct Solver<B> {
-    driver: Driver<B>,
+pub struct Solver<'st, B> {
+    driver: Driver<'st, B>,
     push_pop_stack: Vec<StackSizes>,
-    decls: IndexMap<Identifier, ast::Sort>,
-    declared_sorts: IndexSet<ast::Sort>,
+    decls: IndexMap<Identifier<'st>, ast::Sort<'st>>,
+    declared_sorts: IndexSet<ast::Sort<'st>>,
 }
 
 #[derive(Debug)]
@@ -52,7 +53,7 @@ struct StackSizes {
     declared_sorts: usize,
 }
 
-impl<B> Solver<B>
+impl<'st, B> Solver<'st, B>
 where
     B: backend::Backend,
 {
@@ -60,25 +61,30 @@ where
     ///
     /// The read more about which backends are available, check out the
     /// documentation of the [`backend`] module.
-    pub fn new(backend: B) -> Result<Self, Error> {
+    pub fn new(st: &'st Storage, backend: B) -> Result<Self, Error> {
         Ok(Self {
-            driver: Driver::new(backend)?,
+            driver: Driver::new(st, backend)?,
             push_pop_stack: Vec::new(),
             decls: Default::default(),
             declared_sorts: Default::default(),
         })
+    }
+    pub fn st(&self) -> &'st Storage {
+        self.driver.st()
     }
     pub fn set_logger(&mut self, logger: impl Logger) {
         self.driver.set_logger(logger)
     }
     pub fn set_timeout(&mut self, ms: usize) -> Result<(), Error> {
         let cmd = ast::Command::SetOption(ast::Option::Attribute(ast::Attribute::WithValue(
-            smtlib_lowlevel::lexicon::Keyword(":timeout".to_string()),
-            ast::AttributeValue::SpecConstant(ast::SpecConstant::Numeral(Numeral(ms.to_string()))),
+            smtlib_lowlevel::lexicon::Keyword(":timeout"),
+            ast::AttributeValue::SpecConstant(ast::SpecConstant::Numeral(Numeral(
+                self.st().alloc_str(&ms.to_string()),
+            ))),
         )));
-        match self.driver.exec(&cmd)? {
+        match self.driver.exec(cmd)? {
             ast::GeneralResponse::Success => Ok(()),
-            ast::GeneralResponse::Error(e) => Err(Error::Smt(e, cmd.to_string())),
+            ast::GeneralResponse::Error(e) => Err(Error::Smt(e.to_string(), cmd.to_string())),
             _ => todo!(),
         }
     }
@@ -87,8 +93,8 @@ where
     ///
     /// To read more about logics read the documentation of [`Logic`].
     pub fn set_logic(&mut self, logic: Logic) -> Result<(), Error> {
-        let cmd = ast::Command::SetLogic(Symbol(logic.to_string()));
-        match self.driver.exec(&cmd)? {
+        let cmd = ast::Command::SetLogic(Symbol(self.st().alloc_str(&logic.name())));
+        match self.driver.exec(cmd)? {
             ast::GeneralResponse::Success => Ok(()),
             ast::GeneralResponse::SpecificSuccessResponse(_) => todo!(),
             ast::GeneralResponse::Unsupported => todo!(),
@@ -96,21 +102,24 @@ where
         }
     }
     /// Runs the given command on the solver, and returns the result.
-    pub fn run_command(&mut self, cmd: &ast::Command) -> Result<ast::GeneralResponse, Error> {
+    pub fn run_command(
+        &mut self,
+        cmd: ast::Command<'st>,
+    ) -> Result<ast::GeneralResponse<'st>, Error> {
         Ok(self.driver.exec(cmd)?)
     }
     /// Adds the constraint of `b` as an assertion to the solver. To check for
     /// satisfiability call [`Solver::check_sat`] or
     /// [`Solver::check_sat_with_model`].
-    pub fn assert(&mut self, b: Bool) -> Result<(), Error> {
-        let term = b.into();
+    pub fn assert(&mut self, b: Bool<'st>) -> Result<(), Error> {
+        let term = b.term();
 
-        self.declare_all_consts(&term)?;
+        self.declare_all_consts(term)?;
 
         let cmd = ast::Command::Assert(term);
-        match self.driver.exec(&cmd)? {
+        match self.driver.exec(cmd)? {
             ast::GeneralResponse::Success => Ok(()),
-            ast::GeneralResponse::Error(e) => Err(Error::Smt(e, cmd.to_string())),
+            ast::GeneralResponse::Error(e) => Err(Error::Smt(e.to_string(), cmd.to_string())),
             _ => todo!(),
         }
     }
@@ -121,7 +130,7 @@ where
     /// check out [`Solver::check_sat`].
     pub fn check_sat(&mut self) -> Result<SatResult, Error> {
         let cmd = ast::Command::CheckSat;
-        match self.driver.exec(&cmd)? {
+        match self.driver.exec(cmd)? {
             ast::GeneralResponse::SpecificSuccessResponse(
                 ast::SpecificSuccessResponse::CheckSatResponse(res),
             ) => Ok(match res {
@@ -129,7 +138,7 @@ where
                 ast::CheckSatResponse::Unsat => SatResult::Unsat,
                 ast::CheckSatResponse::Unknown => SatResult::Unknown,
             }),
-            ast::GeneralResponse::Error(msg) => Err(Error::Smt(msg, format!("{cmd}"))),
+            ast::GeneralResponse::Error(msg) => Err(Error::Smt(msg.to_string(), format!("{cmd}"))),
             res => todo!("{res:?}"),
         }
     }
@@ -138,7 +147,7 @@ where
     ///
     /// If you are not interested in the produced model, check out
     /// [`Solver::check_sat`].
-    pub fn check_sat_with_model(&mut self) -> Result<SatResultWithModel, Error> {
+    pub fn check_sat_with_model(&mut self) -> Result<SatResultWithModel<'st>, Error> {
         match self.check_sat()? {
             SatResult::Unsat => Ok(SatResultWithModel::Unsat),
             SatResult::Sat => Ok(SatResultWithModel::Sat(self.get_model()?)),
@@ -151,42 +160,46 @@ where
     ///
     /// > **NOTE:** This must only be called after having called
     /// > [`Solver::check_sat`] and it returning [`SatResult::Sat`].
-    pub fn get_model(&mut self) -> Result<Model, Error> {
-        match self.driver.exec(&ast::Command::GetModel)? {
+    pub fn get_model(&mut self) -> Result<Model<'st>, Error> {
+        match self.driver.exec(ast::Command::GetModel)? {
             ast::GeneralResponse::SpecificSuccessResponse(
                 ast::SpecificSuccessResponse::GetModelResponse(model),
-            ) => Ok(Model::new(model)),
+            ) => Ok(Model::new(self.st(), model)),
             res => todo!("{res:?}"),
         }
     }
-    pub fn declare_fun(&mut self, fun: &funs::Fun) -> Result<(), Error> {
-        for var in &fun.vars {
+    pub fn declare_fun(&mut self, fun: &funs::Fun<'st>) -> Result<(), Error> {
+        for var in fun.vars {
             self.declare_sort(&var.ast())?;
         }
         self.declare_sort(&fun.return_sort.ast())?;
 
         if fun.vars.is_empty() {
-            return self.declare_const(&qual_ident(fun.name.clone(), Some(fun.return_sort.ast())));
+            return self.declare_const(&qual_ident(fun.name, Some(fun.return_sort.ast())));
         }
 
         let cmd = ast::Command::DeclareFun(
-            Symbol(fun.name.clone()),
-            fun.vars.iter().map(|s| s.ast()).collect(),
+            Symbol(fun.name),
+            self.st()
+                .alloc_slice(&fun.vars.iter().map(|s| s.ast()).collect_vec()),
             fun.return_sort.ast(),
         );
-        match self.driver.exec(&cmd)? {
+        match self.driver.exec(cmd)? {
             ast::GeneralResponse::Success => Ok(()),
-            ast::GeneralResponse::Error(e) => Err(Error::Smt(e, cmd.to_string())),
+            ast::GeneralResponse::Error(e) => Err(Error::Smt(e.to_string(), cmd.to_string())),
             _ => todo!(),
         }
     }
     /// Simplifies the given term
-    pub fn simplify(&mut self, t: Dynamic) -> Result<smtlib_lowlevel::ast::Term, Error> {
-        self.declare_all_consts(&t.into())?;
+    pub fn simplify(
+        &mut self,
+        t: Dynamic<'st>,
+    ) -> Result<&'st smtlib_lowlevel::ast::Term<'st>, Error> {
+        self.declare_all_consts(t.term())?;
 
-        let cmd = ast::Command::Simplify(t.into());
+        let cmd = ast::Command::Simplify(t.term());
 
-        match self.driver.exec(&cmd)? {
+        match self.driver.exec(cmd)? {
             ast::GeneralResponse::SpecificSuccessResponse(
                 ast::SpecificSuccessResponse::SimplifyResponse(t),
             ) => Ok(t.0),
@@ -210,12 +223,15 @@ where
             declared_sorts: self.declared_sorts.len(),
         });
 
-        let cmd = ast::Command::Push(Numeral(levels.to_string()));
-        Ok(match self.driver.exec(&cmd)? {
+        let cmd = ast::Command::Push(Numeral(self.st().alloc_str(&levels.to_string())));
+        match self.driver.exec(cmd)? {
             ast::GeneralResponse::Success => {}
-            ast::GeneralResponse::Error(e) => return Err(Error::Smt(e, cmd.to_string())),
+            ast::GeneralResponse::Error(e) => {
+                return Err(Error::Smt(e.to_string(), cmd.to_string()))
+            }
             _ => todo!(),
-        })
+        };
+        Ok(())
     }
 
     fn pop(&mut self, levels: usize) -> Result<(), Error> {
@@ -224,49 +240,52 @@ where
             self.declared_sorts.truncate(sizes.declared_sorts);
         }
 
-        let cmd = ast::Command::Pop(Numeral(levels.to_string()));
-        Ok(match self.driver.exec(&cmd)? {
+        let cmd = ast::Command::Pop(Numeral(self.st().alloc_str(&levels.to_string())));
+        match self.driver.exec(cmd)? {
             ast::GeneralResponse::Success => {}
-            ast::GeneralResponse::Error(e) => return Err(Error::Smt(e, cmd.to_string())),
+            ast::GeneralResponse::Error(e) => {
+                return Err(Error::Smt(e.to_string(), cmd.to_string()))
+            }
             _ => todo!(),
-        })
+        };
+        Ok(())
     }
 
-    fn declare_all_consts(&mut self, t: &ast::Term) -> Result<(), Error> {
+    fn declare_all_consts(&mut self, t: &'st ast::Term<'st>) -> Result<(), Error> {
         for q in t.all_consts() {
             self.declare_const(q)?;
         }
         Ok(())
     }
 
-    fn declare_const(&mut self, q: &QualIdentifier) -> Result<(), Error> {
-        Ok(match q {
+    fn declare_const(&mut self, q: &QualIdentifier<'st>) -> Result<(), Error> {
+        match q {
             QualIdentifier::Identifier(_) => {}
             QualIdentifier::Sorted(i, s) => {
                 self.declare_sort(s)?;
 
-                match self.decls.entry(i.clone()) {
+                match self.decls.entry(*i) {
                     Entry::Occupied(stored) => assert_eq!(s, stored.get()),
                     Entry::Vacant(v) => {
-                        v.insert(s.clone());
+                        v.insert(*s);
                         match i {
                             Identifier::Simple(sym) => {
-                                self.driver
-                                    .exec(&ast::Command::DeclareConst(sym.clone(), s.clone()))?;
+                                self.driver.exec(ast::Command::DeclareConst(*sym, *s))?;
                             }
                             Identifier::Indexed(_, _) => todo!(),
                         }
                     }
                 }
             }
-        })
+        };
+        Ok(())
     }
 
-    fn declare_sort(&mut self, s: &ast::Sort) -> Result<(), Error> {
+    fn declare_sort(&mut self, s: &ast::Sort<'st>) -> Result<(), Error> {
         if self.declared_sorts.contains(s) {
             return Ok(());
         }
-        self.declared_sorts.insert(s.clone());
+        self.declared_sorts.insert(*s);
 
         let cmd = match s {
             ast::Sort::Sort(ident) => {
@@ -278,10 +297,10 @@ where
                         return Ok(());
                     }
                 };
-                if sorts::is_built_in_sort(&sym.0) {
+                if sorts::is_built_in_sort(sym.0) {
                     return Ok(());
                 }
-                ast::Command::DeclareSort(sym.clone(), Numeral("0".to_string()))
+                ast::Command::DeclareSort(*sym, Numeral("0"))
             }
             ast::Sort::Parametric(ident, params) => {
                 let sym = match ident {
@@ -292,15 +311,18 @@ where
                         return Ok(());
                     }
                 };
-                if sorts::is_built_in_sort(&sym.0) {
+                if sorts::is_built_in_sort(sym.0) {
                     return Ok(());
                 }
-                ast::Command::DeclareSort(sym.clone(), Numeral(params.len().to_string()))
+                ast::Command::DeclareSort(
+                    *sym,
+                    Numeral(self.st().alloc_str(&params.len().to_string())),
+                )
             }
         };
-        match self.driver.exec(&cmd)? {
+        match self.driver.exec(cmd)? {
             ast::GeneralResponse::Success => Ok(()),
-            ast::GeneralResponse::Error(e) => return Err(Error::Smt(e, cmd.to_string())),
+            ast::GeneralResponse::Error(e) => Err(Error::Smt(e.to_string(), cmd.to_string())),
             _ => todo!(),
         }
     }

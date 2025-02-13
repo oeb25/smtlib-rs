@@ -6,8 +6,9 @@ use super::*;
 
 #[test]
 fn int_math() {
-    let x = Int::new_const("x");
-    let y = Int::new_const("hello");
+    let st = Storage::new();
+    let x = Int::new_const(&st, "x");
+    let y = Int::new_const(&st, "hello");
     // let x_named = x.labeled();
     let mut z = 12 + y * 4;
     z += 3;
@@ -17,17 +18,20 @@ fn int_math() {
 
 #[test]
 fn quantifiers() {
-    let x = Int::new_const("x");
-    let y = Int::new_const("y");
+    let st = Storage::new();
+    let x = Int::new_const(&st, "x");
+    let y = Int::new_const(&st, "y");
 
-    let res = forall((x, y), (x + 2)._eq(y));
-    println!("{}", ast::Term::from(res));
+    let res = forall(&st, (x, y), (x + 2)._eq(y));
+    println!("{}", res.sterm());
 }
 
 #[test]
 fn negative_numbers() {
-    let mut solver = Solver::new(crate::backend::z3_binary::Z3Binary::new("z3").unwrap()).unwrap();
-    let x = Int::new_const("x");
+    let st = Storage::new();
+    let mut solver =
+        Solver::new(&st, crate::backend::z3_binary::Z3Binary::new("z3").unwrap()).unwrap();
+    let x = Int::new_const(&st, "x");
     solver.assert(x.lt(-1)).unwrap();
     let model = solver.check_sat_with_model().unwrap().expect_sat().unwrap();
     match model.eval(x) {

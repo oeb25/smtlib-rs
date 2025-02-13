@@ -1,5 +1,9 @@
 use miette::IntoDiagnostic;
-use smtlib::prelude::*;
+use smtlib::{backend::z3_binary::Z3Binary, prelude::*};
+use smtlib_lowlevel::{
+    ast::{Identifier, QualIdentifier, SpecConstant, Term},
+    Storage,
+};
 
 #[derive(Debug, Clone)]
 enum Expr {
@@ -89,52 +93,43 @@ where
     (f(Box::new(lhs), Box::new(rhs)), src)
 }
 
-fn expr_to_smt_int(expr: &Expr) -> smtlib::Int {
-    smtlib::Int::from_dynamic(expr_to_smt(expr))
+fn expr_to_smt_int<'st>(st: &'st Storage, expr: &Expr) -> smtlib::Int<'st> {
+    smtlib::Int::from_dynamic(expr_to_smt(st, expr))
 }
-fn expr_to_smt_bool(expr: &Expr) -> smtlib::Bool {
-    smtlib::Bool::from_dynamic(expr_to_smt(expr))
+fn expr_to_smt_bool<'st>(st: &'st Storage, expr: &Expr) -> smtlib::Bool<'st> {
+    smtlib::Bool::from_dynamic(expr_to_smt(st, expr))
 }
-fn expr_to_smt(expr: &Expr) -> smtlib::terms::Dynamic {
+fn expr_to_smt<'st>(st: &'st Storage, expr: &Expr) -> smtlib::terms::Dynamic<'st> {
     match expr {
-        Expr::Num(n) => smtlib::Int::from(*n).into(),
-        Expr::Var(v) => smtlib::Int::new_const(v).into(),
-        Expr::Bool(b) => smtlib::Bool::from(*b).into(),
-        Expr::Add(l, r) => (expr_to_smt_int(l) + expr_to_smt_int(r)).into(),
-        Expr::Sub(l, r) => (expr_to_smt_int(l) - expr_to_smt_int(r)).into(),
-        Expr::Mul(l, r) => (expr_to_smt_int(l) * expr_to_smt_int(r)).into(),
-        Expr::Div(l, r) => (expr_to_smt_int(l) / expr_to_smt_int(r)).into(),
-        Expr::Eq(l, r) => expr_to_smt(l)._eq(expr_to_smt(r)).into(),
-        Expr::Neq(l, r) => expr_to_smt(l)._neq(expr_to_smt(r)).into(),
-        Expr::Lt(l, r) => expr_to_smt_int(l).lt(expr_to_smt_int(r)).into(),
-        Expr::Leq(l, r) => expr_to_smt_int(l).le(expr_to_smt_int(r)).into(),
-        Expr::Gt(l, r) => expr_to_smt_int(l).gt(expr_to_smt_int(r)).into(),
-        Expr::Geq(l, r) => expr_to_smt_int(l).ge(expr_to_smt_int(r)).into(),
-        Expr::And(l, r) => (expr_to_smt_bool(l) & expr_to_smt_bool(r)).into(),
-        Expr::Or(l, r) => (expr_to_smt_bool(l) | expr_to_smt_bool(r)).into(),
-        Expr::Not(e) => (!expr_to_smt_bool(e)).into(),
-        Expr::Neg(e) => (-expr_to_smt_int(e)).into(),
+        Expr::Num(n) => smtlib::Int::new(st, *n).into(),
+        Expr::Var(v) => smtlib::Int::new_const(st, v).into(),
+        Expr::Bool(b) => smtlib::Bool::new(st, *b).into(),
+        Expr::Add(l, r) => (expr_to_smt_int(st, l) + expr_to_smt_int(st, r)).into(),
+        Expr::Sub(l, r) => (expr_to_smt_int(st, l) - expr_to_smt_int(st, r)).into(),
+        Expr::Mul(l, r) => (expr_to_smt_int(st, l) * expr_to_smt_int(st, r)).into(),
+        Expr::Div(l, r) => (expr_to_smt_int(st, l) / expr_to_smt_int(st, r)).into(),
+        Expr::Eq(l, r) => expr_to_smt(st, l)._eq(expr_to_smt(st, r)).into(),
+        Expr::Neq(l, r) => expr_to_smt(st, l)._neq(expr_to_smt(st, r)).into(),
+        Expr::Lt(l, r) => expr_to_smt_int(st, l).lt(expr_to_smt_int(st, r)).into(),
+        Expr::Leq(l, r) => expr_to_smt_int(st, l).le(expr_to_smt_int(st, r)).into(),
+        Expr::Gt(l, r) => expr_to_smt_int(st, l).gt(expr_to_smt_int(st, r)).into(),
+        Expr::Geq(l, r) => expr_to_smt_int(st, l).ge(expr_to_smt_int(st, r)).into(),
+        Expr::And(l, r) => (expr_to_smt_bool(st, l) & expr_to_smt_bool(st, r)).into(),
+        Expr::Or(l, r) => (expr_to_smt_bool(st, l) | expr_to_smt_bool(st, r)).into(),
+        Expr::Not(e) => (!expr_to_smt_bool(st, e)).into(),
+        Expr::Neg(e) => (-expr_to_smt_int(st, e)).into(),
     }
 }
 
-fn smt_to_expr(sexpr: &smtlib_lowlevel::ast::Term) -> Expr {
+fn smt_to_expr(sexpr: &Term) -> Expr {
     match sexpr {
-        smtlib_lowlevel::ast::Term::SpecConstant(smtlib_lowlevel::ast::SpecConstant::Numeral(
-            n,
-        )) => Expr::Num(n.0.parse().unwrap()),
-        smtlib_lowlevel::ast::Term::Identifier(
-            smtlib_lowlevel::ast::QualIdentifier::Identifier(
-                smtlib_lowlevel::ast::Identifier::Simple(s),
-            ),
-        ) => Expr::Var(s.to_string()),
-        smtlib_lowlevel::ast::Term::Application(
-            smtlib_lowlevel::ast::QualIdentifier::Identifier(
-                smtlib_lowlevel::ast::Identifier::Simple(s),
-            ),
-            args,
-        ) => {
-            let args = args.iter().map(smt_to_expr).collect::<Vec<_>>();
-            match s.0.as_str() {
+        Term::SpecConstant(SpecConstant::Numeral(n)) => Expr::Num(n.0.parse().unwrap()),
+        Term::Identifier(QualIdentifier::Identifier(Identifier::Simple(s))) => {
+            Expr::Var(s.to_string())
+        }
+        Term::Application(QualIdentifier::Identifier(Identifier::Simple(s)), args) => {
+            let args = args.iter().copied().map(smt_to_expr).collect::<Vec<_>>();
+            match s.0 {
                 "+" => Expr::Add(Box::new(args[0].clone()), Box::new(args[1].clone())),
                 "-" => Expr::Sub(Box::new(args[0].clone()), Box::new(args[1].clone())),
                 "*" => Expr::Mul(Box::new(args[0].clone()), Box::new(args[1].clone())),
@@ -163,14 +158,15 @@ fn main() -> miette::Result<()> {
         .nth(1)
         .ok_or_else(|| miette::miette!("missing src"))?;
 
-    let (expr, _) = parse_expr(&src);
-    let smt = expr_to_smt(&expr);
+    let st = Storage::new();
 
-    let mut solver =
-        smtlib::Solver::new(smtlib::backend::z3_binary::Z3Binary::new("z3").into_diagnostic()?)?;
+    let (expr, _) = parse_expr(&src);
+    let smt = expr_to_smt(&st, &expr);
+
+    let mut solver = smtlib::Solver::new(&st, Z3Binary::new("z3").into_diagnostic()?)?;
 
     let sexpr = solver.simplify(smt)?;
-    let s = smt_to_expr(&sexpr);
+    let s = smt_to_expr(sexpr);
     eprintln!("{s:?}");
 
     Ok(())

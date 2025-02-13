@@ -5,9 +5,10 @@ use smtlib_lowlevel::{
     backend,
     lexicon::Symbol,
     tokio::TokioDriver,
+    Storage,
 };
 
-use crate::{Bool, Error, Logic, Model, SatResult, SatResultWithModel};
+use crate::{Bool, Error, Logic, Model, SatResult, SatResultWithModel, Sorted};
 
 /// The [`TokioSolver`] type is the primary entrypoint to interaction with the
 /// solver. Checking for validity of a set of assertions requires:
@@ -38,12 +39,12 @@ use crate::{Bool, Error, Logic, Model, SatResult, SatResultWithModel};
 /// # }
 /// ```
 #[derive(Debug)]
-pub struct TokioSolver<B> {
-    driver: TokioDriver<B>,
-    decls: HashMap<Identifier, ast::Sort>,
+pub struct TokioSolver<'st, B> {
+    driver: TokioDriver<'st, B>,
+    decls: HashMap<Identifier<'st>, ast::Sort<'st>>,
 }
 
-impl<B> TokioSolver<B>
+impl<'st, B> TokioSolver<'st, B>
 where
     B: backend::tokio::TokioBackend,
 {
@@ -51,19 +52,22 @@ where
     ///
     /// The read more about which backends are available, check out the
     /// documentation of the [`backend`] module.
-    pub async fn new(backend: B) -> Result<Self, Error> {
+    pub async fn new(st: &'st Storage, backend: B) -> Result<Self, Error> {
         Ok(Self {
-            driver: TokioDriver::new(backend).await?,
+            driver: TokioDriver::new(st, backend).await?,
             decls: Default::default(),
         })
+    }
+    pub fn st(&self) -> &'st Storage {
+        self.driver.st()
     }
     /// Explicitly sets the logic for the solver. For some backends this is not
     /// required, as they will infer what ever logic fits the current program.
     ///
     /// To read more about logics read the documentation of [`Logic`].
     pub async fn set_logic(&mut self, logic: Logic) -> Result<(), Error> {
-        let cmd = ast::Command::SetLogic(Symbol(logic.to_string()));
-        match self.driver.exec(&cmd).await? {
+        let cmd = ast::Command::SetLogic(Symbol(self.st().alloc_str(&logic.name())));
+        match self.driver.exec(cmd).await? {
             ast::GeneralResponse::Success => Ok(()),
             ast::GeneralResponse::SpecificSuccessResponse(_) => todo!(),
             ast::GeneralResponse::Unsupported => todo!(),
@@ -71,25 +75,28 @@ where
         }
     }
     /// Runs the given command on the solver, and returns the result.
-    pub async fn run_command(&mut self, cmd: &ast::Command) -> Result<ast::GeneralResponse, Error> {
+    pub async fn run_command(
+        &mut self,
+        cmd: ast::Command<'st>,
+    ) -> Result<ast::GeneralResponse<'st>, Error> {
         Ok(self.driver.exec(cmd).await?)
     }
     /// Adds the constraint of `b` as an assertion to the solver. To check for
     /// satisfiability call [`TokioSolver::check_sat`] or
     /// [`TokioSolver::check_sat_with_model`].
-    pub async fn assert(&mut self, b: Bool) -> Result<(), Error> {
-        let term = ast::Term::from(b);
+    pub async fn assert(&mut self, b: Bool<'st>) -> Result<(), Error> {
+        let term = b.term();
         for q in term.all_consts() {
             match q {
                 QualIdentifier::Identifier(_) => {}
-                QualIdentifier::Sorted(i, s) => match self.decls.entry(i.clone()) {
+                QualIdentifier::Sorted(i, s) => match self.decls.entry(*i) {
                     Entry::Occupied(stored) => assert_eq!(s, stored.get()),
                     Entry::Vacant(v) => {
-                        v.insert(s.clone());
+                        v.insert(*s);
                         match i {
                             Identifier::Simple(sym) => {
                                 self.driver
-                                    .exec(&ast::Command::DeclareConst(sym.clone(), s.clone()))
+                                    .exec(ast::Command::DeclareConst(*sym, *s))
                                     .await?;
                             }
                             Identifier::Indexed(_, _) => todo!(),
@@ -99,9 +106,9 @@ where
             }
         }
         let cmd = ast::Command::Assert(term);
-        match self.driver.exec(&cmd).await? {
+        match self.driver.exec(cmd).await? {
             ast::GeneralResponse::Success => Ok(()),
-            ast::GeneralResponse::Error(e) => Err(Error::Smt(e, cmd.to_string())),
+            ast::GeneralResponse::Error(e) => Err(Error::Smt(e.to_string(), cmd.to_string())),
             _ => todo!(),
         }
     }
@@ -112,7 +119,7 @@ where
     /// check out [`TokioSolver::check_sat`].
     pub async fn check_sat(&mut self) -> Result<SatResult, Error> {
         let cmd = ast::Command::CheckSat;
-        match self.driver.exec(&cmd).await? {
+        match self.driver.exec(cmd).await? {
             ast::GeneralResponse::SpecificSuccessResponse(
                 ast::SpecificSuccessResponse::CheckSatResponse(res),
             ) => Ok(match res {
@@ -120,7 +127,7 @@ where
                 ast::CheckSatResponse::Unsat => SatResult::Unsat,
                 ast::CheckSatResponse::Unknown => SatResult::Unknown,
             }),
-            ast::GeneralResponse::Error(msg) => Err(Error::Smt(msg, format!("{cmd}"))),
+            ast::GeneralResponse::Error(msg) => Err(Error::Smt(msg.to_string(), format!("{cmd}"))),
             res => todo!("{res:?}"),
         }
     }
@@ -143,10 +150,10 @@ where
     /// > **NOTE:** This must only be called after having called
     /// > [`TokioSolver::check_sat`] and it returning [`SatResult::Sat`].
     pub async fn get_model(&mut self) -> Result<Model, Error> {
-        match self.driver.exec(&ast::Command::GetModel).await? {
+        match self.driver.exec(ast::Command::GetModel).await? {
             ast::GeneralResponse::SpecificSuccessResponse(
                 ast::SpecificSuccessResponse::GetModelResponse(model),
-            ) => Ok(Model::new(model)),
+            ) => Ok(Model::new(self.st(), model)),
             res => todo!("{res:?}"),
         }
     }
