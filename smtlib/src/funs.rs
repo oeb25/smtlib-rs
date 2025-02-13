@@ -47,7 +47,7 @@ impl<'st> Fun<'st> {
             todo!()
         }
         for (expected, given) in self.vars.iter().zip(args) {
-            if expected != given.sort() {
+            if *expected != given.sort() {
                 todo!("expected {expected:?} given {:?}", given.sort())
             }
         }

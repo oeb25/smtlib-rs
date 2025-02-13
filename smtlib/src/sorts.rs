@@ -18,14 +18,6 @@ use smtlib_lowlevel::{
 
 use crate::terms::{self, qual_ident, STerm};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct SortTemplate<'st> {
-    pub st: &'st Storage,
-    pub name: &'st str,
-    pub index: &'st [Index<'st>],
-    pub arity: usize,
-}
-
 /// A SMT-LIB sort.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Sort<'st> {
@@ -55,25 +47,13 @@ impl std::fmt::Display for Sort<'_> {
     }
 }
 
+/// An index of a sort.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Index<'st> {
+    /// A numeral index.
     Numeral(usize),
+    /// A symbol index.
     Symbol(&'st str),
-}
-
-impl<'st> SortTemplate<'st> {
-    pub fn instantiate(&self, parameters: &[Sort<'st>]) -> Result<Sort<'st>, crate::Error> {
-        if self.arity != parameters.len() {
-            return Err(todo!());
-        }
-
-        Ok(Sort::Dynamic {
-            st: self.st,
-            name: self.name,
-            index: self.index,
-            parameters: self.st.alloc_slice(parameters),
-        })
-    }
 }
 
 impl<'st> Index<'st> {
@@ -90,12 +70,14 @@ pub(crate) fn is_built_in_sort(name: &str) -> bool {
 }
 
 impl<'st> Sort<'st> {
+    /// Create a new static sort.
     pub const fn new_static(
         name: &'static str,
         index: &'static [smtlib_lowlevel::ast::Index<'static>],
     ) -> Self {
         Sort::Static { name, index }
     }
+    /// Create a new dynamic sort.
     pub fn new(st: &'st Storage, name: impl Into<String>) -> Self {
         let mut name = name.into();
         if !is_built_in_sort(&name) {
@@ -110,6 +92,7 @@ impl<'st> Sort<'st> {
             parameters: &[],
         }
     }
+    /// Create a new dynamic sort with parameters.
     pub fn new_parametric(
         st: &'st Storage,
         name: impl Into<String>,
@@ -122,6 +105,7 @@ impl<'st> Sort<'st> {
             parameters: st.alloc_slice(parameters),
         }
     }
+    /// Create a new dynamic sort with index.
     pub fn new_indexed(st: &'st Storage, name: impl Into<String>, index: &[Index<'st>]) -> Self {
         Self::Dynamic {
             st,
@@ -131,7 +115,8 @@ impl<'st> Sort<'st> {
         }
     }
 
-    pub fn ast(&self) -> ast::Sort<'st> {
+    /// Get the smtlib AST representation of the sort.
+    pub fn ast(self) -> ast::Sort<'st> {
         match self {
             Sort::Static { name, index } => {
                 if index.is_empty() {
@@ -166,6 +151,7 @@ impl<'st> Sort<'st> {
         }
     }
 
+    /// Create a new constant of this sort.
     pub fn new_const(
         &self,
         st: &'st Storage,

@@ -185,6 +185,7 @@ pub enum Logic {
     Custom(String),
 }
 impl Logic {
+    /// Returns the name of the logic.
     pub fn name(&self) -> Cow<'static, str> {
         match self {
             Self::AUFLIA => Cow::Borrowed("AUFLIA"),

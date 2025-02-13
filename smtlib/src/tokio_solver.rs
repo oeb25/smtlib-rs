@@ -60,6 +60,7 @@ where
             decls: Default::default(),
         })
     }
+    /// Returns the storage used by the solver.
     pub fn st(&self) -> &'st Storage {
         self.driver.st()
     }
