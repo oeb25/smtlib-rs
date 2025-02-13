@@ -287,7 +287,8 @@ impl_op!(BitVec<'st, M>, [bool; M], BitAnd, bitand, bvand, BitAndAssign, bitand_
 impl_op!(BitVec<'st, M>, [bool; M], BitOr, bitor, bvor, BitOrAssign, bitor_assign, |);
 impl_op!(BitVec<'st, M>, [bool; M], BitXor, bitxor, bvxor, BitXorAssign, bitxor_assign, ^);
 impl_op!(BitVec<'st, M>, [bool; M], Add, add, bvadd, AddAssign, add_assign, +);
-// impl_op!(BitVec<'st, M>, [bool; M], Sub, sub, bvsub, SubAssign, sub_assign, -);
+// impl_op!(BitVec<'st, M>, [bool; M], Sub, sub, bvsub, SubAssign, sub_assign,
+// -);
 impl_op!(BitVec<'st, M>, [bool; M], Mul, mul, bvmul, MulAssign, mul_assign, *);
 impl_op!(BitVec<'st, M>, [bool; M], Div, div, bvudiv, DivAssign, div_assign, /);
 impl_op!(BitVec<'st, M>, [bool; M], Rem, rem, bvurem, RemAssign, rem_assign, %);
@@ -299,9 +300,8 @@ impl_op!(BitVec<'st, M>, [bool; M], Shl, shl, bvshl, ShlAssign, shl_assign, <<);
 mod tests {
     use smtlib_lowlevel::backend::Z3Binary;
 
-    use crate::{terms::Sorted, Solver};
-
     use super::BitVec;
+    use crate::{terms::Sorted, Solver};
 
     #[test]
     fn bit_vec_extract_concat() -> Result<(), Box<dyn std::error::Error>> {

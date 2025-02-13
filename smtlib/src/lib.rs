@@ -5,14 +5,13 @@
 
 use std::collections::HashMap;
 
+pub use backend::Backend;
 use itertools::Itertools;
+pub use logics::Logic;
+pub use smtlib_lowlevel::{self as lowlevel, backend, Logger};
 use smtlib_lowlevel::{ast, Storage};
 pub use terms::Sorted;
 use terms::{Const, STerm};
-
-pub use backend::Backend;
-pub use logics::Logic;
-pub use smtlib_lowlevel::{self as lowlevel, backend, Logger};
 
 #[cfg(feature = "tokio")]
 mod tokio_solver;
@@ -56,8 +55,9 @@ impl std::fmt::Display for SatResult {
     }
 }
 
-/// The satisfiability result produced by a solver, where the [`Sat`](SatResultWithModel::Sat) variant
-/// carries the satisfying model as well.
+/// The satisfiability result produced by a solver, where the
+/// [`Sat`](SatResultWithModel::Sat) variant carries the satisfying model as
+/// well.
 #[derive(Debug)]
 pub enum SatResultWithModel<'st> {
     /// The solver produced `unsat`

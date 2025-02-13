@@ -97,8 +97,8 @@ pub(crate) fn qual_ident<'st>(s: &'st str, sort: Option<ast::Sort<'st>>) -> Qual
 /// are constant. Constants are named terms whose value can be extracted from a
 /// model using [`Model::eval`](crate::Model::eval).
 ///
-/// To construct a `Const<'st, T>` call [`T::from_name`](Sort::from_name) where `T`
-/// implements [`Sort`].
+/// To construct a `Const<'st, T>` call [`T::from_name`](Sort::from_name) where
+/// `T` implements [`Sort`].
 #[derive(Debug, Clone, Copy)]
 pub struct Const<'st, T>(pub(crate) &'st str, pub(crate) T);
 
@@ -144,7 +144,8 @@ pub trait StaticSorted<'st>: Into<STerm<'st>> + From<STerm<'st>> {
 /// low-level primitive that is used to define expressions for the SMT solvers
 /// to evaluate.
 pub trait Sorted<'st>: Into<STerm<'st>> {
-    /// The inner type of the term. This is used for [`Const<'st, T>`](Const) where the inner type is `T`.
+    /// The inner type of the term. This is used for [`Const<'st, T>`](Const)
+    /// where the inner type is `T`.
     type Inner: Sorted<'st>;
     /// The sort of the term
     fn sort(&self) -> Sort<'st>;
@@ -386,7 +387,8 @@ macro_rules! impl_op {
     };
 }
 
-/// This trait is implemented for types and sequences which can be used as quantified variables in [`forall`] and [`exists`].
+/// This trait is implemented for types and sequences which can be used as
+/// quantified variables in [`forall`] and [`exists`].
 pub trait QuantifierVars<'st> {
     /// The concrete sequence of variable declaration which should be quantified
     /// over.

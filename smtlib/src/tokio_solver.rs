@@ -144,8 +144,8 @@ where
         }
     }
     /// Produces the model for satisfying the assertions. If you are looking to
-    /// retrieve a model after calling [`TokioSolver::check_sat`], consider using
-    /// [`TokioSolver::check_sat_with_model`] instead.
+    /// retrieve a model after calling [`TokioSolver::check_sat`], consider
+    /// using [`TokioSolver::check_sat_with_model`] instead.
     ///
     /// > **NOTE:** This must only be called after having called
     /// > [`TokioSolver::check_sat`] and it returning [`SatResult::Sat`].

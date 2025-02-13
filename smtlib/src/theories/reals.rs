@@ -55,21 +55,11 @@ impl<'st> StaticSorted<'st> for Real<'st> {
         self.0.st()
     }
 }
-// impl<'st> From<i64> for Real<'st> {
-//     fn from(i: i64) -> Self {
-//         (i as f64).into()
-//     }
-// }
-// impl<'st> From<f64> for Real<'st> {
-//     fn from(i: f64) -> Self {
-//         let s = Term::Identifier(qual_ident(format!("{:?}", i.abs()), None));
-//         if i.is_sign_negative() {
-//             Term::Application(qual_ident("-".to_string(), None), vec![s]).into()
-//         } else {
-//             s.into()
-//         }
-//     }
-// }
+impl<'st> IntoWithStorage<'st, Real<'st>> for i64 {
+    fn into_with_storage(self, st: &'st Storage) -> Real<'st> {
+        (self as f64).into_with_storage(st)
+    }
+}
 impl<'st> IntoWithStorage<'st, Real<'st>> for f64 {
     fn into_with_storage(self, st: &'st smtlib_lowlevel::Storage) -> Real<'st> {
         let s = Term::Identifier(qual_ident(st.alloc_str(&format!("{:?}", self.abs())), None));
@@ -80,9 +70,6 @@ impl<'st> IntoWithStorage<'st, Real<'st>> for f64 {
         };
         STerm::new(st, term).into()
     }
-
-    // fn from(i: f64) -> Self {
-    // }
 }
 impl<'st> Real<'st> {
     pub fn sort() -> Sort<'st> {
