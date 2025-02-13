@@ -89,7 +89,7 @@ impl<'st, const M: usize> StaticSorted<'st> for BitVec<'st, M> {
             )],
         )
     }
-    fn static_st(&self) -> &'st smtlib_lowlevel::Storage {
+    fn static_st(&self) -> &'st Storage {
         self.sterm().st()
     }
 }

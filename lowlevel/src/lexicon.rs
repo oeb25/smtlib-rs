@@ -1,5 +1,7 @@
 use crate::parse::{ParseError, Parser, Token};
 
+/// **Numerals.** A `<numeral>` is the digit `0 or a non-empty sequence of
+/// digits not starting with `0`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Numeral<'src>(pub &'src str);

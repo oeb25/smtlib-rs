@@ -7,9 +7,8 @@ use smtlib::{
     backend::{cvc5_binary::Cvc5Binary, z3_binary::Z3Binary, Backend},
     distinct, or,
     prelude::*,
-    Int, Logic, SatResultWithModel, Solver,
+    Int, Logic, SatResultWithModel, Solver, Storage,
 };
-use smtlib_lowlevel::Storage;
 
 fn queens<B: Backend>(st: &Storage, backend: B) -> miette::Result<()> {
     let x0 = Int::new_const(st, "x0");

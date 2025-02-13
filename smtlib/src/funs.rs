@@ -1,3 +1,5 @@
+//! Function declarations.
+
 use itertools::Itertools;
 use smtlib_lowlevel::{ast, lexicon::Symbol, Storage};
 
@@ -7,15 +9,21 @@ use crate::{
     Sorted,
 };
 
+/// A function declaration.
 #[derive(Debug)]
 pub struct Fun<'st> {
+    /// smtlib storage
     pub st: &'st Storage,
+    /// The name of the function.
     pub name: &'st str,
+    /// The sorts of the arguments.
     pub vars: &'st [Sort<'st>],
+    /// The sort of the return value.
     pub return_sort: Sort<'st>,
 }
 
 impl<'st> Fun<'st> {
+    /// Create a new function declaration.
     pub fn new(
         st: &'st Storage,
         name: impl Into<String>,
@@ -30,6 +38,10 @@ impl<'st> Fun<'st> {
         }
     }
 
+    /// Call the function with the given arguments.
+    ///
+    /// The arguments must be sorted in the same order as the function
+    /// declaration and checked for both arity and sort.
     pub fn call(&self, args: &[Dynamic<'st>]) -> Result<Dynamic<'st>, crate::Error> {
         if self.vars.len() != args.len() {
             todo!()
@@ -54,6 +66,7 @@ impl<'st> Fun<'st> {
         ))
     }
 
+    /// Get the lowlevel AST representation of the function declaration.
     pub fn ast(&self) -> ast::FunctionDec {
         ast::FunctionDec(
             Symbol(self.name),

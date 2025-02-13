@@ -8,8 +8,8 @@ use std::collections::HashMap;
 pub use backend::Backend;
 use itertools::Itertools;
 pub use logics::Logic;
+use smtlib_lowlevel::ast;
 pub use smtlib_lowlevel::{self as lowlevel, backend, Logger};
-use smtlib_lowlevel::{ast, Storage};
 pub use terms::Sorted;
 use terms::{Const, STerm};
 
@@ -25,6 +25,7 @@ pub mod terms;
 mod tests;
 pub mod theories;
 
+pub use smtlib_lowlevel::Storage;
 pub use solver::Solver;
 pub use theories::{core::*, fixed_size_bit_vectors::*, ints::*, reals::*};
 #[cfg(feature = "tokio")]
@@ -172,10 +173,11 @@ impl<'st> Model<'st> {
     /// expression asserted.
     ///
     /// ```
-    /// # use smtlib::{Int, prelude::*};
+    /// # use smtlib::{Int, Storage, prelude::*};
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// # let mut solver = smtlib::Solver::new(smtlib::backend::z3_binary::Z3Binary::new("z3")?)?;
-    /// let x = Int::new_const("x");
+    /// # let st = Storage::new();
+    /// # let mut solver = smtlib::Solver::new(&st, smtlib::backend::z3_binary::Z3Binary::new("z3")?)?;
+    /// let x = Int::new_const(&st, "x");
     /// solver.assert(x._eq(12))?;
     /// let model = solver.check_sat_with_model()?.expect_sat()?;
     /// match model.eval(x) {
