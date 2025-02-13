@@ -141,8 +141,8 @@ pub fn and<'st, const N: usize>(st: &'st Storage, terms: [Bool<'st>; N]) -> Bool
     fun_vec(st, "and", terms.map(Sorted::term).to_vec()).into()
 }
 /// Construct the term expressing `(or ...terms)` representing the disjunction
-/// of all of the terms. That is to say, the result is true iff any of the terms in
-/// `terms` is true.
+/// of all of the terms. That is to say, the result is true iff any of the terms
+/// in `terms` is true.
 pub fn or<'st, const N: usize>(st: &'st Storage, terms: [Bool<'st>; N]) -> Bool<'st> {
     fun_vec(st, "or", terms.map(Sorted::term).to_vec()).into()
 }
@@ -159,8 +159,8 @@ where
 {
     fun_vec(st, "=", terms.map(Into::into).map(STerm::term).to_vec()).into()
 }
-/// Construct the term expressing `(distinct terms)` representing that all of the
-/// terms in `terms` are distinct (or not-equal).
+/// Construct the term expressing `(distinct terms)` representing that all of
+/// the terms in `terms` are distinct (or not-equal).
 pub fn distinct<'st, T, const N: usize>(st: &'st Storage, terms: [T; N]) -> Bool<'st>
 where
     T: Into<STerm<'st>>,

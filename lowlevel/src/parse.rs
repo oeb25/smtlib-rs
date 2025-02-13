@@ -9,7 +9,8 @@ pub(crate) enum Token {
     #[token(")")]
     RParen,
 
-    /// A ⟨numeral⟩ is the digit 0 or a non-empty sequence of digits not starting with 0 .
+    /// A ⟨numeral⟩ is the digit 0 or a non-empty sequence of digits not
+    /// starting with 0 .
     #[regex("0|([1-9][0-9]*)", priority = 2)]
     Numeral,
 
