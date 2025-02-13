@@ -1,11 +1,11 @@
 #![doc = concat!("```ignore\n", include_str!("./Ints.smt2"), "```")]
 
-use smtlib_lowlevel::{ast::Term, lexicon::Numeral};
+use smtlib_lowlevel::{ast::Term, lexicon::Numeral, Storage};
 
 use crate::{
     impl_op,
     sorts::Sort,
-    terms::{fun, Const, Dynamic, Sorted, StaticSorted},
+    terms::{fun_vec, Const, Dynamic, IntoWithStorage, STerm, Sorted, StaticSorted},
     Bool,
 };
 
@@ -13,94 +13,122 @@ use crate::{
 /// [integer](https://en.wikipedia.org/wiki/Integer). You can [read more
 /// here.](https://smtlib.cs.uiowa.edu/theories-Ints.shtml).
 #[derive(Debug, Clone, Copy)]
-pub struct Int(&'static Term);
-impl From<Const<Int>> for Int {
-    fn from(c: Const<Int>) -> Self {
+pub struct Int<'st>(STerm<'st>);
+impl<'st> From<Const<'st, Int<'st>>> for Int<'st> {
+    fn from(c: Const<'st, Int<'st>>) -> Self {
         c.1
     }
 }
-impl std::fmt::Display for Int {
+impl<'st> IntoWithStorage<'st, Int<'st>> for Const<'st, Int<'st>> {
+    fn into_with_storage(self, _st: &'st Storage) -> Int<'st> {
+        self.1
+    }
+}
+impl std::fmt::Display for Int<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Term::from(*self).fmt(f)
+        STerm::from(*self).term().fmt(f)
     }
 }
 
-impl From<Int> for Dynamic {
-    fn from(i: Int) -> Self {
+impl<'st> From<Int<'st>> for Dynamic<'st> {
+    fn from(i: Int<'st>) -> Self {
         i.into_dynamic()
     }
 }
 
-impl From<Int> for Term {
-    fn from(i: Int) -> Self {
-        i.0.clone()
+impl<'st> From<Int<'st>> for STerm<'st> {
+    fn from(i: Int<'st>) -> Self {
+        i.0
     }
 }
-impl From<Term> for Int {
-    fn from(t: Term) -> Self {
-        Int(Box::leak(Box::new(t)))
+impl<'st> From<STerm<'st>> for Int<'st> {
+    fn from(t: STerm<'st>) -> Self {
+        Int(t)
     }
 }
-impl From<(Term, Sort)> for Int {
-    fn from((t, _): (Term, Sort)) -> Self {
+impl<'st> From<(STerm<'st>, Sort<'st>)> for Int<'st> {
+    fn from((t, _): (STerm<'st>, Sort<'st>)) -> Self {
         t.into()
     }
 }
-impl StaticSorted for Int {
+impl<'st> StaticSorted<'st> for Int<'st> {
     type Inner = Self;
-    fn static_sort() -> Sort {
-        Sort::new("Int")
+    fn static_sort() -> Sort<'st> {
+        Sort::new_static("Int", &[])
+    }
+
+    fn static_st(&self) -> &'st smtlib_lowlevel::Storage {
+        self.0.st()
     }
 }
-impl From<i64> for Int {
-    fn from(i: i64) -> Self {
-        Term::SpecConstant(smtlib_lowlevel::ast::SpecConstant::Numeral(Numeral(
-            i.to_string(),
-        )))
+// TODO: it would be nice to have this!
+// impl<'st> From<i64> for Int<'st> {
+//     fn from(i: i64) -> Self {
+//         Term::SpecConstant(smtlib_lowlevel::ast::SpecConstant::Numeral(Numeral(
+//             i.to_string(),
+//         )))
+//         .into()
+//     }
+// }
+impl<'st> IntoWithStorage<'st, Int<'st>> for i64 {
+    fn into_with_storage(self, st: &'st smtlib_lowlevel::Storage) -> Int<'st> {
+        let v = st.alloc_str(&self.to_string());
+        STerm::new(
+            st,
+            Term::SpecConstant(smtlib_lowlevel::ast::SpecConstant::Numeral(Numeral(v))),
+        )
         .into()
     }
 }
-impl Int {
-    pub fn sort() -> Sort {
+impl<'st> Int<'st> {
+    pub fn sort() -> Sort<'st> {
         Self::static_sort()
     }
-    fn binop<T: From<Term>>(self, op: &str, other: Int) -> T {
-        fun(op, vec![self.into(), other.into()]).into()
+    pub fn new(st: &'st Storage, value: impl IntoWithStorage<'st, Int<'st>>) -> Int<'st> {
+        value.into_with_storage(st)
+    }
+    fn binop<T: From<STerm<'st>>>(self, op: &str, other: Int<'st>) -> T {
+        fun_vec(
+            self.static_st(),
+            self.st().alloc_str(op),
+            [self.term(), other.term()].to_vec(),
+        )
+        .into()
     }
     /// Construct the term expressing `(> self other)`
-    pub fn gt(self, other: impl Into<Self>) -> Bool {
-        self.binop(">", other.into())
+    pub fn gt(self, other: impl IntoWithStorage<'st, Self>) -> Bool<'st> {
+        self.binop(">", other.into_with_storage(self.st()))
     }
     /// Construct the term expressing `(>= self other)`
-    pub fn ge(self, other: impl Into<Self>) -> Bool {
-        self.binop(">=", other.into())
+    pub fn ge(self, other: impl IntoWithStorage<'st, Self>) -> Bool<'st> {
+        self.binop(">=", other.into_with_storage(self.st()))
     }
     /// Construct the term expressing `(< self other)`
-    pub fn lt(self, other: impl Into<Self>) -> Bool {
-        self.binop("<", other.into())
+    pub fn lt(self, other: impl IntoWithStorage<'st, Self>) -> Bool<'st> {
+        self.binop("<", other.into_with_storage(self.st()))
     }
     /// Construct the term expressing `(<= self other)`
-    pub fn le(self, other: impl Into<Self>) -> Bool {
-        self.binop("<=", other.into())
+    pub fn le(self, other: impl IntoWithStorage<'st, Self>) -> Bool<'st> {
+        self.binop("<=", other.into_with_storage(self.st()))
     }
     // TODO: This seems to not be supported by z3?
     /// Construct the term expressing `(abs self)`
-    pub fn abs(self) -> Int {
-        fun("abs", vec![self.into()]).into()
+    pub fn abs(self) -> Int<'st> {
+        fun_vec(self.st(), "abs", vec![self.term()]).into()
     }
 }
 
-impl std::ops::Neg for Int {
+impl std::ops::Neg for Int<'_> {
     type Output = Self;
     fn neg(self) -> Self::Output {
-        fun("-", vec![self.into()]).into()
+        fun_vec(self.st(), "-", vec![self.term()]).into()
     }
 }
 
-impl_op!(Int, i64, Add, add, "+", AddAssign, add_assign, +);
-impl_op!(Int, i64, Sub, sub, "-", SubAssign, sub_assign, -);
-impl_op!(Int, i64, Mul, mul, "*", MulAssign, mul_assign, *);
-impl_op!(Int, i64, Div, div, "div", DivAssign, div_assign, /);
-impl_op!(Int, i64, Rem, rem, "rem", RemAssign, rem_assign, %);
-impl_op!(Int, i64, Shl, shl, "hsl", ShlAssign, shl_assign, <<);
-impl_op!(Int, i64, Shr, shr, "hsr", ShrAssign, shr_assign, >>);
+impl_op!(Int<'st>, i64, Add, add, "+", AddAssign, add_assign, +);
+impl_op!(Int<'st>, i64, Sub, sub, "-", SubAssign, sub_assign, -);
+impl_op!(Int<'st>, i64, Mul, mul, "*", MulAssign, mul_assign, *);
+impl_op!(Int<'st>, i64, Div, div, "div", DivAssign, div_assign, /);
+impl_op!(Int<'st>, i64, Rem, rem, "rem", RemAssign, rem_assign, %);
+impl_op!(Int<'st>, i64, Shl, shl, "hsl", ShlAssign, shl_assign, <<);
+impl_op!(Int<'st>, i64, Shr, shr, "hsr", ShrAssign, shr_assign, >>);

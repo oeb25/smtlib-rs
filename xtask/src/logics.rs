@@ -41,6 +41,8 @@ pub fn generate(sh: &Shell) -> Result<String> {
         .multiunzip();
 
     let output = quote! {
+        use std::borrow::Cow;
+
         /// Logics allow specifictation of which (sub-)logic should be used by a
         /// solver.
         ///
@@ -60,14 +62,20 @@ pub fn generate(sh: &Shell) -> Result<String> {
             Custom(String),
         }
 
-        impl std::fmt::Display for Logic {
-            fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        impl Logic {
+            pub fn name(&self) -> Cow<'static, str> {
                 match self {
                     #(
-                        Self::#name => #name_str,
+                        Self::#name => Cow::Borrowed(#name_str),
                     )*
-                    Self::Custom(s) => s.as_str(),
-                }.fmt(f)
+                    Self::Custom(s) => Cow::Owned(s.to_string()),
+                }
+            }
+        }
+
+        impl std::fmt::Display for Logic {
+            fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                self.name().fmt(f)
             }
         }
     };

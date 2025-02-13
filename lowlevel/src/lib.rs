@@ -11,9 +11,9 @@ use ast::{QualIdentifier, Term};
 use backend::Backend;
 use itertools::Itertools;
 use parse::ParseError;
-use storage::Storage;
 
 use crate::ast::{Command, GeneralResponse};
+pub use crate::storage::Storage;
 
 #[rustfmt::skip]
 pub mod ast;
@@ -66,6 +66,7 @@ impl<B: std::fmt::Debug> std::fmt::Debug for Driver<'_, B> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Driver")
             .field("backend", &self.backend)
+            .field("st", &"...")
             .field(
                 "logger",
                 if self.logger.is_some() {
@@ -92,6 +93,9 @@ where
         driver.exec(Command::SetOption(ast::Option::PrintSuccess(true)))?;
 
         Ok(driver)
+    }
+    pub fn st(&self) -> &'st Storage {
+        self.st
     }
     pub fn set_logger(&mut self, logger: impl Logger) {
         self.logger = Some(Box::new(logger))
@@ -132,6 +136,7 @@ pub mod tokio {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             f.debug_struct("TokioDriver")
                 .field("backend", &self.backend)
+                .field("st", &"...")
                 .field(
                     "logger",
                     if self.logger.is_some() {
@@ -160,6 +165,9 @@ pub mod tokio {
                 .await?;
 
             Ok(driver)
+        }
+        pub fn st(&self) -> &'st Storage {
+            self.st
         }
         pub fn set_logger(&mut self, logger: impl Logger) {
             self.logger = Some(Box::new(logger))

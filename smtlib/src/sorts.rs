@@ -1,119 +1,165 @@
+use itertools::Itertools;
 use smtlib_lowlevel::{
     ast::{self, Identifier},
     lexicon::{Numeral, Symbol},
+    Storage,
 };
 
-use crate::terms::{self, qual_ident};
+use crate::terms::{self, qual_ident, STerm};
 
-pub struct SortTemplate {
-    pub name: String,
-    pub index: Vec<Index>,
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SortTemplate<'st> {
+    pub st: &'st Storage,
+    pub name: &'st str,
+    pub index: &'st [Index<'st>],
     pub arity: usize,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Sort {
-    pub name: String,
-    pub index: Vec<Index>,
-    pub parameters: Vec<Sort>,
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Sort<'st> {
+    Static {
+        name: &'static str,
+        index: &'static [smtlib_lowlevel::ast::Index<'static>],
+    },
+    Dynamic {
+        st: &'st Storage,
+        name: &'st str,
+        index: &'st [Index<'st>],
+        parameters: &'st [Sort<'st>],
+    },
 }
 
-impl std::fmt::Display for Sort {
+impl std::fmt::Display for Sort<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.ast().fmt(f)
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Index {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Index<'st> {
     Numeral(usize),
-    Symbol(String),
+    Symbol(&'st str),
 }
 
-impl SortTemplate {
-    pub fn instantiate(&self, parameters: Vec<Sort>) -> Result<Sort, crate::Error> {
+impl<'st> SortTemplate<'st> {
+    pub fn instantiate(&self, parameters: &[Sort<'st>]) -> Result<Sort<'st>, crate::Error> {
         if self.arity != parameters.len() {
             return Err(todo!());
         }
 
-        Ok(Sort {
-            name: self.name.clone(),
-            index: self.index.clone(),
-            parameters,
+        Ok(Sort::Dynamic {
+            st: self.st,
+            name: self.name,
+            index: self.index,
+            parameters: self.st.alloc_slice(parameters),
         })
     }
 }
 
-impl Index {
-    fn ast(&self) -> ast::Index {
+impl<'st> Index<'st> {
+    fn ast(&self, st: &'st Storage) -> ast::Index<'st> {
         match self {
-            Index::Numeral(n) => ast::Index::Numeral(Numeral(n.to_string())),
-            Index::Symbol(s) => ast::Index::Symbol(Symbol(s.to_string())),
+            Index::Numeral(n) => ast::Index::Numeral(Numeral(st.alloc_str(&n.to_string()))),
+            Index::Symbol(s) => ast::Index::Symbol(Symbol(s)),
         }
     }
 }
 
 pub(crate) fn is_built_in_sort(name: &str) -> bool {
-    match name {
-        "Int" | "Bool" | "Array" | "BitVec" => true,
-        _ => false,
-    }
+    matches!(name, "Int" | "Bool" | "Array" | "BitVec")
 }
 
-impl Sort {
-    pub fn new(name: impl Into<String>) -> Self {
+impl<'st> Sort<'st> {
+    pub fn new_static(
+        name: &'static str,
+        index: &'static [smtlib_lowlevel::ast::Index<'static>],
+    ) -> Self {
+        Sort::Static { name, index }
+    }
+    pub fn new(st: &'st Storage, name: impl Into<String>) -> Self {
         let mut name = name.into();
         if !is_built_in_sort(&name) {
             // HACK: how should we handle this? or should we event handle it?
             name += "_xxx";
         }
-        Self {
+        let name = st.alloc_str(&name);
+        Self::Dynamic {
+            st,
             name,
-            index: Vec::new(),
-            parameters: Vec::new(),
+            index: &[],
+            parameters: &[],
         }
     }
-    pub fn new_parametric(name: impl Into<String>, parameters: Vec<Sort>) -> Self {
-        Self {
-            name: name.into(),
-            index: Vec::new(),
-            parameters,
+    pub fn new_parametric(
+        st: &'st Storage,
+        name: impl Into<String>,
+        parameters: &[Sort<'st>],
+    ) -> Self {
+        Self::Dynamic {
+            st,
+            name: st.alloc_str(&name.into()),
+            index: &[],
+            parameters: st.alloc_slice(parameters),
         }
     }
-    pub fn new_indexed(name: impl Into<String>, index: Vec<Index>) -> Self {
-        Self {
-            name: name.into(),
-            index,
-            parameters: Vec::new(),
-        }
-    }
-
-    pub fn ast(&self) -> ast::Sort {
-        let ident = if self.index.is_empty() {
-            Identifier::Simple(Symbol(self.name.to_string()))
-        } else {
-            Identifier::Indexed(
-                Symbol(self.name.to_string()),
-                self.index.iter().map(|idx| idx.ast()).collect(),
-            )
-        };
-        if self.parameters.is_empty() {
-            ast::Sort::Sort(ident)
-        } else {
-            ast::Sort::Parametric(
-                ident,
-                self.parameters.iter().map(|param| param.ast()).collect(),
-            )
+    pub fn new_indexed(st: &'st Storage, name: impl Into<String>, index: &[Index<'st>]) -> Self {
+        Self::Dynamic {
+            st,
+            name: st.alloc_str(&name.into()),
+            index: st.alloc_slice(index),
+            parameters: &[],
         }
     }
 
-    pub fn new_const(&self, name: impl Into<String>) -> terms::Const<terms::Dynamic> {
+    pub fn ast(&self) -> ast::Sort<'st> {
+        match self {
+            Sort::Static { name, index } => {
+                if index.is_empty() {
+                    ast::Sort::Sort(Identifier::Simple(Symbol(name)))
+                } else {
+                    ast::Sort::Sort(Identifier::Indexed(Symbol(name), index))
+                }
+            }
+            Sort::Dynamic {
+                st,
+                name,
+                index,
+                parameters,
+            } => {
+                let ident = if index.is_empty() {
+                    Identifier::Simple(Symbol(name))
+                } else {
+                    Identifier::Indexed(
+                        Symbol(name),
+                        st.alloc_slice(&index.iter().map(|idx| idx.ast(st)).collect_vec()),
+                    )
+                };
+                if parameters.is_empty() {
+                    ast::Sort::Sort(ident)
+                } else {
+                    ast::Sort::Parametric(
+                        ident,
+                        st.alloc_slice(&parameters.iter().map(|param| param.ast()).collect_vec()),
+                    )
+                }
+            }
+        }
+    }
+
+    pub fn new_const(
+        &self,
+        st: &'st Storage,
+        name: impl Into<String>,
+    ) -> terms::Const<terms::Dynamic> {
         let name: &'static str = String::leak(name.into());
         terms::Const(
             name,
             terms::Dynamic::from_term_sort(
-                ast::Term::Identifier(qual_ident(name.into(), Some(self.ast()))),
-                self.clone(),
+                STerm::new(
+                    st,
+                    ast::Term::Identifier(qual_ident(name, Some(self.ast()))),
+                ),
+                *self,
             ),
         )
     }
