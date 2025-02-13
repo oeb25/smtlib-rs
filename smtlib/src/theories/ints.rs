@@ -1,6 +1,10 @@
 #![doc = concat!("```ignore\n", include_str!("./Ints.smt2"), "```")]
 
-use smtlib_lowlevel::{ast::Term, lexicon::Numeral, Storage};
+use smtlib_lowlevel::{
+    ast::{SpecConstant, Term},
+    lexicon::Numeral,
+    Storage,
+};
 
 use crate::{
     impl_op,
@@ -53,9 +57,7 @@ impl<'st> From<(STerm<'st>, Sort<'st>)> for Int<'st> {
 }
 impl<'st> StaticSorted<'st> for Int<'st> {
     type Inner = Self;
-    fn static_sort() -> Sort<'st> {
-        Sort::new_static("Int", &[])
-    }
+    const SORT: Sort<'st> = Sort::new_static("Int", &[]);
 
     fn static_st(&self) -> &'st Storage {
         self.0.st()
@@ -63,12 +65,22 @@ impl<'st> StaticSorted<'st> for Int<'st> {
 }
 impl<'st> IntoWithStorage<'st, Int<'st>> for i64 {
     fn into_with_storage(self, st: &'st Storage) -> Int<'st> {
-        let v = st.alloc_str(&self.to_string());
-        STerm::new(
-            st,
-            Term::SpecConstant(smtlib_lowlevel::ast::SpecConstant::Numeral(Numeral(v))),
-        )
-        .into()
+        let term = if self < 0 {
+            fun_vec(
+                st,
+                "-",
+                [st.alloc_term(Term::SpecConstant(SpecConstant::Numeral(
+                    Numeral::from_usize(self.unsigned_abs() as _),
+                )))]
+                .to_vec(),
+            )
+        } else {
+            STerm::new(
+                st,
+                Term::SpecConstant(SpecConstant::Numeral(Numeral::from_usize(self as _))),
+            )
+        };
+        term.into()
     }
 }
 impl<'st> Int<'st> {

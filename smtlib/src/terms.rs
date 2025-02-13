@@ -128,7 +128,10 @@ impl std::fmt::Display for Dynamic<'_> {
 
 pub trait StaticSorted<'st>: Into<STerm<'st>> + From<STerm<'st>> {
     type Inner: StaticSorted<'st>;
-    fn static_sort() -> Sort<'st>;
+    const SORT: Sort<'st>;
+    fn static_sort() -> Sort<'st> {
+        Self::SORT
+    }
     fn new_const(st: &'st Storage, name: &str) -> Const<'st, Self> {
         let name = st.alloc_str(name);
         let bv = Term::Identifier(qual_ident(name, Some(Self::static_sort().ast())));
