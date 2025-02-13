@@ -78,7 +78,7 @@ impl<'st> StaticSorted<'st> for Bool<'st> {
     fn static_sort() -> Sort<'st> {
         Sort::new_static("Bool", &[])
     }
-    fn static_st(&self) -> &'st smtlib_lowlevel::Storage {
+    fn static_st(&self) -> &'st Storage {
         self.sterm().st()
     }
 }

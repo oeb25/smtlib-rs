@@ -16,19 +16,21 @@ use crate::{Bool, Error, Logic, Model, SatResult, SatResultWithModel, Sorted};
 /// # use smtlib::{Int, prelude::*};
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// # tokio_test::block_on(async {
-/// // 1. Set up the backend (in this case z3)
+/// // 1. Set up storage (TODO: document)
+/// let st = smtlib::Storage::new();
+/// // 2. Set up the backend (in this case z3)
 /// let backend = smtlib::backend::z3_binary::tokio::Z3BinaryTokio::new("z3").await?;
-/// // 2. Set up the solver
-/// let mut solver = smtlib::TokioSolver::new(backend).await?;
-/// // 3. Declare the necessary constants
-/// let x = Int::new_const("x");
-/// // 4. Add assertions to the solver
+/// // 3. Set up the solver
+/// let mut solver = smtlib::TokioSolver::new(&st, backend).await?;
+/// // 4. Declare the necessary constants
+/// let x = Int::new_const(&st, "x");
+/// // 5. Add assertions to the solver
 /// solver.assert(x._eq(12)).await?;
-/// // 5. Check for validity, and optionally construct a model
+/// // 6. Check for validity, and optionally construct a model
 /// let sat_res = solver.check_sat_with_model().await?;
-/// // 6. In this case we expect sat, and thus want to extract the model
+/// // 7. In this case we expect sat, and thus want to extract the model
 /// let model = sat_res.expect_sat()?;
-/// // 7. Interpret the result by extract the values of constants which
+/// // 8. Interpret the result by extract the values of constants which
 /// //    satisfy the assertions.
 /// match model.eval(x) {
 ///     Some(x) => println!("This is the value of x: {x}"),

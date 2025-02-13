@@ -1,3 +1,14 @@
+//! SMT sorts.
+//!
+//! From SMT-LIB reference:
+//!
+//! > A major subset of the SMT-LIB language is the language of well-sorted
+//! > terms, used to represent logical expressions. Such terms are typed, or
+//! > sorted in logical terminology; that is, each is associated with a (unique)
+//! > sort. The set of sorts consists itself of sort terms. In essence, a sort
+//! > term is a sort symbol, a sort parameter, or a sort symbol applied to a
+//! > sequence of sort terms.
+
 use itertools::Itertools;
 use smtlib_lowlevel::{
     ast::{self, Identifier},
@@ -15,16 +26,25 @@ pub struct SortTemplate<'st> {
     pub arity: usize,
 }
 
+/// A SMT-LIB sort.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Sort<'st> {
+    /// A built-in sort.
     Static {
+        /// The name of the sort.
         name: &'static str,
+        /// The index of the sort.
         index: &'static [smtlib_lowlevel::ast::Index<'static>],
     },
+    /// A user-defined sort.
     Dynamic {
+        /// smtlib storage
         st: &'st Storage,
+        /// The name of the sort.
         name: &'st str,
+        /// The index of the sort.
         index: &'st [Index<'st>],
+        /// The parameters of the sort.
         parameters: &'st [Sort<'st>],
     },
 }

@@ -57,21 +57,12 @@ impl<'st> StaticSorted<'st> for Int<'st> {
         Sort::new_static("Int", &[])
     }
 
-    fn static_st(&self) -> &'st smtlib_lowlevel::Storage {
+    fn static_st(&self) -> &'st Storage {
         self.0.st()
     }
 }
-// TODO: it would be nice to have this!
-// impl<'st> From<i64> for Int<'st> {
-//     fn from(i: i64) -> Self {
-//         Term::SpecConstant(smtlib_lowlevel::ast::SpecConstant::Numeral(Numeral(
-//             i.to_string(),
-//         )))
-//         .into()
-//     }
-// }
 impl<'st> IntoWithStorage<'st, Int<'st>> for i64 {
-    fn into_with_storage(self, st: &'st smtlib_lowlevel::Storage) -> Int<'st> {
+    fn into_with_storage(self, st: &'st Storage) -> Int<'st> {
         let v = st.alloc_str(&self.to_string());
         STerm::new(
             st,

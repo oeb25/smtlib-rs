@@ -51,7 +51,7 @@ impl<'st> StaticSorted<'st> for Real<'st> {
     fn static_sort() -> Sort<'st> {
         Sort::new_static("Real", &[])
     }
-    fn static_st(&self) -> &'st smtlib_lowlevel::Storage {
+    fn static_st(&self) -> &'st Storage {
         self.0.st()
     }
 }
@@ -61,7 +61,7 @@ impl<'st> IntoWithStorage<'st, Real<'st>> for i64 {
     }
 }
 impl<'st> IntoWithStorage<'st, Real<'st>> for f64 {
-    fn into_with_storage(self, st: &'st smtlib_lowlevel::Storage) -> Real<'st> {
+    fn into_with_storage(self, st: &'st Storage) -> Real<'st> {
         let s = Term::Identifier(qual_ident(st.alloc_str(&format!("{:?}", self.abs())), None));
         let term = if self.is_sign_negative() {
             Term::Application(qual_ident("-", None), st.alloc_slice(&[st.alloc_term(s)]))
