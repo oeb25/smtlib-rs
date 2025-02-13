@@ -75,9 +75,7 @@ impl<'st> From<(STerm<'st>, Sort<'st>)> for Bool<'st> {
 }
 impl<'st> StaticSorted<'st> for Bool<'st> {
     type Inner = Self;
-    fn static_sort() -> Sort<'st> {
-        Sort::new_static("Bool", &[])
-    }
+    const SORT: Sort<'st> = Sort::new_static("Bool", &[]);
     fn static_st(&self) -> &'st Storage {
         self.sterm().st()
     }

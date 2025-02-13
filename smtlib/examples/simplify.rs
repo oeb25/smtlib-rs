@@ -123,7 +123,7 @@ fn expr_to_smt<'st>(st: &'st Storage, expr: &Expr) -> smtlib::terms::Dynamic<'st
 
 fn smt_to_expr(sexpr: &Term) -> Expr {
     match sexpr {
-        Term::SpecConstant(SpecConstant::Numeral(n)) => Expr::Num(n.0.parse().unwrap()),
+        Term::SpecConstant(SpecConstant::Numeral(n)) => Expr::Num(n.into_u128().unwrap() as _),
         Term::Identifier(QualIdentifier::Identifier(Identifier::Simple(s))) => {
             Expr::Var(s.to_string())
         }

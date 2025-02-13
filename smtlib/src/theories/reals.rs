@@ -48,9 +48,7 @@ impl<'st> From<STerm<'st>> for Real<'st> {
 }
 impl<'st> StaticSorted<'st> for Real<'st> {
     type Inner = Self;
-    fn static_sort() -> Sort<'st> {
-        Sort::new_static("Real", &[])
-    }
+    const SORT: Sort<'st> = Sort::new_static("Real", &[]);
     fn static_st(&self) -> &'st Storage {
         self.0.st()
     }

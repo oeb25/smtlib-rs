@@ -77,9 +77,9 @@ impl<'st> SortTemplate<'st> {
 }
 
 impl<'st> Index<'st> {
-    fn ast(&self, st: &'st Storage) -> ast::Index<'st> {
+    fn ast(&self) -> ast::Index<'st> {
         match self {
-            Index::Numeral(n) => ast::Index::Numeral(Numeral(st.alloc_str(&n.to_string()))),
+            Index::Numeral(n) => ast::Index::Numeral(Numeral::from_usize(*n)),
             Index::Symbol(s) => ast::Index::Symbol(Symbol(s)),
         }
     }
@@ -90,7 +90,7 @@ pub(crate) fn is_built_in_sort(name: &str) -> bool {
 }
 
 impl<'st> Sort<'st> {
-    pub fn new_static(
+    pub const fn new_static(
         name: &'static str,
         index: &'static [smtlib_lowlevel::ast::Index<'static>],
     ) -> Self {
@@ -151,7 +151,7 @@ impl<'st> Sort<'st> {
                 } else {
                     Identifier::Indexed(
                         Symbol(name),
-                        st.alloc_slice(&index.iter().map(|idx| idx.ast(st)).collect_vec()),
+                        st.alloc_slice(&index.iter().map(|idx| idx.ast()).collect_vec()),
                     )
                 };
                 if parameters.is_empty() {

@@ -80,9 +80,7 @@ where
     pub fn set_timeout(&mut self, ms: usize) -> Result<(), Error> {
         let cmd = ast::Command::SetOption(ast::Option::Attribute(ast::Attribute::WithValue(
             smtlib_lowlevel::lexicon::Keyword(":timeout"),
-            ast::AttributeValue::SpecConstant(ast::SpecConstant::Numeral(Numeral(
-                self.st().alloc_str(&ms.to_string()),
-            ))),
+            ast::AttributeValue::SpecConstant(ast::SpecConstant::Numeral(Numeral::from_usize(ms))),
         )));
         match self.driver.exec(cmd)? {
             ast::GeneralResponse::Success => Ok(()),
@@ -225,7 +223,7 @@ where
             declared_sorts: self.declared_sorts.len(),
         });
 
-        let cmd = ast::Command::Push(Numeral(self.st().alloc_str(&levels.to_string())));
+        let cmd = ast::Command::Push(Numeral::from_usize(levels));
         match self.driver.exec(cmd)? {
             ast::GeneralResponse::Success => {}
             ast::GeneralResponse::Error(e) => {
@@ -242,7 +240,7 @@ where
             self.declared_sorts.truncate(sizes.declared_sorts);
         }
 
-        let cmd = ast::Command::Pop(Numeral(self.st().alloc_str(&levels.to_string())));
+        let cmd = ast::Command::Pop(Numeral::from_usize(levels));
         match self.driver.exec(cmd)? {
             ast::GeneralResponse::Success => {}
             ast::GeneralResponse::Error(e) => {
@@ -302,7 +300,7 @@ where
                 if sorts::is_built_in_sort(sym.0) {
                     return Ok(());
                 }
-                ast::Command::DeclareSort(*sym, Numeral("0"))
+                ast::Command::DeclareSort(*sym, Numeral::from_usize(0))
             }
             ast::Sort::Parametric(ident, params) => {
                 let sym = match ident {
@@ -316,10 +314,7 @@ where
                 if sorts::is_built_in_sort(sym.0) {
                     return Ok(());
                 }
-                ast::Command::DeclareSort(
-                    *sym,
-                    Numeral(self.st().alloc_str(&params.len().to_string())),
-                )
+                ast::Command::DeclareSort(*sym, Numeral::from_usize(params.len()))
             }
         };
         match self.driver.exec(cmd)? {

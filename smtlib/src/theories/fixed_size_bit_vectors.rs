@@ -81,14 +81,12 @@ impl<'st, const M: usize> TryFrom<BitVec<'st, M>> for [bool; M] {
 
 impl<'st, const M: usize> StaticSorted<'st> for BitVec<'st, M> {
     type Inner = Self;
-    fn static_sort() -> Sort<'st> {
-        Sort::new_static(
-            "BitVec",
-            &[smtlib_lowlevel::ast::Index::Numeral(
-                smtlib_lowlevel::lexicon::Numeral(stringify!(M)),
-            )],
-        )
-    }
+    const SORT: Sort<'st> = Sort::new_static(
+        "BitVec",
+        &[smtlib_lowlevel::ast::Index::Numeral(
+            smtlib_lowlevel::lexicon::Numeral::from_usize(M),
+        )],
+    );
     fn static_st(&self) -> &'st Storage {
         self.sterm().st()
     }
