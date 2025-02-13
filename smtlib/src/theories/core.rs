@@ -17,6 +17,7 @@ use crate::{
 pub struct Bool<'st>(STerm<'st>);
 
 impl<'st> Bool<'st> {
+    /// Construct a new bool.
     pub fn new(st: &'st Storage, value: bool) -> Bool<'st> {
         value.into_with_storage(st)
     }
@@ -81,8 +82,9 @@ impl<'st> StaticSorted<'st> for Bool<'st> {
     }
 }
 impl<'st> Bool<'st> {
+    /// Returns the sort of bools.
     pub fn sort() -> Sort<'st> {
-        Self::static_sort()
+        Self::SORT
     }
     fn binop(self, op: &str, other: Bool<'st>) -> Self {
         fun(

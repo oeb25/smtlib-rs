@@ -84,9 +84,11 @@ impl<'st> IntoWithStorage<'st, Int<'st>> for i64 {
     }
 }
 impl<'st> Int<'st> {
+    /// Returns the sort of ints.
     pub fn sort() -> Sort<'st> {
-        Self::static_sort()
+        Self::SORT
     }
+    /// Construct a new integer.
     pub fn new(st: &'st Storage, value: impl IntoWithStorage<'st, Int<'st>>) -> Int<'st> {
         value.into_with_storage(st)
     }

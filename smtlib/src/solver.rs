@@ -71,12 +71,16 @@ where
             declared_sorts: Default::default(),
         })
     }
+    /// Get the smtlib storage.
     pub fn st(&self) -> &'st Storage {
         self.driver.st()
     }
+    /// Set the logger for the solver. This is useful for debugging or tracing
+    /// purposes.
     pub fn set_logger(&mut self, logger: impl Logger) {
         self.driver.set_logger(logger)
     }
+    /// Set the timeout for the solver. The timeout is in milliseconds.
     pub fn set_timeout(&mut self, ms: usize) -> Result<(), Error> {
         let cmd = ast::Command::SetOption(ast::Option::Attribute(ast::Attribute::WithValue(
             smtlib_lowlevel::lexicon::Keyword(":timeout"),
@@ -168,6 +172,8 @@ where
             res => todo!("{res:?}"),
         }
     }
+    /// Declares a function to the solver. For more details refer to the
+    /// [`funs`] module.
     pub fn declare_fun(&mut self, fun: &funs::Fun<'st>) -> Result<(), Error> {
         for var in fun.vars {
             self.declare_sort(&var.ast())?;
@@ -207,6 +213,10 @@ where
         }
     }
 
+    /// Start a new scope, execute the given closure, and then pop the scope.
+    ///
+    /// A scope is a way to group a set of assertions together, and then later
+    /// rollback all the assertions to the state before the scope was started.
     pub fn scope<T>(
         &mut self,
         f: impl FnOnce(&mut Solver<B>) -> Result<T, Error>,

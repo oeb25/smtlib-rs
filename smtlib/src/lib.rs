@@ -16,6 +16,7 @@ use terms::{Const, STerm};
 #[cfg(feature = "tokio")]
 mod tokio_solver;
 #[rustfmt::skip]
+#[allow(clippy::all)]
 mod logics;
 pub mod funs;
 mod solver;
@@ -32,6 +33,9 @@ pub use theories::{core::*, fixed_size_bit_vectors::*, ints::*, reals::*};
 pub use tokio_solver::TokioSolver;
 
 pub mod prelude {
+    //! The prelude module contains the most commonly used types and traits in
+    //! `smtlib`. It is recommended to import this module when using `smtlib`.
+
     pub use crate::terms::{Sorted, StaticSorted};
 }
 
@@ -115,11 +119,13 @@ pub enum Error {
         /// The actual sat result
         actual: SatResult,
     },
+    /// An error that occurred when trying to cast a dynamic term to a different
+    /// sort.
     #[error("tried to cast a dynamic of sort {expected} to {actual}")]
     DynamicCastSortMismatch {
-        // expected: sorts::Sort<'static>,
-        // actual: sorts::Sort<'static>,
+        /// The expected sort
         expected: String,
+        /// The actual sort
         actual: String,
     },
 }

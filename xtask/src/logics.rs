@@ -62,6 +62,7 @@ pub fn generate(sh: &Shell) -> Result<String> {
         }
 
         impl Logic {
+            /// Returns the name of the logic.
             pub fn name(&self) -> Cow<'static, str> {
                 match self {
                     #(

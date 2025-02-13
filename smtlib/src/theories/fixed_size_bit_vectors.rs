@@ -106,6 +106,7 @@ impl<'st, const M: usize> IntoWithStorage<'st, BitVec<'st, M>> for i64 {
     }
 }
 impl<'st, const M: usize> BitVec<'st, M> {
+    /// Construct a new bit-vec.
     pub fn new(
         st: &'st Storage,
         value: impl IntoWithStorage<'st, BitVec<'st, M>>,

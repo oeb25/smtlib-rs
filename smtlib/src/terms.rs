@@ -33,6 +33,11 @@ impl<'st, T> IntoWithStorage<'st, T> for T {
     }
 }
 
+/// A smtlib term with its associated storage.
+///
+/// This is a wrapper around a [`Term`] which also carries a pointer to its
+/// [`Storage`]. Having a pointer to the storage allows new terms to be created
+/// more ergonomically without passing around the storage.
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct STerm<'st> {
@@ -41,18 +46,22 @@ pub struct STerm<'st> {
     term: &'st Term<'st>,
 }
 impl<'st> STerm<'st> {
+    /// Construct a new [`STerm`] with the given term in the given [`Storage`].
     pub fn new(st: &'st Storage, term: Term<'st>) -> Self {
         Self {
             st,
             term: st.alloc_term(term),
         }
     }
+    /// Construct a new [`STerm`] with the given an already allocated term.
     pub fn new_from_ref(st: &'st Storage, term: &'st Term<'st>) -> Self {
         Self { st, term }
     }
+    /// The [`Storage`] associated with the term.
     pub fn st(self) -> &'st Storage {
         self.st
     }
+    /// The [`Term`] associated with the term.
     pub fn term(self) -> &'st Term<'st> {
         self.term
     }
@@ -126,22 +135,32 @@ impl std::fmt::Display for Dynamic<'_> {
     }
 }
 
+/// A trait for statically typing STM-LIB terms.
+///
+/// Refer to the [`Sorted`] trait for a more general version of this trait.
 pub trait StaticSorted<'st>: Into<STerm<'st>> + From<STerm<'st>> {
+    /// The inner type of the term. This is used for [`Const<'st, T>`](Const)
+    /// where the inner type is `T`.
     type Inner: StaticSorted<'st>;
+    /// The sort of this sort.
+    #[allow(clippy::declare_interior_mutable_const)]
     const SORT: Sort<'st>;
-    fn static_sort() -> Sort<'st> {
+    /// The sort of this sort.
+    fn sort() -> Sort<'st> {
         Self::SORT
     }
+    /// Construct a new constante of this sort.
     fn new_const(st: &'st Storage, name: &str) -> Const<'st, Self> {
         let name = st.alloc_str(name);
-        let bv = Term::Identifier(qual_ident(name, Some(Self::static_sort().ast())));
+        let bv = Term::Identifier(qual_ident(name, Some(Self::SORT.ast())));
         let bv = STerm::new(st, bv);
         Const(name, bv.into())
     }
+    /// The storage associated with the term.
     fn static_st(&self) -> &'st Storage;
 }
 
-/// An trait for statically typing STM-LIB terms.
+/// An trait for typing STM-LIB terms.
 ///
 /// This trait indicates that a type can construct a [`Term`] which is the
 /// low-level primitive that is used to define expressions for the SMT solvers
@@ -150,10 +169,11 @@ pub trait Sorted<'st>: Into<STerm<'st>> {
     /// The inner type of the term. This is used for [`Const<'st, T>`](Const)
     /// where the inner type is `T`.
     type Inner: Sorted<'st>;
-    /// The sort of the term
+    /// The sort of the term.
     fn sort(&self) -> Sort<'st>;
-    /// The sort of the term
-    fn is_sort(sort: &Sort<'st>) -> bool;
+    /// Check if a sort is of this type.
+    fn is_sort(sort: Sort<'st>) -> bool;
+    /// The storage associated with any term of this sort.
     fn st(&self) -> &'st Storage;
     // /// Construct a constant of this sort. See the documentation of [`Const`]
     // /// for more information about constants.
@@ -168,9 +188,12 @@ pub trait Sorted<'st>: Into<STerm<'st>> {
     //         Term::Identifier(qual_ident(name, Some(Self::sort().ast()))).into(),
     //     )
     // }
+    /// Constructy the smtlib AST representation of the term with associated
+    /// storage.
     fn sterm(self) -> STerm<'st> {
         self.into()
     }
+    /// Construct the smtlib AST representation of term.
     fn term(self) -> &'st Term<'st> {
         self.sterm().term()
     }
@@ -193,6 +216,8 @@ pub trait Sorted<'st>: Into<STerm<'st>> {
             None
         }
     }
+    /// Casts the term into a dynamic term which looses static types and stores
+    /// the sort dynamically.
     fn into_dynamic(self) -> Dynamic<'st> {
         let sort = self.sort();
         Dynamic::from_term_sort(self.into(), sort)
@@ -237,7 +262,7 @@ impl<'st, T: Sorted<'st>> Sorted<'st> for Const<'st, T> {
     fn sort(&self) -> Sort<'st> {
         T::sort(self)
     }
-    fn is_sort(sort: &Sort<'st>) -> bool {
+    fn is_sort(sort: Sort<'st>) -> bool {
         T::is_sort(sort)
     }
     fn st(&self) -> &'st Storage {
@@ -249,11 +274,11 @@ impl<'st, T: StaticSorted<'st>> Sorted<'st> for T {
     type Inner = T::Inner;
 
     fn sort(&self) -> Sort<'st> {
-        Self::static_sort()
+        Self::SORT
     }
 
-    fn is_sort(sort: &Sort<'st>) -> bool {
-        sort == &Self::static_sort()
+    fn is_sort(sort: Sort<'st>) -> bool {
+        sort == Self::sort()
     }
 
     fn st(&self) -> &'st Storage {
@@ -300,31 +325,37 @@ impl<'st> From<(STerm<'st>, Sort<'st>)> for Dynamic<'st> {
     }
 }
 impl<'st> Dynamic<'st> {
+    /// Construct a dynamic term from a term and a sort.
     pub fn from_term_sort(t: STerm<'st>, sort: Sort<'st>) -> Self {
         Dynamic(t, sort)
     }
 
-    pub fn sort(&self) -> &Sort<'st> {
-        &self.1
+    /// Returns the sort of the dynamic term.
+    pub fn sort(&self) -> Sort<'st> {
+        self.1
     }
 
+    /// Attempt to cast the dynamic into an [`Int`](crate::Int) if the sort
+    /// matches.
     pub fn as_int(&self) -> Result<crate::Int, crate::Error> {
         crate::Int::try_from_dynamic(*self).ok_or_else(|| {
             crate::Error::DynamicCastSortMismatch {
-                expected: crate::Int::static_sort().to_string(),
+                expected: crate::Int::SORT.to_string(),
                 actual: self.1.to_string(),
-                // expected: crate::Int::static_sort(),
+                // expected: crate::Int::SORT,
                 // actual: self.1.clone(),
             }
         })
     }
 
+    /// Attempt to cast the dynamic into a [`Bool`](crate::Bool) if the sort
+    /// matches.
     pub fn as_bool(&self) -> Result<crate::Bool, crate::Error> {
         crate::Bool::try_from_dynamic(*self).ok_or_else(|| {
             crate::Error::DynamicCastSortMismatch {
-                expected: crate::Bool::static_sort().to_string(),
+                expected: crate::Bool::SORT.to_string(),
                 actual: self.1.to_string(),
-                // expected: crate::Bool::static_sort(),
+                // expected: crate::Bool::SORT,
                 // actual: self.1.clone(),
             }
         })
@@ -335,7 +366,7 @@ impl<'st> Sorted<'st> for Dynamic<'st> {
     fn sort(&self) -> Sort<'st> {
         self.1
     }
-    fn is_sort(_sort: &Sort<'st>) -> bool {
+    fn is_sort(_sort: Sort<'st>) -> bool {
         true
     }
     fn st(&self) -> &'st Storage {
@@ -404,7 +435,7 @@ where
 {
     fn into_vars(self) -> &'st [SortedVar<'st>] {
         let st = self.st();
-        st.alloc_slice(&[SortedVar(Symbol(self.0), A::static_sort().ast())])
+        st.alloc_slice(&[SortedVar(Symbol(self.0), A::SORT.ast())])
     }
 }
 macro_rules! impl_quantifiers {
@@ -417,7 +448,7 @@ macro_rules! impl_quantifiers {
                 let st = self.0.st();
 
                 st.alloc_slice(&[
-                    $(SortedVar(Symbol((self.$n).0.into()), $x::static_sort().ast())),+
+                    $(SortedVar(Symbol((self.$n).0.into()), $x::SORT.ast())),+
                 ])
             }
         }

@@ -70,8 +70,9 @@ impl<'st> IntoWithStorage<'st, Real<'st>> for f64 {
     }
 }
 impl<'st> Real<'st> {
+    /// Returns the sort of reals.
     pub fn sort() -> Sort<'st> {
-        Self::static_sort()
+        Self::SORT
     }
     fn binop<T: From<STerm<'st>>>(self, op: &str, other: Real<'st>) -> T {
         fun_vec(
