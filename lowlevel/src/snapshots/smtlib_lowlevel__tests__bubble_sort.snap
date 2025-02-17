@@ -1,6 +1,6 @@
 ---
 source: lowlevel/src/tests.rs
-expression: "Script::parse(include_str!(\"../../examples/bubble_sort.smt2\"))"
+expression: "Script::parse(&st, include_str!(\"../examples/bubble_sort.smt2\"))"
 ---
 Ok(Script([
   DeclareConst(Symbol("dim"), Sort(Simple(Symbol("Int")))),
@@ -52,11 +52,15 @@ Ok(Script([
   ], Sort(Simple(Symbol("Bool"))), Application(Identifier(Simple(Symbol("and"))), [
     Application(Identifier(Simple(Symbol("="))), [
       Identifier(Identifier(Simple(Symbol("_i")))),
-      SpecConstant(Numeral(Numeral("0"))),
+      SpecConstant(Numeral(Numeral(
+        repr: Number(0),
+      ))),
     ]),
     Application(Identifier(Simple(Symbol("="))), [
       Identifier(Identifier(Simple(Symbol("_j")))),
-      SpecConstant(Numeral(Numeral("0"))),
+      SpecConstant(Numeral(Numeral(
+        repr: Number(0),
+      ))),
     ]),
   ]))),
   DefineFun(FunctionDef(Symbol("inner_loop"), [
@@ -81,7 +85,9 @@ Ok(Script([
         Identifier(Identifier(Simple(Symbol("_A0")))),
         Application(Identifier(Simple(Symbol("+"))), [
           Identifier(Identifier(Simple(Symbol("_i0")))),
-          SpecConstant(Numeral(Numeral("1"))),
+          SpecConstant(Numeral(Numeral(
+            repr: Number(1),
+          ))),
         ]),
       ]),
     ]),
@@ -102,7 +108,9 @@ Ok(Script([
             Identifier(Identifier(Simple(Symbol("_A0")))),
             Application(Identifier(Simple(Symbol("+"))), [
               Identifier(Identifier(Simple(Symbol("_i0")))),
-              SpecConstant(Numeral(Numeral("1"))),
+              SpecConstant(Numeral(Numeral(
+                repr: Number(1),
+              ))),
             ]),
           ]),
         ]),
@@ -113,7 +121,9 @@ Ok(Script([
           Identifier(Identifier(Simple(Symbol("_A0")))),
           Application(Identifier(Simple(Symbol("+"))), [
             Identifier(Identifier(Simple(Symbol("_i0")))),
-            SpecConstant(Numeral(Numeral("1"))),
+            SpecConstant(Numeral(Numeral(
+              repr: Number(1),
+            ))),
           ]),
           Identifier(Identifier(Simple(Symbol("tmp")))),
         ]),
@@ -144,7 +154,9 @@ Ok(Script([
       Identifier(Identifier(Simple(Symbol("_j0")))),
       Application(Identifier(Simple(Symbol("-"))), [
         Identifier(Identifier(Simple(Symbol("_dim")))),
-        SpecConstant(Numeral(Numeral("1"))),
+        SpecConstant(Numeral(Numeral(
+          repr: Number(1),
+        ))),
       ]),
     ]),
     Application(Identifier(Simple(Symbol("and"))), [
@@ -153,7 +165,9 @@ Ok(Script([
           Identifier(Identifier(Simple(Symbol("_i0")))),
           Application(Identifier(Simple(Symbol("-"))), [
             Identifier(Identifier(Simple(Symbol("_dim")))),
-            SpecConstant(Numeral(Numeral("1"))),
+            SpecConstant(Numeral(Numeral(
+              repr: Number(1),
+            ))),
           ]),
         ]),
         Application(Identifier(Simple(Symbol("and"))), [
@@ -168,7 +182,9 @@ Ok(Script([
             Identifier(Identifier(Simple(Symbol("_i1")))),
             Application(Identifier(Simple(Symbol("+"))), [
               Identifier(Identifier(Simple(Symbol("_i0")))),
-              SpecConstant(Numeral(Numeral("1"))),
+              SpecConstant(Numeral(Numeral(
+                repr: Number(1),
+              ))),
             ]),
           ]),
         ]),
@@ -176,7 +192,9 @@ Ok(Script([
           Identifier(Identifier(Simple(Symbol("_j1")))),
           Application(Identifier(Simple(Symbol("+"))), [
             Identifier(Identifier(Simple(Symbol("_j0")))),
-            SpecConstant(Numeral(Numeral("1"))),
+            SpecConstant(Numeral(Numeral(
+              repr: Number(1),
+            ))),
           ]),
         ]),
       ]),
@@ -184,7 +202,9 @@ Ok(Script([
         Identifier(Identifier(Simple(Symbol("_j1")))),
         Application(Identifier(Simple(Symbol("+"))), [
           Identifier(Identifier(Simple(Symbol("_j0")))),
-          SpecConstant(Numeral(Numeral("1"))),
+          SpecConstant(Numeral(Numeral(
+            repr: Number(1),
+          ))),
         ]),
       ]),
     ]),
@@ -193,7 +213,9 @@ Ok(Script([
         Identifier(Identifier(Simple(Symbol("_j1")))),
         Application(Identifier(Simple(Symbol("+"))), [
           Identifier(Identifier(Simple(Symbol("_j0")))),
-          SpecConstant(Numeral(Numeral("1"))),
+          SpecConstant(Numeral(Numeral(
+            repr: Number(1),
+          ))),
         ]),
       ]),
       Application(Identifier(Simple(Symbol("="))), [
@@ -243,7 +265,9 @@ Ok(Script([
   ]))),
   Assert(Application(Identifier(Simple(Symbol("="))), [
     Identifier(Identifier(Simple(Symbol("dim")))),
-    SpecConstant(Numeral(Numeral("4"))),
+    SpecConstant(Numeral(Numeral(
+      repr: Number(4),
+    ))),
   ])),
   Assert(Application(Identifier(Simple(Symbol("init_indexes"))), [
     Identifier(Identifier(Simple(Symbol("i0")))),
@@ -289,7 +313,9 @@ Ok(Script([
       Application(Identifier(Simple(Symbol("insert"))), [
         Application(Identifier(Simple(Symbol("select"))), [
           Identifier(Identifier(Simple(Symbol("A3")))),
-          SpecConstant(Numeral(Numeral("0"))),
+          SpecConstant(Numeral(Numeral(
+            repr: Number(0),
+          ))),
         ]),
         Identifier(Identifier(Simple(Symbol("l0")))),
       ]),
@@ -299,7 +325,9 @@ Ok(Script([
       Application(Identifier(Simple(Symbol("insert"))), [
         Application(Identifier(Simple(Symbol("select"))), [
           Identifier(Identifier(Simple(Symbol("A3")))),
-          SpecConstant(Numeral(Numeral("1"))),
+          SpecConstant(Numeral(Numeral(
+            repr: Number(1),
+          ))),
         ]),
         Identifier(Identifier(Simple(Symbol("l1")))),
       ]),
@@ -309,7 +337,9 @@ Ok(Script([
       Application(Identifier(Simple(Symbol("insert"))), [
         Application(Identifier(Simple(Symbol("select"))), [
           Identifier(Identifier(Simple(Symbol("A3")))),
-          SpecConstant(Numeral(Numeral("2"))),
+          SpecConstant(Numeral(Numeral(
+            repr: Number(2),
+          ))),
         ]),
         Identifier(Identifier(Simple(Symbol("l2")))),
       ]),
@@ -319,14 +349,18 @@ Ok(Script([
       Application(Identifier(Simple(Symbol("insert"))), [
         Application(Identifier(Simple(Symbol("select"))), [
           Identifier(Identifier(Simple(Symbol("A3")))),
-          SpecConstant(Numeral(Numeral("3"))),
+          SpecConstant(Numeral(Numeral(
+            repr: Number(3),
+          ))),
         ]),
         Identifier(Identifier(Simple(Symbol("l3")))),
       ]),
     ]),
   ])),
   Echo("\"BUBBLE SORT\""),
-  Push(Numeral("1")),
+  Push(Numeral(
+    repr: Number(1),
+  )),
   Assert(Application(Identifier(Simple(Symbol("not"))), [
     Application(Identifier(Simple(Symbol("check"))), [
       Identifier(Identifier(Simple(Symbol("l4")))),
@@ -335,7 +369,9 @@ Ok(Script([
   Echo("\"Testing the validity of the algorithm; `unsat` expected: \""),
   CheckSat,
   Echo("\"---------------------\""),
-  Pop(Numeral("1")),
+  Pop(Numeral(
+    repr: Number(1),
+  )),
   Assert(Application(Identifier(Simple(Symbol("check"))), [
     Identifier(Identifier(Simple(Symbol("l4")))),
   ])),

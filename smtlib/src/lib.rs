@@ -5,18 +5,18 @@
 
 use std::collections::HashMap;
 
-use itertools::Itertools;
-use smtlib_lowlevel::ast;
-use terms::Const;
-pub use terms::Sorted;
-
 pub use backend::Backend;
+use itertools::Itertools;
 pub use logics::Logic;
+use smtlib_lowlevel::ast;
 pub use smtlib_lowlevel::{self as lowlevel, backend, Logger};
+pub use terms::Sorted;
+use terms::{Const, STerm};
 
 #[cfg(feature = "tokio")]
 mod tokio_solver;
 #[rustfmt::skip]
+#[allow(clippy::all)]
 mod logics;
 pub mod funs;
 mod solver;
@@ -26,12 +26,16 @@ pub mod terms;
 mod tests;
 pub mod theories;
 
+pub use smtlib_lowlevel::Storage;
 pub use solver::Solver;
 pub use theories::{core::*, fixed_size_bit_vectors::*, ints::*, reals::*};
 #[cfg(feature = "tokio")]
 pub use tokio_solver::TokioSolver;
 
 pub mod prelude {
+    //! The prelude module contains the most commonly used types and traits in
+    //! `smtlib`. It is recommended to import this module when using `smtlib`.
+
     pub use crate::terms::{Sorted, StaticSorted};
 }
 
@@ -56,22 +60,23 @@ impl std::fmt::Display for SatResult {
     }
 }
 
-/// The satisfiability result produced by a solver, where the [`Sat`](SatResultWithModel::Sat) variant
-/// carries the satisfying model as well.
+/// The satisfiability result produced by a solver, where the
+/// [`Sat`](SatResultWithModel::Sat) variant carries the satisfying model as
+/// well.
 #[derive(Debug)]
-pub enum SatResultWithModel {
+pub enum SatResultWithModel<'st> {
     /// The solver produced `unsat`
     Unsat,
     /// The solver produced `sat` and the associated model
-    Sat(Model),
+    Sat(Model<'st>),
     /// The solver produced `unknown`
     Unknown,
 }
 
-impl SatResultWithModel {
+impl<'st> SatResultWithModel<'st> {
     /// Expect the result to be `sat` returning the satisfying model. If not
     /// `sat`, returns an error.
-    pub fn expect_sat(self) -> Result<Model, Error> {
+    pub fn expect_sat(self) -> Result<Model<'st>, Error> {
         match self {
             SatResultWithModel::Sat(m) => Ok(m),
             SatResultWithModel::Unsat => Err(Error::UnexpectedSatResult {
@@ -114,10 +119,14 @@ pub enum Error {
         /// The actual sat result
         actual: SatResult,
     },
+    /// An error that occurred when trying to cast a dynamic term to a different
+    /// sort.
     #[error("tried to cast a dynamic of sort {expected} to {actual}")]
     DynamicCastSortMismatch {
-        expected: sorts::Sort,
-        actual: sorts::Sort,
+        /// The expected sort
+        expected: String,
+        /// The actual sort
+        actual: String,
     },
 }
 
@@ -127,40 +136,41 @@ pub enum Error {
 /// The two most common usages of [`Model`] is to:
 /// - Extract values for constants using [`Model::eval`].
 /// - Print out the produced model using `println!("{model}")`.
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Model {
-    values: HashMap<String, ast::Term>,
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub struct Model<'st> {
+    values: HashMap<String, STerm<'st>>,
 }
 
-impl std::fmt::Debug for Model {
+impl std::fmt::Debug for Model<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.values.fmt(f)
     }
 }
-impl std::fmt::Display for Model {
+impl std::fmt::Display for Model<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "{{ {} }}",
             self.values
                 .iter()
-                .map(|(n, t)| format!("{n}: {t}"))
+                .map(|(n, t)| format!("{n}: {}", t.term()))
                 .format(", ")
         )
     }
 }
 
-impl Model {
-    fn new(model: ast::GetModelResponse) -> Self {
+impl<'st> Model<'st> {
+    fn new(st: &'st Storage, model: ast::GetModelResponse<'st>) -> Self {
         Self {
             values: model
                 .0
-                .into_iter()
+                .iter()
                 .map(|res| match res {
                     ast::ModelResponse::DefineFun(f) => (f.0 .0.trim_matches('|').into(), f.3),
                     ast::ModelResponse::DefineFunRec(_) => todo!(),
                     ast::ModelResponse::DefineFunsRec(_, _) => todo!(),
                 })
+                .map(|(name, term)| (name, STerm::new_from_ref(st, term)))
                 .collect(),
         }
     }
@@ -169,10 +179,11 @@ impl Model {
     /// expression asserted.
     ///
     /// ```
-    /// # use smtlib::{Int, prelude::*};
+    /// # use smtlib::{Int, Storage, prelude::*};
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// # let mut solver = smtlib::Solver::new(smtlib::backend::z3_binary::Z3Binary::new("z3")?)?;
-    /// let x = Int::new_const("x");
+    /// # let st = Storage::new();
+    /// # let mut solver = smtlib::Solver::new(&st, smtlib::backend::z3_binary::Z3Binary::new("z3")?)?;
+    /// let x = Int::new_const(&st, "x");
     /// solver.assert(x._eq(12))?;
     /// let model = solver.check_sat_with_model()?.expect_sat()?;
     /// match model.eval(x) {
@@ -182,10 +193,10 @@ impl Model {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn eval<T: Sorted>(&self, x: Const<T>) -> Option<T::Inner>
+    pub fn eval<T: Sorted<'st>>(&self, x: Const<'st, T>) -> Option<T::Inner>
     where
-        T::Inner: From<ast::Term>,
+        T::Inner: From<STerm<'st>>,
     {
-        Some(self.values.get(x.name().trim_matches('|'))?.clone().into())
+        Some((*self.values.get(x.name().trim_matches('|'))?).into())
     }
 }

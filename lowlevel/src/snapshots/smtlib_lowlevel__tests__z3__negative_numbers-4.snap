@@ -1,9 +1,11 @@
 ---
 source: lowlevel/src/tests.rs
-expression: "d.exec(&Command::parse(r#\"(get-model)\"#)?)?"
+expression: "d.exec(Command :: parse(& st, r#\"(get-model)\"#)?)?"
 ---
 SpecificSuccessResponse(GetModelResponse(GetModelResponse([
   DefineFun(FunctionDef(Symbol("x"), [], Sort(Simple(Symbol("Int"))), Application(Identifier(Simple(Symbol("-"))), [
-    SpecConstant(Numeral(Numeral("2"))),
+    SpecConstant(Numeral(Numeral(
+      repr: Number(2),
+    ))),
   ]))),
 ])))

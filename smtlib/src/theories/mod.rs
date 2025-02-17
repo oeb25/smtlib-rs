@@ -1,5 +1,5 @@
-//! Theories in SMT-LIB are definitions of [sorts](crate::Sort) and in general
-//! functions present in the [logics](crate::Logic).
+//! Theories in SMT-LIB are definitions of [sorts](crate::sorts::Sort) and in
+//! general functions present in the [logics](crate::Logic).
 
 pub mod arrays_ex;
 pub mod core;

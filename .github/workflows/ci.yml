@@ -67,7 +67,7 @@ jobs:
         build: [msrv, debug, release]
         include:
           - build: msrv
-            rust: 1.75.0 # MSRV
+            rust: 1.84.1 # MSRV
             target: x86_64-unknown-linux-gnu
             features: full
           - build: debug
@@ -143,7 +143,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.75.0 # MSRV
+          toolchain: 1.84.1 # MSRV
           components: clippy
       - uses: Swatinem/rust-cache@v2
       - name: Lint

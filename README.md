@@ -29,17 +29,19 @@ cargo add smtlib
 Now you can go ahead and use the library in your project.
 
 ```rust
-use smtlib::{backend::z3_binary::Z3Binary, Int, SatResultWithModel, Solver, prelude::*};
+use smtlib::{backend::z3_binary::Z3Binary, Int, SatResultWithModel, Solver, Storage, prelude::*};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let st = Storage::new();
+
     // Initialize the solver with the Z3 backend. The "z3" string refers the
     // to location of the already installed `z3` binary. In this case, the
     // binary is in the path.
-    let mut solver = Solver::new(Z3Binary::new("z3")?)?;
+    let mut solver = Solver::new(&st, Z3Binary::new("z3")?)?;
 
     // Declare two new variables
-    let x = Int::new_const("x");
-    let y = Int::new_const("y");
+    let x = Int::new_const(&st, "x");
+    let y = Int::new_const(&st, "y");
 
     // Assert some constraints. This tells the solver that these expressions
     // must be true, so any solution will satisfy these.

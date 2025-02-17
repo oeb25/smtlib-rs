@@ -17,7 +17,7 @@ impl Z3Binary {
 }
 
 impl Backend for Z3Binary {
-    fn exec(&mut self, cmd: &crate::Command) -> Result<String, crate::Error> {
+    fn exec(&mut self, cmd: crate::Command) -> Result<String, crate::Error> {
         self.bin.exec(cmd).map(Into::into)
     }
 }
@@ -46,7 +46,7 @@ pub mod tokio {
     impl crate::backend::tokio::TokioBackend for Z3BinaryTokio {
         fn exec(
             &mut self,
-            cmd: &crate::Command,
+            cmd: crate::Command,
         ) -> impl Future<Output = Result<String, crate::Error>> {
             async move { self.bin.exec(cmd).await.map(Into::into) }
         }

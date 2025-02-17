@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use color_eyre::Result;
 use heck::ToPascalCase;
 use indexmap::IndexMap;
@@ -34,7 +32,7 @@ impl RawSpec {
             general: self
                 .general
                 .iter()
-                .map(|(n, s)| (n.clone(), s.parse()))
+                .map(|(n, s)| (Name(n.clone()), s.parse()))
                 .collect(),
         }
     }
@@ -55,7 +53,7 @@ impl RawSyntax {
                 response: response.as_ref().map(|s| parse_raw_token(s, 0)),
             }),
             RawSyntax::Class { response, cases } => Syntax::Class {
-                response: response.clone(),
+                response: response.clone().map(Into::into),
                 cases: cases
                     .iter()
                     .map(|(n, s)| match s {
@@ -81,9 +79,97 @@ impl RawSyntax {
     }
 }
 
+#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+struct Name(String);
+
+impl From<String> for Name {
+    fn from(value: String) -> Self {
+        Name(value)
+    }
+}
+
+impl Name {
+    fn needs_alloc(&self, spec: &Spec) -> bool {
+        match spec.general.get(self) {
+            Some(Syntax::Rule(rule)) => rule.syntax.fields.iter().any(|f| match f {
+                Field::One(name) => name == self,
+                Field::Any(_) | Field::NonZero(_) | Field::NPlusOne(_) => false,
+            }),
+            Some(Syntax::Class { response: _, cases }) => cases.iter().any(|(_, case)| {
+                case.syntax.fields.iter().any(|f| match f {
+                    Field::One(name) => name == self,
+                    Field::Any(_) | Field::NonZero(_) | Field::NPlusOne(_) => false,
+                })
+            }),
+            None => false,
+        }
+    }
+    fn needs_lt(&self, spec: &Spec) -> bool {
+        match self.0.as_str() {
+            "string" | "numeral" | "decimal" | "hexadecimal" | "binary" | "symbol" | "reserved"
+            | "keyword" => true,
+            "b_value" => false,
+            _ => match spec.general.get(self) {
+                Some(Syntax::Rule(rule)) => rule.syntax.fields.iter().any(|f| match f {
+                    Field::One(name) => name.needs_lt(spec),
+                    Field::Any(_) | Field::NonZero(_) | Field::NPlusOne(_) => true,
+                }),
+                Some(Syntax::Class { response: _, cases }) => cases.iter().any(|(_, case)| {
+                    case.syntax.fields.iter().any(|f| match f {
+                        Field::One(name) => name.needs_lt(spec),
+                        Field::Any(_) | Field::NonZero(_) | Field::NPlusOne(_) => true,
+                    })
+                }),
+                None => {
+                    todo!(
+                        "[{self:?}] missing name\noptions: \n - {}",
+                        spec.general.keys().map(|n| &n.0).sorted().format("\n - ")
+                    );
+                }
+            },
+        }
+    }
+    fn ty(&self, _spec: &Spec) -> String {
+        self.0.to_pascal_case()
+    }
+    fn variant(&self, spec: &Spec) -> String {
+        self.ty(spec).clone()
+    }
+    /// With life time
+    fn with_lt(&self, spec: &Spec) -> String {
+        if self.needs_lt(spec) {
+            format!("{}<'st>", self.ty(spec))
+        } else {
+            self.ty(spec)
+        }
+    }
+    /// With anonymous life time
+    fn with_alt(&self, spec: &Spec) -> String {
+        if self.needs_lt(spec) {
+            format!("{}<'_>", self.ty(spec))
+        } else {
+            self.ty(spec)
+        }
+    }
+    fn as_smtlibparse(&self, spec: &Spec) -> String {
+        match self.0.as_str() {
+            "string" => "<String as SmtlibParse<'st>>".to_string(),
+            _ if self.needs_lt(spec) => format!("<{}::<'st> as SmtlibParse<'st>>", self.ty(spec)),
+            _ => format!("<{} as SmtlibParse<'st>>", self.ty(spec)),
+        }
+    }
+    fn output(&self, spec: &Spec) -> String {
+        match self.0.as_str() {
+            "string" => "&'st str".to_string(),
+            _ if self.needs_alloc(spec) => format!("&'st {}", self.with_lt(spec)),
+            _ => self.with_lt(spec).to_string(),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 struct Spec {
-    general: IndexMap<String, Syntax>,
+    general: IndexMap<Name, Syntax>,
 }
 
 #[derive(Debug, Clone)]
@@ -98,7 +184,7 @@ struct Rule {
 enum Syntax {
     Rule(Rule),
     Class {
-        response: Option<String>,
+        response: Option<Name>,
         cases: IndexMap<String, Rule>,
     },
 }
@@ -135,10 +221,10 @@ impl Token {
 
 #[derive(Debug, Clone)]
 enum Field {
-    One(String),
-    Any(String),
-    NonZero(String),
-    NPlusOne(String),
+    One(Name),
+    Any(Name),
+    NonZero(Name),
+    NPlusOne(Name),
 }
 
 impl std::fmt::Display for Token {
@@ -160,10 +246,10 @@ impl std::fmt::Display for Token {
 impl std::fmt::Display for Field {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Field::One(t) => write!(f, "<{t}>"),
-            Field::Any(t) => write!(f, "<{t}>*"),
-            Field::NonZero(t) => write!(f, "<{t}>+"),
-            Field::NPlusOne(t) => write!(f, "<{t}>n+1"),
+            Field::One(t) => write!(f, "<{}>", t.0),
+            Field::Any(t) => write!(f, "<{}>*", t.0),
+            Field::NonZero(t) => write!(f, "<{}>+", t.0),
+            Field::NPlusOne(t) => write!(f, "<{}>n+1", t.0),
         }
     }
 }
@@ -171,7 +257,7 @@ impl std::fmt::Display for Grammar {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = self.tokens.iter().fold("".to_string(), |mut acc, t| {
             use Token::*;
-            if !acc.ends_with(|c| c == '(') && !acc.is_empty() {
+            if !acc.ends_with('(') && !acc.is_empty() {
                 acc += match t {
                     RParen => "",
                     _ => " ",
@@ -214,17 +300,19 @@ fn parse_raw_token(s: &str, field_idx: usize) -> Token {
         "!" => Token::Annotation,
         f if f.starts_with(':') => Token::Keyword(f.to_string()),
         f if f.starts_with('<') && f.ends_with('>') => {
-            Token::Field(field_idx, Field::One(f[1..f.len() - 1].to_string()))
+            Token::Field(field_idx, Field::One(f[1..f.len() - 1].to_string().into()))
         }
         f if f.starts_with('<') && f.ends_with(">*") => {
-            Token::Field(field_idx, Field::Any(f[1..f.len() - 2].to_string()))
+            Token::Field(field_idx, Field::Any(f[1..f.len() - 2].to_string().into()))
         }
-        f if f.starts_with('<') && f.ends_with(">+") => {
-            Token::Field(field_idx, Field::NonZero(f[1..f.len() - 2].to_string()))
-        }
-        f if f.starts_with('<') && f.ends_with(">n+1") => {
-            Token::Field(field_idx, Field::NPlusOne(f[1..f.len() - 4].to_string()))
-        }
+        f if f.starts_with('<') && f.ends_with(">+") => Token::Field(
+            field_idx,
+            Field::NonZero(f[1..f.len() - 2].to_string().into()),
+        ),
+        f if f.starts_with('<') && f.ends_with(">n+1") => Token::Field(
+            field_idx,
+            Field::NPlusOne(f[1..f.len() - 4].to_string().into()),
+        ),
         f if f.chars().all(|c| c.is_alphabetic() || c == '-') => {
             if [
                 "_",
@@ -282,29 +370,29 @@ fn parse_raw_token(s: &str, field_idx: usize) -> Token {
 }
 
 impl Syntax {
-    fn rust_ty_decl_top(&self, name: &str) -> String {
-        let derive = r#"#[derive(Debug, Clone, PartialEq, Eq, Hash)] #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]"#;
+    fn rust_ty_decl_top(&self, spec: &Spec, name: &Name) -> String {
+        let derive = r#"#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)] #[cfg_attr(feature = "serde", derive(serde::Serialize))]"#;
         match self {
             Syntax::Rule(r) => format!(
                 "/// `{}`\n{derive}\npub struct {}({});",
                 r.syntax,
-                name.to_pascal_case(),
+                name.with_lt(spec),
                 r.syntax
-                    .tuple_fields(&[name.to_string()].into_iter().collect())
+                    .tuple_fields(spec)
                     .map(|f| format!("pub {f}"))
                     .format(",")
             ),
             Syntax::Class { cases, .. } => format!(
                 "{derive}pub enum {} {{ {} }}",
-                name.to_pascal_case(),
+                name.with_lt(spec),
                 cases
                     .iter()
-                    .map(|(n, c)| c.rust_ty_decl_child(n, [name.to_string()].into_iter().collect()))
+                    .map(|(n, c)| c.rust_ty_decl_child(spec, n))
                     .format(", ")
             ),
         }
     }
-    fn rust_display(&self, name: &str) -> String {
+    fn rust_display(&self, spec: &Spec, name: &Name) -> String {
         match self {
             Syntax::Rule(r) => format!(
                 r#"
@@ -314,7 +402,7 @@ impl Syntax {
                     }}
                 }}
                 "#,
-                name.to_pascal_case(),
+                name.with_alt(spec),
                 r.rust_display_impl("self.")
             ),
             Syntax::Class { cases, .. } => format!(
@@ -325,7 +413,7 @@ impl Syntax {
                     }}
                 }}
                 "#,
-                name.to_pascal_case(),
+                name.with_alt(spec),
                 cases
                     .iter()
                     .map(|(n, c)| if c.syntax.fields.is_empty() {
@@ -351,28 +439,32 @@ impl Syntax {
             ),
         }
     }
-    fn rust_parse(&self, name: &str) -> String {
+    fn rust_parse(&self, spec: &Spec, name: &Name) -> String {
         match self {
             Syntax::Rule(r) => {
                 format!(
-                    "impl {} {{
-                        pub fn parse(src: &str) -> Result<Self, ParseError> {{
-                            SmtlibParse::parse(&mut Parser::new(src))
+                    "impl<'st> {} {{
+                        pub fn parse(st: &'st Storage, src: &str) -> Result<{}, ParseError> {{
+                            {}::parse(&mut Parser::new(st, src))
                         }}
                     }}
-                    impl SmtlibParse for {} {{
-                        fn is_start_of(offset: usize, p: &mut Parser) -> bool {{
+                    impl<'st> SmtlibParse<'st> for {} {{
+                        type Output = {};
+                        fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {{
                             {}
                         }}
-                        fn parse(p: &mut Parser) -> Result<Self, ParseError> {{
+                        fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {{
                             {}
                             {}
                         }}
                     }}",
-                    name.to_pascal_case(),
-                    name.to_pascal_case(),
-                    r.rust_start_of_impl(),
-                    r.rust_parse_impl(),
+                    name.with_lt(spec),
+                    name.output(spec),
+                    name.as_smtlibparse(spec),
+                    name.with_lt(spec),
+                    name.output(spec),
+                    r.rust_start_of_impl(spec),
+                    r.rust_parse_impl(spec),
                     if r.syntax.fields.is_empty() {
                         "Ok(Self)".to_string()
                     } else {
@@ -398,7 +490,7 @@ impl Syntax {
                         )
                     })
                     .rev()
-                    .map(|(_, c)| format!("({})", c.rust_start_of_check()))
+                    .map(|(_, c)| format!("({})", c.rust_start_of_check(spec)))
                     .format(" || ");
                 let parse = cases
                     .iter()
@@ -411,36 +503,44 @@ impl Syntax {
                     .rev()
                     .map(|(n, c)| {
                         let construct = rust_parse_construct_variant("self", n, &c.syntax);
+                        let construct= if name.needs_alloc(spec) {
+                            format!("p.storage.alloc({construct})")
+                        } else {construct};
                         format!(
                             "if {} {{ {}\n #[allow(clippy::useless_conversion)]\nreturn Ok({construct}); }}",
-                            c.rust_start_of_check(),
-                            c.rust_parse_impl(),
+                            c.rust_start_of_check(spec),
+                            c.rust_parse_impl(spec),
                         )
                     })
                     .format("\n");
                 format!(
-                    "impl {} {{
-                        pub fn parse(src: &str) -> Result<Self, ParseError> {{
-                            SmtlibParse::parse(&mut Parser::new(src))
+                    "impl<'st> {} {{
+                        pub fn parse(st: &'st Storage, src: &str) -> Result<{}, ParseError> {{
+                            {}::parse(&mut Parser::new(st, src))
                         }}
                     }}
-                    impl SmtlibParse for {} {{
-                        fn is_start_of(offset: usize, p: &mut Parser) -> bool {{
+                    impl<'st> SmtlibParse<'st> for {} {{
+                        type Output = {};
+                        fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {{
                             {is_start_of}
                         }}
-                        fn parse(p: &mut Parser) -> Result<Self, ParseError> {{
+                        fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {{
                             let offset = 0;
                             {parse}
-                            Err(p.stuck({name:?}))
+                            Err(p.stuck({:?}))
                         }}
                     }}",
-                    name.to_pascal_case(),
-                    name.to_pascal_case(),
+                    name.with_lt(spec),
+                    name.output(spec),
+                    name.as_smtlibparse(spec),
+                    name.with_lt(spec),
+                    name.output(spec),
+                    name.variant(spec),
                 )
             }
         }
     }
-    fn rust_response(&self, name: &str) -> String {
+    fn rust_response(&self, spec: &Spec, name: &Name) -> String {
         match self {
             Syntax::Rule(_) | Syntax::Class { response: None, .. } => "".to_string(),
             Syntax::Class {
@@ -486,14 +586,14 @@ impl Syntax {
                                         Field::One(t)
                                         | Field::Any(t)
                                         | Field::NonZero(t)
-                                        | Field::NPlusOne(t) => t.to_string(),
+                                        | Field::NPlusOne(t) => t,
                                     },
                                 };
                                 format!(
-                                    "Ok(Some({}::{}({}::parse(response)?)))",
-                                    response.to_pascal_case(),
-                                    res_ty.to_pascal_case(),
-                                    res_ty.to_pascal_case(),
+                                    "Ok(Some({}::{}({}::parse(&mut Parser::new(st, response))?)))",
+                                    response.ty(spec),
+                                    res_ty.variant(spec),
+                                    res_ty.as_smtlibparse(spec),
                                 )
                             } else {
                                 "Ok(None)".to_string()
@@ -504,22 +604,22 @@ impl Syntax {
 
                 format!(
                         "
-                        impl {} {{
+                        impl<'st> {} {{
                             pub fn has_response(&self) -> bool {{
                                 match self {{
                                     {}
                                 }}
                             }}
-                            pub fn parse_response(&self, response: &str) -> Result<std::option::Option<{}>, ParseError> {{
+                            pub fn parse_response(&self, st: &'st Storage, response: &str) -> Result<std::option::Option<{}>, ParseError> {{
                                 match self {{
                                     {}
                                 }}
                             }}
                         }}
                         ",
-                        name.to_pascal_case(),
+                        name.with_lt(spec),
                         has_response,
-                        response.to_pascal_case(),
+                        response.output(spec),
                         parse_response,
                     )
             }
@@ -536,7 +636,7 @@ impl Rule {
                 .iter()
                 .fold("".to_string(), |mut acc, t| {
                     use Token::*;
-                    if !acc.ends_with(|c| c == '(') && !acc.is_empty() {
+                    if !acc.ends_with('(') && !acc.is_empty() {
                         acc += match t {
                             RParen => "",
                             _ => " ",
@@ -572,7 +672,7 @@ impl Rule {
                 .format("")
         )
     }
-    fn rust_ty_decl_child(&self, name: &str, inside_of: HashSet<String>) -> String {
+    fn rust_ty_decl_child(&self, spec: &Spec, name: &str) -> String {
         if self.syntax.fields.is_empty() {
             format!("/// `{}`\n{}", self.syntax, name.to_pascal_case())
         } else {
@@ -580,11 +680,11 @@ impl Rule {
                 "/// `{}`\n{}({})",
                 self.syntax,
                 name.to_pascal_case(),
-                self.syntax.tuple_fields(&inside_of).format(",")
+                self.syntax.tuple_fields(spec).format(",")
             )
         }
     }
-    fn rust_start_of_check(&self) -> String {
+    fn rust_start_of_check(&self, spec: &Spec) -> String {
         let is_all_variable = !self.syntax.tokens.iter().any(|t| t.is_concrete());
 
         if is_all_variable {
@@ -592,11 +692,11 @@ impl Rule {
                 .tokens
                 .iter()
                 .enumerate()
-                .map(|(idx, t)| rust_check_token(idx, t))
+                .map(|(idx, t)| rust_check_token(spec, idx, t))
                 .format(" && ")
                 .to_string()
         } else if !self.syntax.tokens[0].is_concrete() {
-            let q = rust_check_token(0, &self.syntax.tokens[0]);
+            let q = rust_check_token(spec, 0, &self.syntax.tokens[0]);
             assert!(!q.is_empty());
             q
         } else {
@@ -605,16 +705,16 @@ impl Rule {
                 .iter()
                 .take_while(|t| t.is_concrete())
                 .enumerate()
-                .map(|(idx, t)| rust_check_token(idx, t))
+                .map(|(idx, t)| rust_check_token(spec, idx, t))
                 .format(" && ")
                 .to_string()
         }
     }
-    fn rust_start_of_impl(&self) -> String {
-        self.rust_start_of_check()
+    fn rust_start_of_impl(&self, spec: &Spec) -> String {
+        self.rust_start_of_check(spec)
     }
-    fn rust_parse_impl(&self) -> String {
-        let stmts = self.syntax.tokens.iter().map(rust_parse_token);
+    fn rust_parse_impl(&self, spec: &Spec) -> String {
+        let stmts = self.syntax.tokens.iter().map(|t| rust_parse_token(spec, t));
         stmts.format("\n").to_string()
     }
 }
@@ -640,7 +740,7 @@ fn rust_parse_construct_variant(suffix: &str, name: &str, syntax: &Grammar) -> S
     )
 }
 
-fn rust_parse_token(t: &Token) -> String {
+fn rust_parse_token(spec: &Spec, t: &Token) -> String {
     match t {
         Token::LParen => "p.expect(Token::LParen)?;".to_string(),
         Token::RParen => "p.expect(Token::RParen)?;".to_string(),
@@ -650,22 +750,21 @@ fn rust_parse_token(t: &Token) -> String {
         Token::Reserved(b) => format!("p.expect_matches(Token::Reserved, {b:?})?;"),
         Token::Keyword(kw) => format!("p.expect_matches(Token::Keyword, {kw:?})?;"),
         Token::Field(idx, f) => match f {
-            Field::One(t) => format!(
-                "let m{idx} = <{} as SmtlibParse>::parse(p)?;",
-                t.to_pascal_case()
-            ),
-            Field::Any(t) => format!("let m{idx} = p.any::<{}>()?;", t.to_pascal_case()),
+            Field::One(t) => {
+                format!("let m{idx} = {}::parse(p)?;", t.as_smtlibparse(spec))
+            }
+            Field::Any(t) => format!("let m{idx} = p.any::<{}>()?;", t.with_lt(spec)),
             Field::NonZero(t) => {
-                format!("let m{idx} = p.non_zero::<{}>()?;", t.to_pascal_case())
+                format!("let m{idx} = p.non_zero::<{}>()?;", t.with_lt(spec))
             }
             Field::NPlusOne(t) => {
-                format!("let m{idx} = p.n_plus_one::<{}>()?;", t.to_pascal_case())
+                format!("let m{idx} = p.n_plus_one::<{}>()?;", t.with_lt(spec))
             }
         },
     }
 }
 
-fn rust_check_token(idx: usize, t: &Token) -> String {
+fn rust_check_token(spec: &Spec, idx: usize, t: &Token) -> String {
     match t {
         Token::LParen => format!("p.nth(offset + {idx}) == Token::LParen"),
         Token::RParen => format!("p.nth(offset + {idx}) == Token::RParen"),
@@ -678,7 +777,7 @@ fn rust_check_token(idx: usize, t: &Token) -> String {
         }
         Token::Field(_, f) => match f {
             Field::One(t) | Field::NonZero(t) | Field::NPlusOne(t) => {
-                format!("{}::is_start_of(offset + {idx}, p)", t.to_pascal_case())
+                format!("{}::is_start_of(offset + {idx}, p)", t.variant(spec))
             }
             Field::Any(_) => "todo!(\"{offset:?}, {p:?}\")".to_string(),
         },
@@ -686,20 +785,11 @@ fn rust_check_token(idx: usize, t: &Token) -> String {
 }
 
 impl Grammar {
-    fn tuple_fields<'a>(
-        &'a self,
-        inside_of: &'a HashSet<String>,
-    ) -> impl Iterator<Item = String> + 'a {
+    fn tuple_fields<'a>(&'a self, spec: &'a Spec) -> impl Iterator<Item = String> + 'a {
         self.fields.iter().map(|f| match &f {
-            Field::One(t) => {
-                if inside_of.contains(t) {
-                    format!("Box<{}>", t.to_pascal_case())
-                } else {
-                    t.to_pascal_case()
-                }
-            }
+            Field::One(t) => t.output(spec),
             Field::Any(t) | Field::NonZero(t) | Field::NPlusOne(t) => {
-                format!("Vec<{}>", t.to_pascal_case())
+                format!("&'st [{}]", t.output(spec))
             }
         })
     }
@@ -715,13 +805,14 @@ pub fn generate() -> Result<String> {
 
     writeln!(buf, "// This file is autogenerated! DO NOT EDIT!\n")?;
     writeln!(buf, "use crate::parse::{{Token, Parser, ParseError}};")?;
+    writeln!(buf, "use crate::storage::Storage;")?;
     writeln!(buf, "use itertools::Itertools; use crate::lexicon::*;\n")?;
 
     for (name, s) in &spec.general {
-        writeln!(buf, "{}", s.rust_ty_decl_top(name))?;
-        writeln!(buf, "{}", s.rust_display(name))?;
-        writeln!(buf, "{}", s.rust_parse(name))?;
-        writeln!(buf, "{}", s.rust_response(name))?;
+        writeln!(buf, "{}", s.rust_ty_decl_top(&spec, name))?;
+        writeln!(buf, "{}", s.rust_display(&spec, name))?;
+        writeln!(buf, "{}", s.rust_parse(&spec, name))?;
+        writeln!(buf, "{}", s.rust_response(&spec, name))?;
     }
     let buf = buf.replace(" + 0", "");
 

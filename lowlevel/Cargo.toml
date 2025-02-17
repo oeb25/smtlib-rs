@@ -17,6 +17,7 @@ serde = ["dep:serde"]
 tokio = ["dep:tokio"]
 
 [dependencies]
+bumpalo = "3.17.0"
 itertools.workspace = true
 logos = "0.13.0"
 miette.workspace = true

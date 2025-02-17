@@ -6,17 +6,132 @@
 
 use std::marker::PhantomData;
 
+use itertools::Itertools;
 use smtlib_lowlevel::{
     ast::{self, Attribute, AttributeValue, Identifier, QualIdentifier, SortedVar, Term},
     lexicon::{Keyword, Symbol},
+    Storage,
 };
 
 use crate::{sorts::Sort, Bool};
 
-pub(crate) fn fun(name: &str, args: Vec<Term>) -> Term {
-    Term::Application(qual_ident(name.to_string(), None), args)
+/// Construct a `STerm` with the presence of `Storage`
+pub trait IntoSTerm {
+    /// Construct a `STerm` with the presence of `Storage`
+    fn into_sterm(self, st: &'_ Storage) -> STerm<'_>;
 }
-pub(crate) fn qual_ident(s: String, sort: Option<ast::Sort>) -> QualIdentifier {
+
+/// Construct a `STerm` with the presence of `Storage`
+pub trait IntoWithStorage<'st, T> {
+    /// Construct a `STerm` with the presence of `Storage`
+    fn into_with_storage(self, st: &'st Storage) -> T;
+}
+
+impl<'st, T> IntoWithStorage<'st, T> for T {
+    fn into_with_storage(self, _st: &'st Storage) -> T {
+        self
+    }
+}
+
+impl<'st> IntoWithStorage<'st, &'st Term<'st>> for Term<'st> {
+    fn into_with_storage(self, st: &'st Storage) -> &'st Term<'st> {
+        st.alloc_term(self)
+    }
+}
+
+/// A smtlib term with its associated storage.
+///
+/// This is a wrapper around a [`Term`] which also carries a pointer to its
+/// [`Storage`]. Having a pointer to the storage allows new terms to be created
+/// more ergonomically without passing around the storage.
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub struct STerm<'st> {
+    #[cfg_attr(feature = "serde", serde(skip))]
+    st: &'st Storage,
+    term: &'st Term<'st>,
+}
+impl<'st> STerm<'st> {
+    /// Construct a new [`STerm`] with the given term in the given [`Storage`].
+    pub fn new(st: &'st Storage, term: Term<'st>) -> Self {
+        Self {
+            st,
+            term: st.alloc_term(term),
+        }
+    }
+    /// Construct a new [`STerm`] with the given an already allocated term.
+    pub fn new_from_ref(st: &'st Storage, term: &'st Term<'st>) -> Self {
+        Self { st, term }
+    }
+    /// The [`Storage`] associated with the term.
+    pub fn st(self) -> &'st Storage {
+        self.st
+    }
+    /// The [`Term`] associated with the term.
+    pub fn term(self) -> &'st Term<'st> {
+        self.term
+    }
+}
+impl std::fmt::Display for STerm<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.term().fmt(f)
+    }
+}
+impl<'st> From<STerm<'st>> for &'st Term<'st> {
+    fn from(sterm: STerm<'st>) -> Self {
+        sterm.term
+    }
+}
+
+pub(crate) fn app<'st>(
+    st: &'st Storage,
+    name: &'st str,
+    args: impl ApplicationArgs<'st>,
+) -> STerm<'st> {
+    STerm::new(
+        st,
+        Term::Application(qual_ident(name, None), args.into_args(st)),
+    )
+}
+
+pub(crate) trait ApplicationArgs<'st> {
+    fn into_args(self, st: &'st Storage) -> &'st [&'st Term<'st>];
+}
+
+impl<'st, A: IntoWithStorage<'st, &'st Term<'st>>> ApplicationArgs<'st> for A {
+    fn into_args(self, st: &'st Storage) -> &'st [&'st Term<'st>] {
+        st.alloc_slice(&[self.into_with_storage(st)])
+    }
+}
+impl<'st, A: IntoWithStorage<'st, &'st Term<'st>>, B: IntoWithStorage<'st, &'st Term<'st>>>
+    ApplicationArgs<'st> for (A, B)
+{
+    fn into_args(self, st: &'st Storage) -> &'st [&'st Term<'st>] {
+        st.alloc_slice(&[self.0.into_with_storage(st), self.1.into_with_storage(st)])
+    }
+}
+impl<
+        'st,
+        A: IntoWithStorage<'st, &'st Term<'st>>,
+        B: IntoWithStorage<'st, &'st Term<'st>>,
+        C: IntoWithStorage<'st, &'st Term<'st>>,
+    > ApplicationArgs<'st> for (A, B, C)
+{
+    fn into_args(self, st: &'st Storage) -> &'st [&'st Term<'st>] {
+        st.alloc_slice(&[
+            self.0.into_with_storage(st),
+            self.1.into_with_storage(st),
+            self.2.into_with_storage(st),
+        ])
+    }
+}
+impl<'st, A: IntoWithStorage<'st, &'st Term<'st>>, const N: usize> ApplicationArgs<'st> for [A; N] {
+    fn into_args(self, st: &'st Storage) -> &'st [&'st Term<'st>] {
+        st.alloc_slice(&self.map(|a| a.into_with_storage(st)))
+    }
+}
+
+pub(crate) fn qual_ident<'st>(s: &'st str, sort: Option<ast::Sort<'st>>) -> QualIdentifier<'st> {
     if let Some(sort) = sort {
         QualIdentifier::Sorted(Identifier::Simple(Symbol(s)), sort)
     } else {
@@ -28,18 +143,18 @@ pub(crate) fn qual_ident(s: String, sort: Option<ast::Sort>) -> QualIdentifier {
 /// are constant. Constants are named terms whose value can be extracted from a
 /// model using [`Model::eval`](crate::Model::eval).
 ///
-/// To construct a `Const<T>` call [`T::from_name`](Sort::from_name) where `T`
-/// implements [`Sort`].
+/// To construct a `Const<'st, T>` call [`T::new_const`](Sort::new_const) where
+/// `T` implements [`Sort`].
 #[derive(Debug, Clone, Copy)]
-pub struct Const<T>(pub(crate) &'static str, pub(crate) T);
+pub struct Const<'st, T>(pub(crate) &'st str, pub(crate) T);
 
-impl<T> Const<T> {
+impl<T> Const<'_, T> {
     /// The name of the constant
     pub fn name(&self) -> &str {
         self.0
     }
 }
-impl<T> std::ops::Deref for Const<T> {
+impl<T> std::ops::Deref for Const<'_, T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -50,36 +165,53 @@ impl<T> std::ops::Deref for Const<T> {
 /// This type wraps terms loosing all static type information. It is particular
 /// useful when constructing terms dynamically.
 #[derive(Debug, Clone, Copy)]
-pub struct Dynamic(&'static Term, &'static Sort);
-impl std::fmt::Display for Dynamic {
+pub struct Dynamic<'st>(STerm<'st>, Sort<'st>);
+impl std::fmt::Display for Dynamic<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Term::from(*self).fmt(f)
+        STerm::from(*self).term.fmt(f)
     }
 }
 
-pub trait StaticSorted: Into<Term> + From<Term> {
-    type Inner: StaticSorted;
-    fn static_sort() -> Sort;
-    fn new_const(name: impl Into<String>) -> Const<Self> {
-        let name = name.into();
-        let bv = Term::Identifier(qual_ident(name.clone(), Some(Self::static_sort().ast()))).into();
-        let name = String::leak(name);
-        Const(name, bv)
+/// A trait for statically typing STM-LIB terms.
+///
+/// Refer to the [`Sorted`] trait for a more general version of this trait.
+pub trait StaticSorted<'st>: Into<STerm<'st>> + From<STerm<'st>> {
+    /// The inner type of the term. This is used for [`Const<'st, T>`](Const)
+    /// where the inner type is `T`.
+    type Inner: StaticSorted<'st>;
+    /// The sort of this sort.
+    #[allow(clippy::declare_interior_mutable_const)]
+    const AST_SORT: ast::Sort<'static>;
+    /// The sort of this sort.
+    fn sort() -> Sort<'st> {
+        Self::AST_SORT.into()
     }
+    /// Construct a new constante of this sort.
+    fn new_const(st: &'st Storage, name: &str) -> Const<'st, Self> {
+        let name = st.alloc_str(name);
+        let bv = Term::Identifier(qual_ident(name, Some(Self::AST_SORT)));
+        let bv = STerm::new(st, bv);
+        Const(name, bv.into())
+    }
+    /// The storage associated with the term.
+    fn static_st(&self) -> &'st Storage;
 }
 
-/// An trait for statically typing STM-LIB terms.
+/// An trait for typing STM-LIB terms.
 ///
 /// This trait indicates that a type can construct a [`Term`] which is the
 /// low-level primitive that is used to define expressions for the SMT solvers
 /// to evaluate.
-pub trait Sorted: Into<Term> {
-    /// The inner type of the term. This is used for [`Const<T>`](Const) where the inner type is `T`.
-    type Inner: Sorted;
-    /// The sort of the term
-    fn sort(&self) -> Sort;
-    /// The sort of the term
-    fn is_sort(sort: &Sort) -> bool;
+pub trait Sorted<'st>: Into<STerm<'st>> {
+    /// The inner type of the term. This is used for [`Const<'st, T>`](Const)
+    /// where the inner type is `T`.
+    type Inner: Sorted<'st>;
+    /// The sort of the term.
+    fn sort(&self) -> Sort<'st>;
+    /// Check if a sort is of this type.
+    fn is_sort(sort: Sort<'st>) -> bool;
+    /// The storage associated with any term of this sort.
+    fn st(&self) -> &'st Storage;
     // /// Construct a constant of this sort. See the documentation of [`Const`]
     // /// for more information about constants.
     // fn from_name(name: impl Into<String>) -> Const<Self>
@@ -93,83 +225,101 @@ pub trait Sorted: Into<Term> {
     //         Term::Identifier(qual_ident(name, Some(Self::sort().ast()))).into(),
     //     )
     // }
+    /// Constructy the smtlib AST representation of the term with associated
+    /// storage.
+    fn sterm(self) -> STerm<'st> {
+        self.into()
+    }
+    /// Construct the smtlib AST representation of term.
+    fn term(self) -> &'st Term<'st> {
+        self.sterm().term()
+    }
     /// Casts a dynamically typed term into a concrete type
-    fn from_dynamic(d: Dynamic) -> Self
+    fn from_dynamic(d: Dynamic<'st>) -> Self
     where
-        Self: From<(Term, Sort)>,
+        Self: From<(STerm<'st>, Sort<'st>)>,
     {
-        (d.0.clone(), d.1.clone()).into()
+        (d.0, d.1).into()
     }
     /// Casts a dynamically typed term into a concrete type iff the dynamic sort
     /// matches
-    fn try_from_dynamic(d: Dynamic) -> Option<Self>
+    fn try_from_dynamic(d: Dynamic<'st>) -> Option<Self>
     where
-        Self: From<(Term, Sort)>,
+        Self: From<(STerm<'st>, Sort<'st>)>,
     {
         if Self::is_sort(d.sort()) {
-            Some((d.0.clone(), d.1.clone()).into())
+            Some((d.0, d.1).into())
         } else {
             None
         }
     }
-    fn into_dynamic(self) -> Dynamic {
+    /// Casts the term into a dynamic term which looses static types and stores
+    /// the sort dynamically.
+    fn into_dynamic(self) -> Dynamic<'st> {
         let sort = self.sort();
         Dynamic::from_term_sort(self.into(), sort)
     }
     /// Construct the term representing `(= self other)`
-    fn _eq(self, other: impl Into<Self::Inner>) -> Bool {
-        fun("=", vec![self.into(), other.into().into()]).into()
+    fn _eq(self, other: impl IntoWithStorage<'st, Self::Inner>) -> Bool<'st> {
+        let other = other.into_with_storage(self.st()).term();
+        app(self.st(), "=", (self.term(), other)).into()
     }
     /// Construct the term representing `(distinct self other)`
-    fn _neq(self, other: impl Into<Self::Inner>) -> Bool {
-        fun("distinct", vec![self.into(), other.into().into()]).into()
+    fn _neq(self, other: impl IntoWithStorage<'st, Self::Inner>) -> Bool<'st> {
+        let other = other.into_with_storage(self.st()).term();
+        app(self.st(), "distinct", (self.term(), other)).into()
     }
     /// Wraps the term in a a label, which can be used to extract information
     /// from models at a later point.
     fn labeled(self) -> (Label<Self>, Self::Inner)
     where
-        Self::Inner: From<Term>,
+        Self::Inner: From<STerm<'st>>,
     {
         let label = Label::generate();
         let name = label.name();
+        let name = self.st().alloc_str(&name);
+        let args = self.st().alloc_slice(&[Attribute::WithValue(
+            Keyword("named"),
+            AttributeValue::Symbol(Symbol(name)),
+        )]);
 
         (
             label,
-            Term::Annotation(
-                Box::new(self.into()),
-                vec![Attribute::WithValue(
-                    Keyword("named".to_string()),
-                    AttributeValue::Symbol(Symbol(name)),
-                )],
-            )
-            .into(),
+            STerm::new(self.st(), Term::Annotation(self.into().into(), args)).into(),
         )
     }
 }
-impl<T: Into<Term>> From<Const<T>> for Term {
-    fn from(c: Const<T>) -> Self {
+impl<'st, T: Into<STerm<'st>>> From<Const<'st, T>> for STerm<'st> {
+    fn from(c: Const<'st, T>) -> Self {
         c.1.into()
     }
 }
-impl<T: Sorted> Sorted for Const<T> {
+impl<'st, T: Sorted<'st>> Sorted<'st> for Const<'st, T> {
     type Inner = T;
-    fn sort(&self) -> Sort {
+    fn sort(&self) -> Sort<'st> {
         T::sort(self)
     }
-    fn is_sort(sort: &Sort) -> bool {
+    fn is_sort(sort: Sort<'st>) -> bool {
         T::is_sort(sort)
+    }
+    fn st(&self) -> &'st Storage {
+        self.1.st()
     }
 }
 
-impl<T: StaticSorted> Sorted for T {
+impl<'st, T: StaticSorted<'st>> Sorted<'st> for T {
     type Inner = T::Inner;
 
-    fn sort(&self) -> Sort {
-        Self::static_sort()
+    fn sort(&self) -> Sort<'st> {
+        Self::AST_SORT.into()
     }
 
-    fn is_sort(sort: &Sort) -> bool {
-        sort == &Self::static_sort()
+    fn is_sort(sort: Sort<'st>) -> bool {
+        sort == Self::sort()
+    }
+
+    fn st(&self) -> &'st Storage {
+        self.static_st()
     }
 }
 
@@ -193,58 +343,63 @@ impl<T> Label<T> {
     }
 }
 
-impl<T> From<Const<T>> for Dynamic
+impl<'st, T> From<Const<'st, T>> for Dynamic<'st>
 where
-    T: Into<Dynamic>,
+    T: Into<Dynamic<'st>>,
 {
-    fn from(c: Const<T>) -> Self {
+    fn from(c: Const<'st, T>) -> Self {
         c.1.into()
     }
 }
-impl From<Dynamic> for Term {
-    fn from(d: Dynamic) -> Self {
-        d.0.clone()
+impl<'st> From<Dynamic<'st>> for STerm<'st> {
+    fn from(d: Dynamic<'st>) -> Self {
+        d.0
     }
 }
-impl From<(Term, Sort)> for Dynamic {
-    fn from((t, sort): (Term, Sort)) -> Self {
+impl<'st> From<(STerm<'st>, Sort<'st>)> for Dynamic<'st> {
+    fn from((t, sort): (STerm<'st>, Sort<'st>)) -> Self {
         Dynamic::from_term_sort(t, sort)
     }
 }
-impl Dynamic {
-    pub fn from_term_sort(t: Term, sort: Sort) -> Self {
-        Dynamic(Box::leak(Box::new(t)), Box::leak(Box::new(sort)))
+impl<'st> Dynamic<'st> {
+    /// Construct a dynamic term from a term and a sort.
+    pub fn from_term_sort(t: STerm<'st>, sort: Sort<'st>) -> Self {
+        Dynamic(t, sort)
     }
 
-    pub fn sort(&self) -> &Sort {
-        &self.1
+    /// Returns the sort of the dynamic term.
+    pub fn sort(&self) -> Sort<'st> {
+        self.1
     }
 
+    /// Attempt to cast the dynamic into an [`Int`](crate::Int) if the sort
+    /// matches.
     pub fn as_int(&self) -> Result<crate::Int, crate::Error> {
-        crate::Int::try_from_dynamic(self.clone()).ok_or_else(|| {
-            crate::Error::DynamicCastSortMismatch {
-                expected: crate::Int::static_sort(),
-                actual: self.1.clone(),
-            }
+        crate::Int::try_from_dynamic(*self).ok_or_else(|| crate::Error::DynamicCastSortMismatch {
+            expected: crate::Int::AST_SORT.to_string(),
+            actual: self.1.to_string(),
         })
     }
 
+    /// Attempt to cast the dynamic into a [`Bool`] if the sort
+    /// matches.
     pub fn as_bool(&self) -> Result<crate::Bool, crate::Error> {
-        crate::Bool::try_from_dynamic(self.clone()).ok_or_else(|| {
-            crate::Error::DynamicCastSortMismatch {
-                expected: crate::Bool::static_sort(),
-                actual: self.1.clone(),
-            }
+        crate::Bool::try_from_dynamic(*self).ok_or_else(|| crate::Error::DynamicCastSortMismatch {
+            expected: crate::Bool::AST_SORT.to_string(),
+            actual: self.1.to_string(),
         })
     }
 }
-impl Sorted for Dynamic {
+impl<'st> Sorted<'st> for Dynamic<'st> {
     type Inner = Self;
-    fn sort(&self) -> Sort {
-        self.1.clone()
+    fn sort(&self) -> Sort<'st> {
+        self.1
     }
-    fn is_sort(_sort: &Sort) -> bool {
+    fn is_sort(_sort: Sort<'st>) -> bool {
         true
+    }
+    fn st(&self) -> &'st Storage {
+        self.0.st()
     }
 }
 
@@ -252,39 +407,41 @@ impl Sorted for Dynamic {
 #[doc(hidden)]
 macro_rules! impl_op {
     ($ty:ty, $other:ty, $trait:tt, $fn:ident, $op:literal, $a_trait:tt, $a_fn:tt, $a_op:tt) => {
-        impl<R> std::ops::$trait<R> for Const<$ty>
+        impl<'st, R> std::ops::$trait<R> for Const<'st, $ty>
         where
-            R: Into<$ty>,
+            R: IntoWithStorage<'st, $ty>,
         {
             type Output = $ty;
             fn $fn(self, rhs: R) -> Self::Output {
-                self.1.binop($op, rhs.into())
+                self.1.binop($op, $crate::terms::IntoWithStorage::into_with_storage(rhs, self.st()))
             }
         }
-        impl<R> std::ops::$trait<R> for $ty
+        impl<'st, R> std::ops::$trait<R> for $ty
         where
-            R: Into<$ty>,
+            R: IntoWithStorage<'st, $ty>,
         {
             type Output = Self;
             fn $fn(self, rhs: R) -> Self::Output {
-                self.binop($op, rhs.into())
+                self.binop($op, $crate::terms::IntoWithStorage::into_with_storage(rhs, self.st()))
             }
         }
-        impl std::ops::$trait<Const<$ty>> for $other {
+        impl<'st> std::ops::$trait<Const<'st, $ty>> for $other {
             type Output = $ty;
-            fn $fn(self, rhs: Const<$ty>) -> Self::Output {
-                <$ty>::from(self).binop($op, rhs.1)
+            fn $fn(self, rhs: Const<'st, $ty>) -> Self::Output {
+                // $ty::from(self).binop($op, rhs.1)
+                <$other as $crate::terms::IntoWithStorage<'st, $ty>>::into_with_storage(self, rhs.st()).binop($op, rhs.1)
             }
         }
-        impl std::ops::$trait<$ty> for $other {
+        impl<'st> std::ops::$trait<$ty> for $other {
             type Output = $ty;
             fn $fn(self, rhs: $ty) -> Self::Output {
-                <$ty>::from(self).binop($op, rhs)
+                // <$ty>::from(self).binop($op, rhs)
+                <$other as $crate::terms::IntoWithStorage<'st, $ty>>::into_with_storage(self, rhs.st()).binop($op, rhs)
             }
         }
-        impl<R> std::ops::$a_trait<R> for $ty
+        impl<'st, R> std::ops::$a_trait<R> for $ty
         where
-            R: Into<$ty>,
+            R: IntoWithStorage<'st, $ty>,
         {
             fn $a_fn(&mut self, rhs: R) {
                 *self = *self $a_op rhs;
@@ -293,34 +450,35 @@ macro_rules! impl_op {
     };
 }
 
-/// This trait is implemented for types and sequences which can be used as quantified variables in [`forall`] and [`exists`].
-pub trait QuantifierVars {
+/// This trait is implemented for types and sequences which can be used as
+/// quantified variables in [`forall`] and [`exists`].
+pub trait QuantifierVars<'st> {
     /// The concrete sequence of variable declaration which should be quantified
     /// over.
-    fn into_vars(self) -> Vec<SortedVar>;
+    fn into_vars(self) -> &'st [SortedVar<'st>];
 }
 
-impl<A> QuantifierVars for Const<A>
+impl<'st, A> QuantifierVars<'st> for Const<'st, A>
 where
-    A: StaticSorted,
+    A: StaticSorted<'st>,
 {
-    fn into_vars(self) -> Vec<SortedVar> {
-        vec![SortedVar(
-            Symbol(self.0.to_string()),
-            A::static_sort().ast(),
-        )]
+    fn into_vars(self) -> &'st [SortedVar<'st>] {
+        let st = self.st();
+        st.alloc_slice(&[SortedVar(Symbol(self.0), A::AST_SORT)])
     }
 }
 macro_rules! impl_quantifiers {
     ($($x:ident $n:tt),+ $(,)?) => {
-        impl<$($x,)+> QuantifierVars for ($(Const<$x>),+)
+        impl<'st, $($x,)+> QuantifierVars<'st> for ($(Const<'st, $x>),+)
         where
-            $($x: StaticSorted),+
+            $($x: StaticSorted<'st>),+
         {
-            fn into_vars(self) -> Vec<SortedVar> {
-                vec![
-                    $(SortedVar(Symbol((self.$n).0.into()), $x::static_sort().ast())),+
-                ]
+            fn into_vars(self) -> &'st [SortedVar<'st>] {
+                let st = self.0.st();
+
+                st.alloc_slice(&[
+                    $(SortedVar(Symbol((self.$n).0.into()), $x::AST_SORT)),+
+                ])
             }
         }
     };
@@ -330,31 +488,40 @@ impl_quantifiers!(A 0, B 1, C 2);
 impl_quantifiers!(A 0, B 1, C 2, D 3);
 impl_quantifiers!(A 0, B 1, C 2, D 3, E 4);
 
-// impl QuantifierVars for Vec<(Const<Dynamic>, ast::Sort)> {
+// impl QuantifierVars for Vec<(Const<Dynamic<'st>>, ast::Sort)> {
 //     fn into_vars(self) -> Vec<SortedVar> {
 //         self.into_iter()
 //             .map(|(v, s)| SortedVar(Symbol(v.0.into()), s))
 //             .collect()
 //     }
 // }
-impl QuantifierVars for Vec<Const<Dynamic>> {
-    fn into_vars(self) -> Vec<SortedVar> {
-        self.into_iter()
-            .map(|v| SortedVar(Symbol(v.0.into()), v.1 .1.ast()))
-            .collect()
+impl<'st> QuantifierVars<'st> for &'st [Const<'st, Dynamic<'st>>] {
+    fn into_vars(self) -> &'st [SortedVar<'st>] {
+        if self.is_empty() {
+            &[]
+        } else {
+            let st = self.first().unwrap().st();
+
+            st.alloc_slice(
+                &self
+                    .iter()
+                    .map(|v| SortedVar(Symbol(v.0), v.1 .1.ast()))
+                    .collect_vec(),
+            )
+        }
     }
 }
-impl QuantifierVars for Vec<SortedVar> {
-    fn into_vars(self) -> Vec<SortedVar> {
+impl<'st> QuantifierVars<'st> for &'st [SortedVar<'st>] {
+    fn into_vars(self) -> &'st [SortedVar<'st>] {
         self
     }
 }
 
 /// Universally quantifies over `vars` in expression `term`.
-pub fn forall(vars: impl QuantifierVars, term: Bool) -> Bool {
-    Term::Forall(vars.into_vars(), Box::new(term.into())).into()
+pub fn forall<'st>(st: &'st Storage, vars: impl QuantifierVars<'st>, term: Bool<'st>) -> Bool<'st> {
+    STerm::new(st, Term::Forall(vars.into_vars(), STerm::from(term).into())).into()
 }
 /// Existentially quantifies over `vars` in expression `term`.
-pub fn exists(vars: impl QuantifierVars, term: Bool) -> Bool {
-    Term::Exists(vars.into_vars(), Box::new(term.into())).into()
+pub fn exists<'st>(st: &'st Storage, vars: impl QuantifierVars<'st>, term: Bool<'st>) -> Bool<'st> {
+    STerm::new(st, Term::Exists(vars.into_vars(), STerm::from(term).into())).into()
 }

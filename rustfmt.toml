@@ -1,0 +1,13 @@
+# the good features are unstable, and the ones I use don't seem to be changing
+unstable_features = true
+
+# keeps imports tidy
+group_imports = "StdExternalCrate"
+# imports_granularity = "Item"
+
+# I prefer to use this syntax
+use_field_init_shorthand = true
+
+# help me make comments nicer
+wrap_comments = true
+format_code_in_doc_comments = true

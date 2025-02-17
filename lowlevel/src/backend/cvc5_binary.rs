@@ -19,7 +19,7 @@ impl Cvc5Binary {
 }
 
 impl Backend for Cvc5Binary {
-    fn exec(&mut self, cmd: &crate::Command) -> Result<String, crate::Error> {
+    fn exec(&mut self, cmd: crate::Command) -> Result<String, crate::Error> {
         self.bin.exec(cmd).map(Into::into)
     }
 }
@@ -50,9 +50,9 @@ pub mod tokio {
     impl crate::backend::tokio::TokioBackend for Cvc5BinaryTokio {
         fn exec(
             &mut self,
-            cmd: &crate::Command,
+            cmd: crate::Command,
         ) -> impl Future<Output = Result<String, crate::Error>> {
-            async { self.bin.exec(cmd).await.map(Into::into) }
+            async move { self.bin.exec(cmd).await.map(Into::into) }
         }
     }
 }
