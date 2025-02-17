@@ -2,63 +2,68 @@
 
 use std::marker::PhantomData;
 
-use smtlib_lowlevel::ast::Term;
+use smtlib_lowlevel::ast;
 
-use crate::{
-    sorts::Sort,
-    terms::{fun, Const, Dynamic, Sorted, StaticSorted},
-};
+use crate::terms::{fun_vec, Const, IntoWithStorage, STerm, Sorted, StaticSorted};
 
 /// Representation of a functional array with extensionality. A possibly
 /// unbounded container of values of sort Y, indexed by values of sort X.
-#[derive(Debug, Clone)]
-pub struct Array<X: Sorted, Y: Sorted>(&'static Term, PhantomData<X>, PhantomData<Y>);
+#[derive(Debug)]
+pub struct Array<'st, X: Sorted<'st>, Y: Sorted<'st>>(STerm<'st>, PhantomData<X>, PhantomData<Y>);
 
-impl<X: Sorted, Y: Sorted> From<Const<Array<X, Y>>> for Array<X, Y> {
-    fn from(c: Const<Array<X, Y>>) -> Self {
-        c.1
+impl<'st, X: Sorted<'st>, Y: Sorted<'st>> Clone for Array<'st, X, Y> {
+    fn clone(&self) -> Self {
+        *self
     }
 }
 
-impl<X: Sorted, Y: Sorted> std::fmt::Display for Array<X, Y> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.0.fmt(f)
+impl<'st, X: Sorted<'st>, Y: Sorted<'st>> Copy for Array<'st, X, Y> {}
+
+impl<'st, X: Sorted<'st>, Y: Sorted<'st>> IntoWithStorage<'st, Array<'st, X, Y>>
+    for Const<'st, Array<'st, X, Y>>
+{
+    fn into_with_storage(self, _st: &'st smtlib_lowlevel::Storage) -> Array<'st, X, Y> {
+        self.1
     }
 }
 
-impl<X: StaticSorted, Y: StaticSorted> From<Array<X, Y>> for Dynamic {
-    fn from(i: Array<X, Y>) -> Self {
-        i.into_dynamic()
+impl<'st, X: StaticSorted<'st>, Y: StaticSorted<'st>> From<STerm<'st>> for Array<'st, X, Y> {
+    fn from(t: STerm<'st>) -> Self {
+        Array(t, PhantomData, PhantomData)
+    }
+}
+impl<'st, X: StaticSorted<'st>, Y: StaticSorted<'st>> From<Array<'st, X, Y>> for STerm<'st> {
+    fn from(value: Array<'st, X, Y>) -> Self {
+        value.0
     }
 }
 
-impl<X: Sorted, Y: Sorted> From<Array<X, Y>> for Term {
-    fn from(i: Array<X, Y>) -> Self {
-        i.0.clone()
-    }
-}
-impl<X: Sorted, Y: Sorted> From<Term> for Array<X, Y> {
-    fn from(t: Term) -> Self {
-        Array(Box::leak(Box::new(t)), PhantomData, PhantomData)
-    }
-}
-
-impl<X: StaticSorted, Y: StaticSorted> StaticSorted for Array<X, Y> {
+impl<'st, X: StaticSorted<'st>, Y: StaticSorted<'st>> StaticSorted<'st> for Array<'st, X, Y> {
     type Inner = Self;
-    fn static_sort() -> Sort {
-        Sort::new_parametric("Array", vec![X::static_sort(), Y::static_sort()])
+
+    const AST_SORT: ast::Sort<'static> =
+        ast::Sort::new_simple_parametric("Array", &[X::AST_SORT, Y::AST_SORT]);
+
+    fn static_st(&self) -> &'st smtlib_lowlevel::Storage {
+        self.0.st()
     }
 }
 
 #[allow(unused)]
-impl<X: StaticSorted, Y: StaticSorted> Array<X, Y> {
+impl<'st, X: StaticSorted<'st>, Y: StaticSorted<'st>> Array<'st, X, Y> {
     /// The value stored at `index` --- `(select self index)`
-    fn select(&self, index: X) -> Y {
-        fun("select", vec![self.0.clone(), index.into()]).into()
+    fn select(self, index: X) -> Y {
+        fun_vec(self.st(), "select", [self.0.term(), index.term()].to_vec()).into()
     }
-    /// Copy of this array with `value` stored at `index` --- `(store self index value)`
-    fn store(&self, index: X, value: Y) -> Array<X, Y> {
-        fun("store", vec![self.0.clone(), index.into(), value.into()]).into()
+    /// Copy of this array with `value` stored at `index` --- `(store self index
+    /// value)`
+    fn store(self, index: X, value: Y) -> Array<'st, X, Y> {
+        fun_vec(
+            self.st(),
+            "store",
+            [self.0.term(), index.term(), value.term()].to_vec(),
+        )
+        .into()
     }
 }
 
@@ -66,20 +71,20 @@ impl<X: StaticSorted, Y: StaticSorted> Array<X, Y> {
 mod tests {
     use smtlib_lowlevel::backend::z3_binary::Z3Binary;
 
+    use super::Array;
     use crate::{
         terms::{Sorted, StaticSorted},
-        Int, Solver,
+        Int, Solver, Storage,
     };
-
-    use super::Array;
 
     /// Check that an array can be defined using the high-level API
     #[test]
     fn define_array() -> Result<(), Box<dyn std::error::Error>> {
-        let mut solver = Solver::new(Z3Binary::new("z3")?)?;
-        let a = Array::<Int, Int>::new_const("a");
+        let st = Storage::new();
+        let mut solver = Solver::new(&st, Z3Binary::new("z3")?)?;
+        let a = Array::<Int, Int>::new_const(&st, "a");
 
-        solver.assert(a.clone()._eq(a.clone()))?;
+        solver.assert(a._eq(a))?;
 
         let _model = solver.check_sat_with_model()?.expect_sat()?;
 
@@ -89,10 +94,11 @@ mod tests {
     /// Check that a value stored at an index can be correctly retrieved
     #[test]
     fn read_stored() -> Result<(), Box<dyn std::error::Error>> {
-        let mut solver = Solver::new(Z3Binary::new("z3")?)?;
-        let a = Array::<Int, Int>::new_const("a");
-        let x = Int::new_const("x");
-        let y = Int::new_const("y");
+        let st = Storage::new();
+        let mut solver = Solver::new(&st, Z3Binary::new("z3")?)?;
+        let a = Array::<Int, Int>::new_const(&st, "a");
+        let x = Int::new_const(&st, "x");
+        let y = Int::new_const(&st, "y");
 
         let updated = a.store(x.into(), y.into());
         let read = updated.select(x.into());
@@ -107,10 +113,11 @@ mod tests {
     /// Check that a value stored at an index is guaranteed to be retrieved
     #[test]
     fn read_stored_incorrect() -> Result<(), Box<dyn std::error::Error>> {
-        let mut solver = Solver::new(Z3Binary::new("z3")?)?;
-        let a = Array::<Int, Int>::new_const("a");
-        let x = Int::new_const("x");
-        let y = Int::new_const("y");
+        let st = Storage::new();
+        let mut solver = Solver::new(&st, Z3Binary::new("z3")?)?;
+        let a = Array::<Int, Int>::new_const(&st, "a");
+        let x = Int::new_const(&st, "x");
+        let y = Int::new_const(&st, "y");
 
         let updated = a.store(x.into(), y.into());
         let read = updated.select(x.into());
@@ -131,11 +138,12 @@ mod tests {
     /// Check that a store does not affect values other than the target index
     #[test]
     fn read_untouched() -> Result<(), Box<dyn std::error::Error>> {
-        let mut solver = Solver::new(Z3Binary::new("z3")?)?;
-        let a = Array::<Int, Int>::new_const("a");
-        let x = Int::new_const("x");
-        let y = Int::new_const("y");
-        let z = Int::new_const("z");
+        let st = Storage::new();
+        let mut solver = Solver::new(&st, Z3Binary::new("z3")?)?;
+        let a = Array::<Int, Int>::new_const(&st, "a");
+        let x = Int::new_const(&st, "x");
+        let y = Int::new_const(&st, "y");
+        let z = Int::new_const(&st, "z");
 
         let updated = a.store(x.into(), y.into());
         let read = updated.select(z.into());

@@ -3,7 +3,7 @@
 use itertools::Itertools;
 use smtlib_lowlevel::{
     ast::{self, Term},
-    Storage,
+    lexicon, Storage,
 };
 
 use crate::{
@@ -81,14 +81,23 @@ impl<'st, const M: usize> TryFrom<BitVec<'st, M>> for [bool; M] {
 
 impl<'st, const M: usize> StaticSorted<'st> for BitVec<'st, M> {
     type Inner = Self;
-    const SORT: Sort<'st> = Sort::new_static(
+    const AST_SORT: ast::Sort<'static> = ast::Sort::new_indexed(
         "BitVec",
-        &[smtlib_lowlevel::ast::Index::Numeral(
-            smtlib_lowlevel::lexicon::Numeral::from_usize(M),
-        )],
+        &[ast::Index::Numeral(lexicon::Numeral::from_usize(M))],
     );
     fn static_st(&self) -> &'st Storage {
         self.sterm().st()
+    }
+
+    fn sort() -> Sort<'st> {
+        Self::AST_SORT.into()
+    }
+
+    fn new_const(st: &'st Storage, name: &str) -> Const<'st, Self> {
+        let name = st.alloc_str(name);
+        let bv = Term::Identifier(qual_ident(name, Some(Self::AST_SORT)));
+        let bv = STerm::new(st, bv);
+        Const(name, bv.into())
     }
 }
 impl<'st, const M: usize> IntoWithStorage<'st, BitVec<'st, M>> for [bool; M] {

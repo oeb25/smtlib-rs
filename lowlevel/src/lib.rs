@@ -17,6 +17,7 @@ pub use crate::storage::Storage;
 
 #[rustfmt::skip]
 pub mod ast;
+mod ast_ext;
 pub mod backend;
 pub mod lexicon;
 mod parse;

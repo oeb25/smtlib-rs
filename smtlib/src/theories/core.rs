@@ -1,6 +1,9 @@
 #![doc = concat!("```ignore\n", include_str!("./Core.smt2"), "```")]
 
-use smtlib_lowlevel::{ast::Term, Storage};
+use smtlib_lowlevel::{
+    ast::{self, Term},
+    Storage,
+};
 
 use crate::{
     impl_op,
@@ -76,7 +79,7 @@ impl<'st> From<(STerm<'st>, Sort<'st>)> for Bool<'st> {
 }
 impl<'st> StaticSorted<'st> for Bool<'st> {
     type Inner = Self;
-    const SORT: Sort<'st> = Sort::new_static("Bool", &[]);
+    const AST_SORT: ast::Sort<'static> = ast::Sort::new_simple("Bool");
     fn static_st(&self) -> &'st Storage {
         self.sterm().st()
     }
@@ -84,7 +87,7 @@ impl<'st> StaticSorted<'st> for Bool<'st> {
 impl<'st> Bool<'st> {
     /// Returns the sort of bools.
     pub fn sort() -> Sort<'st> {
-        Self::SORT
+        Self::AST_SORT.into()
     }
     fn binop(self, op: &str, other: Bool<'st>) -> Self {
         fun(

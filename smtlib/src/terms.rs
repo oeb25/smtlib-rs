@@ -144,15 +144,15 @@ pub trait StaticSorted<'st>: Into<STerm<'st>> + From<STerm<'st>> {
     type Inner: StaticSorted<'st>;
     /// The sort of this sort.
     #[allow(clippy::declare_interior_mutable_const)]
-    const SORT: Sort<'st>;
+    const AST_SORT: ast::Sort<'static>;
     /// The sort of this sort.
     fn sort() -> Sort<'st> {
-        Self::SORT
+        Self::AST_SORT.into()
     }
     /// Construct a new constante of this sort.
     fn new_const(st: &'st Storage, name: &str) -> Const<'st, Self> {
         let name = st.alloc_str(name);
-        let bv = Term::Identifier(qual_ident(name, Some(Self::SORT.ast())));
+        let bv = Term::Identifier(qual_ident(name, Some(Self::AST_SORT)));
         let bv = STerm::new(st, bv);
         Const(name, bv.into())
     }
@@ -274,7 +274,7 @@ impl<'st, T: StaticSorted<'st>> Sorted<'st> for T {
     type Inner = T::Inner;
 
     fn sort(&self) -> Sort<'st> {
-        Self::SORT
+        Self::AST_SORT.into()
     }
 
     fn is_sort(sort: Sort<'st>) -> bool {
@@ -338,26 +338,18 @@ impl<'st> Dynamic<'st> {
     /// Attempt to cast the dynamic into an [`Int`](crate::Int) if the sort
     /// matches.
     pub fn as_int(&self) -> Result<crate::Int, crate::Error> {
-        crate::Int::try_from_dynamic(*self).ok_or_else(|| {
-            crate::Error::DynamicCastSortMismatch {
-                expected: crate::Int::SORT.to_string(),
-                actual: self.1.to_string(),
-                // expected: crate::Int::SORT,
-                // actual: self.1.clone(),
-            }
+        crate::Int::try_from_dynamic(*self).ok_or_else(|| crate::Error::DynamicCastSortMismatch {
+            expected: crate::Int::AST_SORT.to_string(),
+            actual: self.1.to_string(),
         })
     }
 
     /// Attempt to cast the dynamic into a [`Bool`] if the sort
     /// matches.
     pub fn as_bool(&self) -> Result<crate::Bool, crate::Error> {
-        crate::Bool::try_from_dynamic(*self).ok_or_else(|| {
-            crate::Error::DynamicCastSortMismatch {
-                expected: crate::Bool::SORT.to_string(),
-                actual: self.1.to_string(),
-                // expected: crate::Bool::SORT,
-                // actual: self.1.clone(),
-            }
+        crate::Bool::try_from_dynamic(*self).ok_or_else(|| crate::Error::DynamicCastSortMismatch {
+            expected: crate::Bool::AST_SORT.to_string(),
+            actual: self.1.to_string(),
         })
     }
 }
@@ -435,7 +427,7 @@ where
 {
     fn into_vars(self) -> &'st [SortedVar<'st>] {
         let st = self.st();
-        st.alloc_slice(&[SortedVar(Symbol(self.0), A::SORT.ast())])
+        st.alloc_slice(&[SortedVar(Symbol(self.0), A::AST_SORT)])
     }
 }
 macro_rules! impl_quantifiers {
@@ -448,7 +440,7 @@ macro_rules! impl_quantifiers {
                 let st = self.0.st();
 
                 st.alloc_slice(&[
-                    $(SortedVar(Symbol((self.$n).0.into()), $x::SORT.ast())),+
+                    $(SortedVar(Symbol((self.$n).0.into()), $x::AST_SORT)),+
                 ])
             }
         }

@@ -22,12 +22,7 @@ use crate::terms::{self, qual_ident, STerm};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Sort<'st> {
     /// A built-in sort.
-    Static {
-        /// The name of the sort.
-        name: &'static str,
-        /// The index of the sort.
-        index: &'static [smtlib_lowlevel::ast::Index<'static>],
-    },
+    Static(ast::Sort<'st>),
     /// A user-defined sort.
     Dynamic {
         /// smtlib storage
@@ -44,6 +39,12 @@ pub enum Sort<'st> {
 impl std::fmt::Display for Sort<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.ast().fmt(f)
+    }
+}
+
+impl<'st> From<ast::Sort<'st>> for Sort<'st> {
+    fn from(sort: ast::Sort<'st>) -> Self {
+        Sort::Static(sort)
     }
 }
 
@@ -70,13 +71,6 @@ pub(crate) fn is_built_in_sort(name: &str) -> bool {
 }
 
 impl<'st> Sort<'st> {
-    /// Create a new static sort.
-    pub const fn new_static(
-        name: &'static str,
-        index: &'static [smtlib_lowlevel::ast::Index<'static>],
-    ) -> Self {
-        Sort::Static { name, index }
-    }
     /// Create a new dynamic sort.
     pub fn new(st: &'st Storage, name: impl Into<String>) -> Self {
         let mut name = name.into();
@@ -118,13 +112,7 @@ impl<'st> Sort<'st> {
     /// Get the smtlib AST representation of the sort.
     pub fn ast(self) -> ast::Sort<'st> {
         match self {
-            Sort::Static { name, index } => {
-                if index.is_empty() {
-                    ast::Sort::Sort(Identifier::Simple(Symbol(name)))
-                } else {
-                    ast::Sort::Sort(Identifier::Indexed(Symbol(name), index))
-                }
-            }
+            Sort::Static(sort) => sort,
             Sort::Dynamic {
                 st,
                 name,
