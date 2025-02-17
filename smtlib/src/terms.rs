@@ -106,7 +106,7 @@ pub(crate) fn qual_ident<'st>(s: &'st str, sort: Option<ast::Sort<'st>>) -> Qual
 /// are constant. Constants are named terms whose value can be extracted from a
 /// model using [`Model::eval`](crate::Model::eval).
 ///
-/// To construct a `Const<'st, T>` call [`T::from_name`](Sort::from_name) where
+/// To construct a `Const<'st, T>` call [`T::new_const`](Sort::new_const) where
 /// `T` implements [`Sort`].
 #[derive(Debug, Clone, Copy)]
 pub struct Const<'st, T>(pub(crate) &'st str, pub(crate) T);
@@ -348,7 +348,7 @@ impl<'st> Dynamic<'st> {
         })
     }
 
-    /// Attempt to cast the dynamic into a [`Bool`](crate::Bool) if the sort
+    /// Attempt to cast the dynamic into a [`Bool`] if the sort
     /// matches.
     pub fn as_bool(&self) -> Result<crate::Bool, crate::Error> {
         crate::Bool::try_from_dynamic(*self).ok_or_else(|| {

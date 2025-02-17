@@ -26,7 +26,7 @@ impl Z3Static {
 }
 
 impl Backend for Z3Static {
-    fn exec(&mut self, s: &crate::Command) -> Result<String, crate::Error> {
+    fn exec<'st>(&mut self, s: crate::Command<'st>) -> Result<String, crate::Error> {
         let s = CString::new(s.to_string()).unwrap();
         let res = unsafe { z3_sys::Z3_eval_smtlib2_string(self.ctx, s.as_ptr()) };
         let s = unsafe { CStr::from_ptr(res) }.to_str().unwrap().to_string();
