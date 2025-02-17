@@ -8,7 +8,7 @@ use smtlib_lowlevel::{
 use crate::{
     impl_op,
     sorts::Sort,
-    terms::{fun_vec, qual_ident, Const, Dynamic, IntoWithStorage, STerm, Sorted, StaticSorted},
+    terms::{app, qual_ident, Const, Dynamic, IntoWithStorage, STerm, Sorted, StaticSorted},
     Bool,
 };
 
@@ -77,13 +77,8 @@ impl<'st> Real<'st> {
     pub fn sort() -> Sort<'st> {
         Self::AST_SORT.into()
     }
-    fn binop<T: From<STerm<'st>>>(self, op: &str, other: Real<'st>) -> T {
-        fun_vec(
-            self.st(),
-            self.st().alloc_str(op),
-            [self.term(), other.term()].to_vec(),
-        )
-        .into()
+    fn binop<T: From<STerm<'st>>>(self, op: &'st str, other: Real<'st>) -> T {
+        app(self.st(), op, (self.term(), other.term())).into()
     }
     /// Construct the term expressing `(> self other)`
     pub fn gt(self, other: impl Into<Self>) -> Bool<'st> {
@@ -103,14 +98,14 @@ impl<'st> Real<'st> {
     }
     /// Construct the term expressing `(abs self)`
     pub fn abs(self) -> Real<'st> {
-        fun_vec(self.st(), "abs", vec![self.term()]).into()
+        app(self.st(), "abs", self.term()).into()
     }
 }
 
 impl std::ops::Neg for Real<'_> {
     type Output = Self;
     fn neg(self) -> Self::Output {
-        fun_vec(self.st(), "-", vec![self.term()]).into()
+        app(self.st(), "-", self.term()).into()
     }
 }
 

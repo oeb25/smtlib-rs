@@ -33,6 +33,12 @@ impl<'st, T> IntoWithStorage<'st, T> for T {
     }
 }
 
+impl<'st> IntoWithStorage<'st, &'st Term<'st>> for Term<'st> {
+    fn into_with_storage(self, st: &'st Storage) -> &'st Term<'st> {
+        st.alloc_term(self)
+    }
+}
+
 /// A smtlib term with its associated storage.
 ///
 /// This is a wrapper around a [`Term`] which also carries a pointer to its
@@ -77,23 +83,54 @@ impl<'st> From<STerm<'st>> for &'st Term<'st> {
     }
 }
 
-pub(crate) fn fun<'st>(
+pub(crate) fn app<'st>(
     st: &'st Storage,
     name: &'st str,
-    args: &'st [&'st Term<'st>],
-) -> STerm<'st> {
-    STerm::new(st, Term::Application(qual_ident(name, None), args))
-}
-pub(crate) fn fun_vec<'st>(
-    st: &'st Storage,
-    name: &'st str,
-    args: Vec<&'st Term<'st>>,
+    args: impl ApplicationArgs<'st>,
 ) -> STerm<'st> {
     STerm::new(
         st,
-        Term::Application(qual_ident(name, None), st.alloc_slice(&args)),
+        Term::Application(qual_ident(name, None), args.into_args(st)),
     )
 }
+
+pub(crate) trait ApplicationArgs<'st> {
+    fn into_args(self, st: &'st Storage) -> &'st [&'st Term<'st>];
+}
+
+impl<'st, A: IntoWithStorage<'st, &'st Term<'st>>> ApplicationArgs<'st> for A {
+    fn into_args(self, st: &'st Storage) -> &'st [&'st Term<'st>] {
+        st.alloc_slice(&[self.into_with_storage(st)])
+    }
+}
+impl<'st, A: IntoWithStorage<'st, &'st Term<'st>>, B: IntoWithStorage<'st, &'st Term<'st>>>
+    ApplicationArgs<'st> for (A, B)
+{
+    fn into_args(self, st: &'st Storage) -> &'st [&'st Term<'st>] {
+        st.alloc_slice(&[self.0.into_with_storage(st), self.1.into_with_storage(st)])
+    }
+}
+impl<
+        'st,
+        A: IntoWithStorage<'st, &'st Term<'st>>,
+        B: IntoWithStorage<'st, &'st Term<'st>>,
+        C: IntoWithStorage<'st, &'st Term<'st>>,
+    > ApplicationArgs<'st> for (A, B, C)
+{
+    fn into_args(self, st: &'st Storage) -> &'st [&'st Term<'st>] {
+        st.alloc_slice(&[
+            self.0.into_with_storage(st),
+            self.1.into_with_storage(st),
+            self.2.into_with_storage(st),
+        ])
+    }
+}
+impl<'st, A: IntoWithStorage<'st, &'st Term<'st>>, const N: usize> ApplicationArgs<'st> for [A; N] {
+    fn into_args(self, st: &'st Storage) -> &'st [&'st Term<'st>] {
+        st.alloc_slice(&self.map(|a| a.into_with_storage(st)))
+    }
+}
+
 pub(crate) fn qual_ident<'st>(s: &'st str, sort: Option<ast::Sort<'st>>) -> QualIdentifier<'st> {
     if let Some(sort) = sort {
         QualIdentifier::Sorted(Identifier::Simple(Symbol(s)), sort)
@@ -225,12 +262,12 @@ pub trait Sorted<'st>: Into<STerm<'st>> {
     /// Construct the term representing `(= self other)`
     fn _eq(self, other: impl IntoWithStorage<'st, Self::Inner>) -> Bool<'st> {
         let other = other.into_with_storage(self.st()).term();
-        fun_vec(self.st(), "=", [self.term(), other].to_vec()).into()
+        app(self.st(), "=", (self.term(), other)).into()
     }
     /// Construct the term representing `(distinct self other)`
     fn _neq(self, other: impl IntoWithStorage<'st, Self::Inner>) -> Bool<'st> {
         let other = other.into_with_storage(self.st()).term();
-        fun_vec(self.st(), "distinct", [self.term(), other].to_vec()).into()
+        app(self.st(), "distinct", (self.term(), other)).into()
     }
     /// Wraps the term in a a label, which can be used to extract information
     /// from models at a later point.
