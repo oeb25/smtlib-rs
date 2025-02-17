@@ -8,7 +8,7 @@ use smtlib_lowlevel::{
 
 use crate::{
     sorts::Sort,
-    terms::{fun_vec, qual_ident, Const, Dynamic, IntoWithStorage, STerm, Sorted, StaticSorted},
+    terms::{app, qual_ident, Const, Dynamic, IntoWithStorage, STerm, Sorted, StaticSorted},
     Bool,
 };
 
@@ -122,16 +122,11 @@ impl<'st, const M: usize> BitVec<'st, M> {
     ) -> BitVec<'st, M> {
         value.into_with_storage(st)
     }
-    fn binop<T: From<STerm<'st>>>(self, op: &str, other: BitVec<'st, M>) -> T {
-        fun_vec(
-            self.st(),
-            self.st().alloc_str(op),
-            vec![self.term(), other.term()],
-        )
-        .into()
+    fn binop<T: From<STerm<'st>>>(self, op: &'st str, other: BitVec<'st, M>) -> T {
+        app(self.st(), op, (self.term(), other.term())).into()
     }
-    fn unop<T: From<STerm<'st>>>(self, op: &str) -> T {
-        fun_vec(self.st(), self.st().alloc_str(op), vec![self.term()]).into()
+    fn unop<T: From<STerm<'st>>>(self, op: &'st str) -> T {
+        app(self.st(), op, self.term()).into()
     }
 
     #[cfg(feature = "const-bit-vec")]

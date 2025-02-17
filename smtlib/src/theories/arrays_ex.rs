@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 
 use smtlib_lowlevel::ast;
 
-use crate::terms::{fun_vec, Const, IntoWithStorage, STerm, Sorted, StaticSorted};
+use crate::terms::{app, Const, IntoWithStorage, STerm, Sorted, StaticSorted};
 
 /// Representation of a functional array with extensionality. A possibly
 /// unbounded container of values of sort Y, indexed by values of sort X.
@@ -53,15 +53,15 @@ impl<'st, X: StaticSorted<'st>, Y: StaticSorted<'st>> StaticSorted<'st> for Arra
 impl<'st, X: StaticSorted<'st>, Y: StaticSorted<'st>> Array<'st, X, Y> {
     /// The value stored at `index` --- `(select self index)`
     fn select(self, index: X) -> Y {
-        fun_vec(self.st(), "select", [self.0.term(), index.term()].to_vec()).into()
+        app(self.st(), "select", (self.0.term(), index.term())).into()
     }
     /// Copy of this array with `value` stored at `index` --- `(store self index
     /// value)`
     fn store(self, index: X, value: Y) -> Array<'st, X, Y> {
-        fun_vec(
+        app(
             self.st(),
             "store",
-            [self.0.term(), index.term(), value.term()].to_vec(),
+            (self.0.term(), index.term(), value.term()),
         )
         .into()
     }

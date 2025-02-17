@@ -9,7 +9,7 @@ use smtlib_lowlevel::{
 use crate::{
     impl_op,
     sorts::Sort,
-    terms::{fun_vec, Const, Dynamic, IntoWithStorage, STerm, Sorted, StaticSorted},
+    terms::{app, Const, Dynamic, IntoWithStorage, STerm, Sorted, StaticSorted},
     Bool,
 };
 
@@ -66,13 +66,12 @@ impl<'st> StaticSorted<'st> for Int<'st> {
 impl<'st> IntoWithStorage<'st, Int<'st>> for i64 {
     fn into_with_storage(self, st: &'st Storage) -> Int<'st> {
         let term = if self < 0 {
-            fun_vec(
+            app(
                 st,
                 "-",
-                [st.alloc_term(Term::SpecConstant(SpecConstant::Numeral(
-                    Numeral::from_usize(self.unsigned_abs() as _),
-                )))]
-                .to_vec(),
+                Term::SpecConstant(SpecConstant::Numeral(Numeral::from_usize(
+                    self.unsigned_abs() as _,
+                ))),
             )
         } else {
             STerm::new(
@@ -92,13 +91,8 @@ impl<'st> Int<'st> {
     pub fn new(st: &'st Storage, value: impl IntoWithStorage<'st, Int<'st>>) -> Int<'st> {
         value.into_with_storage(st)
     }
-    fn binop<T: From<STerm<'st>>>(self, op: &str, other: Int<'st>) -> T {
-        fun_vec(
-            self.static_st(),
-            self.st().alloc_str(op),
-            [self.term(), other.term()].to_vec(),
-        )
-        .into()
+    fn binop<T: From<STerm<'st>>>(self, op: &'st str, other: Int<'st>) -> T {
+        app(self.static_st(), op, (self.term(), other.term())).into()
     }
     /// Construct the term expressing `(> self other)`
     pub fn gt(self, other: impl IntoWithStorage<'st, Self>) -> Bool<'st> {
@@ -119,14 +113,14 @@ impl<'st> Int<'st> {
     // TODO: This seems to not be supported by z3?
     /// Construct the term expressing `(abs self)`
     pub fn abs(self) -> Int<'st> {
-        fun_vec(self.st(), "abs", vec![self.term()]).into()
+        app(self.st(), "abs", self.term()).into()
     }
 }
 
 impl std::ops::Neg for Int<'_> {
     type Output = Self;
     fn neg(self) -> Self::Output {
-        fun_vec(self.st(), "-", vec![self.term()]).into()
+        app(self.st(), "-", self.term()).into()
     }
 }
 

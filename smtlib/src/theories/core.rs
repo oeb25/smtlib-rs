@@ -8,9 +8,7 @@ use smtlib_lowlevel::{
 use crate::{
     impl_op,
     sorts::Sort,
-    terms::{
-        fun, fun_vec, qual_ident, Const, Dynamic, IntoWithStorage, STerm, Sorted, StaticSorted,
-    },
+    terms::{app, qual_ident, Const, Dynamic, IntoWithStorage, STerm, Sorted, StaticSorted},
 };
 
 /// A [`Bool`] is a term containing a
@@ -89,13 +87,8 @@ impl<'st> Bool<'st> {
     pub fn sort() -> Sort<'st> {
         Self::AST_SORT.into()
     }
-    fn binop(self, op: &str, other: Bool<'st>) -> Self {
-        fun(
-            self.st(),
-            self.st().alloc_str(op),
-            self.st().alloc_slice(&[self.term(), other.term()]),
-        )
-        .into()
+    fn binop(self, op: &'st str, other: Bool<'st>) -> Self {
+        app(self.st(), op, (self.term(), other.term())).into()
     }
     /// Construct the term expressing `(==> self other)`.
     ///
@@ -114,11 +107,10 @@ impl<'st> Bool<'st> {
     /// - **Rust notation:**  `if self { then } else { otherwise }`
     pub fn ite<T: Sorted<'st> + From<(STerm<'st>, Sort<'st>)>>(self, then: T, otherwise: T) -> T {
         let sort = then.sort();
-        let term = fun(
+        let term = app(
             self.st(),
             "ite",
-            self.st()
-                .alloc_slice(&[self.term(), then.term(), otherwise.term()]),
+            (self.term(), then.term(), otherwise.term()),
         );
         let dyn_term = Dynamic::from_term_sort(term, sort);
         T::from_dynamic(dyn_term)
@@ -133,7 +125,7 @@ impl<'st> std::ops::Not for Bool<'st> {
     type Output = Bool<'st>;
 
     fn not(self) -> Self::Output {
-        fun(self.st(), "not", self.st().alloc_slice(&[self.term()])).into()
+        app(self.st(), "not", self.term()).into()
     }
 }
 
@@ -141,17 +133,17 @@ impl<'st> std::ops::Not for Bool<'st> {
 /// of all of the terms. That is to say, the result is true iff all terms in
 /// `terms` is true.
 pub fn and<'st, const N: usize>(st: &'st Storage, terms: [Bool<'st>; N]) -> Bool<'st> {
-    fun_vec(st, "and", terms.map(Sorted::term).to_vec()).into()
+    app(st, "and", terms.map(Sorted::term)).into()
 }
 /// Construct the term expressing `(or ...terms)` representing the disjunction
 /// of all of the terms. That is to say, the result is true iff any of the terms
 /// in `terms` is true.
 pub fn or<'st, const N: usize>(st: &'st Storage, terms: [Bool<'st>; N]) -> Bool<'st> {
-    fun_vec(st, "or", terms.map(Sorted::term).to_vec()).into()
+    app(st, "or", terms.map(Sorted::term)).into()
 }
 /// Construct the term expressing `(xor ...terms)`.
 pub fn xor<'st, const N: usize>(st: &'st Storage, terms: [Bool<'st>; N]) -> Bool<'st> {
-    fun_vec(st, "xor", terms.map(Sorted::term).to_vec()).into()
+    app(st, "xor", terms.map(Sorted::term)).into()
 }
 
 /// Construct the term expressing `(equal terms)` representing that all of the
@@ -160,7 +152,7 @@ pub fn equal<'st, T, const N: usize>(st: &'st Storage, terms: [T; N]) -> Bool<'s
 where
     T: Into<STerm<'st>>,
 {
-    fun_vec(st, "=", terms.map(Into::into).map(STerm::term).to_vec()).into()
+    app(st, "=", terms.map(Into::into).map(STerm::term)).into()
 }
 /// Construct the term expressing `(distinct terms)` representing that all of
 /// the terms in `terms` are distinct (or not-equal).
@@ -168,10 +160,5 @@ pub fn distinct<'st, T, const N: usize>(st: &'st Storage, terms: [T; N]) -> Bool
 where
     T: Into<STerm<'st>>,
 {
-    fun_vec(
-        st,
-        "distinct",
-        terms.map(Into::into).map(STerm::term).to_vec(),
-    )
-    .into()
+    app(st, "distinct", terms.map(Into::into).map(STerm::term)).into()
 }
