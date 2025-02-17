@@ -1,7 +1,7 @@
 #![doc = concat!("```ignore\n", include_str!("./Ints.smt2"), "```")]
 
 use smtlib_lowlevel::{
-    ast::{SpecConstant, Term},
+    ast::{self, SpecConstant, Term},
     lexicon::Numeral,
     Storage,
 };
@@ -57,7 +57,7 @@ impl<'st> From<(STerm<'st>, Sort<'st>)> for Int<'st> {
 }
 impl<'st> StaticSorted<'st> for Int<'st> {
     type Inner = Self;
-    const SORT: Sort<'st> = Sort::new_static("Int", &[]);
+    const AST_SORT: ast::Sort<'static> = ast::Sort::new_simple("Int");
 
     fn static_st(&self) -> &'st Storage {
         self.0.st()
@@ -86,7 +86,7 @@ impl<'st> IntoWithStorage<'st, Int<'st>> for i64 {
 impl<'st> Int<'st> {
     /// Returns the sort of ints.
     pub fn sort() -> Sort<'st> {
-        Self::SORT
+        Self::AST_SORT.into()
     }
     /// Construct a new integer.
     pub fn new(st: &'st Storage, value: impl IntoWithStorage<'st, Int<'st>>) -> Int<'st> {

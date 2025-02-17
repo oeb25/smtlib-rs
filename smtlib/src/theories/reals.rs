@@ -1,6 +1,9 @@
 #![doc = concat!("```ignore\n", include_str!("./Reals.smt2"), "```")]
 
-use smtlib_lowlevel::{ast::Term, Storage};
+use smtlib_lowlevel::{
+    ast::{self, Term},
+    Storage,
+};
 
 use crate::{
     impl_op,
@@ -48,7 +51,7 @@ impl<'st> From<STerm<'st>> for Real<'st> {
 }
 impl<'st> StaticSorted<'st> for Real<'st> {
     type Inner = Self;
-    const SORT: Sort<'st> = Sort::new_static("Real", &[]);
+    const AST_SORT: ast::Sort<'static> = ast::Sort::new_simple("Real");
     fn static_st(&self) -> &'st Storage {
         self.0.st()
     }
@@ -72,7 +75,7 @@ impl<'st> IntoWithStorage<'st, Real<'st>> for f64 {
 impl<'st> Real<'st> {
     /// Returns the sort of reals.
     pub fn sort() -> Sort<'st> {
-        Self::SORT
+        Self::AST_SORT.into()
     }
     fn binop<T: From<STerm<'st>>>(self, op: &str, other: Real<'st>) -> T {
         fun_vec(
