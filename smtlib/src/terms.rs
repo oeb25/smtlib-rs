@@ -44,12 +44,21 @@ impl<'st> IntoWithStorage<'st, &'st Term<'st>> for Term<'st> {
 /// This is a wrapper around a [`Term`] which also carries a pointer to its
 /// [`Storage`]. Having a pointer to the storage allows new terms to be created
 /// more ergonomically without passing around the storage.
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct STerm<'st> {
     #[cfg_attr(feature = "serde", serde(skip))]
     st: &'st Storage,
     term: &'st Term<'st>,
+}
+
+impl std::fmt::Debug for STerm<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("STerm")
+            .field("st", &"Storage { .. }")
+            .field("term", &self.term)
+            .finish()
+    }
 }
 impl<'st> STerm<'st> {
     /// Construct a new [`STerm`] with the given term in the given [`Storage`].
