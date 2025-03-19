@@ -334,3 +334,33 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use smtlib_lowlevel::{backend::z3_binary::Z3Binary, Storage};
+
+    use super::Solver;
+    use crate::{terms::StaticSorted, Int, SatResult, Sorted};
+
+    #[test]
+    fn scope() -> Result<(), crate::Error> {
+        let st = Storage::new();
+        let mut solver = Solver::new(&st, Z3Binary::new("z3").unwrap())?;
+
+        let x = Int::new_const(&st, "x");
+
+        solver.assert(x._eq(10))?;
+
+        solver.scope(|solver| {
+            solver.assert(x._eq(20))?;
+
+            assert_eq!(solver.check_sat()?, SatResult::Unsat);
+
+            Ok(())
+        })?;
+
+        assert_eq!(solver.check_sat()?, SatResult::Sat);
+
+        Ok(())
+    }
+}

@@ -40,7 +40,7 @@ pub mod prelude {
 }
 
 /// The satisfiability result produced by a solver
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum SatResult {
     /// The solver produced `unsat`
     Unsat,
