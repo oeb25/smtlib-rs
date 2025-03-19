@@ -23,7 +23,7 @@ logos = "0.13.0"
 miette.workspace = true
 serde = { workspace = true, optional = true }
 thiserror.workspace = true
-tokio = { version = "1.37.0", features = ["io-util", "process"], optional = true }
+tokio = { workspace = true, optional = true }
 z3-sys = { version = "0.8.1", features = ["static-link-z3"], optional = true }
 
 [dev-dependencies]

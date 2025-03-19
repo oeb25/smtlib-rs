@@ -30,6 +30,7 @@ futures = "0.3.29"
 insta.workspace = true
 miette = { workspace = true, features = ["fancy"] }
 smtlib = { path = ".", features = ["serde", "tokio"] }
+tokio = { workspace = true, features = ["full"] }
 tokio-test = "0.4.4"
 
 [package.metadata.docs.rs]

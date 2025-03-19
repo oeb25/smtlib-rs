@@ -161,3 +161,33 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use smtlib_lowlevel::backend::z3_binary::tokio::Z3BinaryTokio;
+
+    use super::TokioSolver;
+    use crate::{terms::StaticSorted, Int, Sorted};
+
+    type Result<T, E = crate::Error> = std::result::Result<T, E>;
+
+    #[tokio::test]
+    async fn basic() -> Result<(), Box<dyn std::error::Error>> {
+        let st = smtlib_lowlevel::Storage::new();
+
+        let mut solver = TokioSolver::new(&st, Z3BinaryTokio::new("z3").await?).await?;
+
+        let x = Int::new_const(&st, "x");
+        let y = Int::new_const(&st, "y");
+
+        solver.assert(x._eq(10)).await?;
+        solver.assert(y._eq(x + 2)).await?;
+
+        let model = solver.check_sat_with_model().await?.expect_sat()?;
+
+        insta::assert_display_snapshot!(model, @"{ x: 10, y: 12 }");
+
+        Ok(())
+    }
+}
