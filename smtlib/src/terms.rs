@@ -455,14 +455,14 @@ macro_rules! impl_op {
 pub trait QuantifierVars<'st> {
     /// The concrete sequence of variable declaration which should be quantified
     /// over.
-    fn into_vars(self) -> &'st [SortedVar<'st>];
+    fn into_vars(self, st: &'st Storage) -> &'st [SortedVar<'st>];
 }
 
 impl<'st, A> QuantifierVars<'st> for Const<'st, A>
 where
     A: StaticSorted<'st>,
 {
-    fn into_vars(self) -> &'st [SortedVar<'st>] {
+    fn into_vars(self, _st: &'st Storage) -> &'st [SortedVar<'st>] {
         let st = self.st();
         st.alloc_slice(&[SortedVar(Symbol(self.0), A::AST_SORT)])
     }
@@ -473,9 +473,7 @@ macro_rules! impl_quantifiers {
         where
             $($x: StaticSorted<'st>),+
         {
-            fn into_vars(self) -> &'st [SortedVar<'st>] {
-                let st = self.0.st();
-
+            fn into_vars(self, st: &'st Storage) -> &'st [SortedVar<'st>] {
                 st.alloc_slice(&[
                     $(SortedVar(Symbol((self.$n).0.into()), $x::AST_SORT)),+
                 ])
@@ -488,20 +486,16 @@ impl_quantifiers!(A 0, B 1, C 2);
 impl_quantifiers!(A 0, B 1, C 2, D 3);
 impl_quantifiers!(A 0, B 1, C 2, D 3, E 4);
 
-// impl QuantifierVars for Vec<(Const<Dynamic<'st>>, ast::Sort)> {
-//     fn into_vars(self) -> Vec<SortedVar> {
-//         self.into_iter()
-//             .map(|(v, s)| SortedVar(Symbol(v.0.into()), s))
-//             .collect()
-//     }
-// }
+impl<'st> QuantifierVars<'st> for Vec<Const<'st, Dynamic<'st>>> {
+    fn into_vars(self, st: &'st Storage) -> &'st [SortedVar<'st>] {
+        st.alloc_slice(self.as_slice()).into_vars(st)
+    }
+}
 impl<'st> QuantifierVars<'st> for &'st [Const<'st, Dynamic<'st>>] {
-    fn into_vars(self) -> &'st [SortedVar<'st>] {
+    fn into_vars(self, st: &'st Storage) -> &'st [SortedVar<'st>] {
         if self.is_empty() {
             &[]
         } else {
-            let st = self.first().unwrap().st();
-
             st.alloc_slice(
                 &self
                     .iter()
@@ -512,16 +506,24 @@ impl<'st> QuantifierVars<'st> for &'st [Const<'st, Dynamic<'st>>] {
     }
 }
 impl<'st> QuantifierVars<'st> for &'st [SortedVar<'st>] {
-    fn into_vars(self) -> &'st [SortedVar<'st>] {
+    fn into_vars(self, _st: &'st Storage) -> &'st [SortedVar<'st>] {
         self
     }
 }
 
 /// Universally quantifies over `vars` in expression `term`.
 pub fn forall<'st>(st: &'st Storage, vars: impl QuantifierVars<'st>, term: Bool<'st>) -> Bool<'st> {
-    STerm::new(st, Term::Forall(vars.into_vars(), STerm::from(term).into())).into()
+    STerm::new(
+        st,
+        Term::Forall(vars.into_vars(st), STerm::from(term).into()),
+    )
+    .into()
 }
 /// Existentially quantifies over `vars` in expression `term`.
 pub fn exists<'st>(st: &'st Storage, vars: impl QuantifierVars<'st>, term: Bool<'st>) -> Bool<'st> {
-    STerm::new(st, Term::Exists(vars.into_vars(), STerm::from(term).into())).into()
+    STerm::new(
+        st,
+        Term::Exists(vars.into_vars(st), STerm::from(term).into()),
+    )
+    .into()
 }
