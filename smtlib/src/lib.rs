@@ -153,6 +153,7 @@ impl std::fmt::Display for Model<'_> {
             "{{ {} }}",
             self.values
                 .iter()
+                .sorted_by_key(|(n, _)| n.as_str())
                 .map(|(n, t)| format!("{n}: {}", t.term()))
                 .format(", ")
         )
