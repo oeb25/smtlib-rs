@@ -7,7 +7,7 @@
  :last-updated "2017-05-08"
  :update-history
  "Note: history only accounts for content changes, not release changes.
-  2017-05-08 Fixed error in note on intepretation of (/t 0). 
+  2017-05-08 Fixed error in note on intepretation of (/t 0).
   2016-04-20 Minor formatting of notes fields.
   2015-04-25 Updated to Version 2.5.
   2012-06-20 Modified the definition of :value attribute to include abstract values
@@ -15,11 +15,11 @@
  "
  :sorts ((Real 0))
 
- :funs ((NUMERAL Real) 
-        (DECIMAL Real) 
+ :funs ((NUMERAL Real)
+        (DECIMAL Real)
         (- Real Real)                  ; negation
         (- Real Real Real :left-assoc) ; subtraction
-        (+ Real Real Real :left-assoc) 
+        (+ Real Real Real :left-assoc)
         (* Real Real Real :left-assoc)
         (/ Real Real Real :left-assoc)
         (<= Real Real Bool :chainable)
@@ -29,26 +29,26 @@
        )
 
  :values
- "The set of values for the sort Real consists of 
+ "The set of values for the sort Real consists of
   - an abstract value for each irrational algebraic number
   - all numerals
   - all terms of the form (- n) where n is a numeral other than 0
-  - all terms of the form (/ m n) or (/ (- m) n) where 
+  - all terms of the form (/ m n) or (/ (- m) n) where
     - m is a numeral other than 0,
     - n is a numeral other than 0 and 1,
     - as integers, m and n have no common factors besides 1.
  "
- :definition 
- "For every expanded signature Sigma, the instance of Reals with that 
+ :definition
+ "For every expanded signature Sigma, the instance of Reals with that
   signature is the theory consisting of all Sigma-models that interpret
 
-  - the sort Real as the set of all real numbers, 
+  - the sort Real as the set of all real numbers,
 
   - each numeral as the corresponding real number,
 
   - each decimal as the corresponding real number,
 
-  - / as a total function that coincides with the real division function 
+  - / as a total function that coincides with the real division function
     for all inputs x and y where y is non-zero,
 
   - the other function symbols of Reals as expected.
@@ -56,26 +56,26 @@
 
  :notes
  "Since in SMT-LIB logic all function symbols are interpreted as total
-  functions, terms of the form (/ t 0) *are* meaningful in every 
+  functions, terms of the form (/ t 0) *are* meaningful in every
   instance of Reals. However, the declaration imposes no constraints
-  on their value. This means in particular that 
+  on their value. This means in particular that
   - for every instance theory T and
-  - for every value v (as defined in the :values attribute) and 
+  - for every value v (as defined in the :values attribute) and
     closed term t of sort Real,
   there is a model of T that satisfies (= v (/ t 0)).
  "
 
  :notes
- "The restriction of Reals over the signature having just the symbols 
+ "The restriction of Reals over the signature having just the symbols
   (0 Real)
   (1 Real)
   (- Real Real)
-  (+ Real Real Real) 
+  (+ Real Real Real)
   (* Real Real Real)
   (<= Real Real Bool)
   (<  Real Real Bool)
   coincides with the theory of real closed fields, axiomatized by
-  the formulas below: 
+  the formulas below:
 
    - associativity of +
    (forall ((x Real) (y Real) (z Real))
@@ -123,7 +123,7 @@
     - axiom schemas for all n > 0
     (forall (x_1 Real) ... (x_n Real)
       (distinct (+ (* x_1 x_1) (+ ... (* x_n x_n)))
-         (- 1))) 
+         (- 1)))
 
     - axiom schemas for all odd n > 0 where (^ y n) abbreviates
       the n-fold product of y with itself
@@ -137,7 +137,7 @@
 
     - antisymmetry of <=
     (forall (x Real) (y Real)
-      (=> (and (<= x y) (<= y x)) 
+      (=> (and (<= x y) (<= y x))
        (= x y)))
 
     - transitivity of <=
@@ -148,7 +148,7 @@
     - totality of <=
     (forall (x Real) (y Real)
       (or (<= x y) (<= y x)))
-    
+
     - monotonicity of <= wrt +
     (forall (x Real) (y Real) (z Real)
       (=> (<= x y) (<= (+ x z) (+ y z))))
@@ -159,7 +159,7 @@
        (<= (* z x) (* z y))))
 
    - definition of <
-   (forall (x Real) (y Real) 
+   (forall (x Real) (y Real)
      (= (< x y) (and (<= x y) (distinct x y))))
 
   References:

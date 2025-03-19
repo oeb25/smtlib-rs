@@ -12,7 +12,7 @@
         )
     )
   )
-  (echo "there exists an integer x such that the square of every larger real y is greather than 1")
+  (echo "there exists an integer x such that the square of every larger real y is greater than 1")
   (check-sat)
   ; sat
 (pop 1)
