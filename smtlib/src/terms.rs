@@ -383,7 +383,7 @@ impl<'st> Dynamic<'st> {
 
     /// Attempt to cast the dynamic into an [`Int`](crate::Int) if the sort
     /// matches.
-    pub fn as_int(&self) -> Result<crate::Int, crate::Error> {
+    pub fn as_int(&self) -> Result<crate::Int<'st>, crate::Error> {
         crate::Int::try_from_dynamic(*self).ok_or_else(|| crate::Error::DynamicCastSortMismatch {
             expected: crate::Int::AST_SORT.to_string(),
             actual: self.1.to_string(),
@@ -392,7 +392,7 @@ impl<'st> Dynamic<'st> {
 
     /// Attempt to cast the dynamic into a [`Bool`] if the sort
     /// matches.
-    pub fn as_bool(&self) -> Result<crate::Bool, crate::Error> {
+    pub fn as_bool(&self) -> Result<crate::Bool<'st>, crate::Error> {
         crate::Bool::try_from_dynamic(*self).ok_or_else(|| crate::Error::DynamicCastSortMismatch {
             expected: crate::Bool::AST_SORT.to_string(),
             actual: self.1.to_string(),
