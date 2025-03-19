@@ -145,7 +145,7 @@ impl<'st> Sort<'st> {
         st: &'st Storage,
         name: impl Into<String>,
     ) -> terms::Const<'st, terms::Dynamic<'st>> {
-        let name: &'static str = String::leak(name.into());
+        let name = st.alloc_str(&name.into());
         terms::Const(
             name,
             terms::Dynamic::from_term_sort(
