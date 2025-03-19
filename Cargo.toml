@@ -12,6 +12,7 @@ serde = { version = "1.0.152", features = ["derive"] }
 smtlib-lowlevel = { path = "./lowlevel", version = "0.2.0" }
 thiserror = "1.0.38"
 insta = { version = "1.23.0", features = ["ron"] }
+tokio = { version = "1.37.0", features = ["io-util", "process"] }
 
 [workspace.metadata.release]
 shared-version = true
