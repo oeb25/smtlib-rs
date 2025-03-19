@@ -221,19 +221,6 @@ pub trait Sorted<'st>: Into<STerm<'st>> {
     fn is_sort(sort: Sort<'st>) -> bool;
     /// The storage associated with any term of this sort.
     fn st(&self) -> &'st Storage;
-    // /// Construct a constant of this sort. See the documentation of [`Const`]
-    // /// for more information about constants.
-    // fn from_name(name: impl Into<String>) -> Const<Self>
-    // where
-    //     Self: From<Term>,
-    // {
-    //     // TODO: Only add |_| if necessary
-    //     let name = format!("|{}|", name.into());
-    //     Const(
-    //         Box::leak(name.clone().into_boxed_str()),
-    //         Term::Identifier(qual_ident(name, Some(Self::sort().ast()))).into(),
-    //     )
-    // }
     /// Constructy the smtlib AST representation of the term with associated
     /// storage.
     fn sterm(self) -> STerm<'st> {
