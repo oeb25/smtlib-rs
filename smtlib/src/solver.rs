@@ -219,7 +219,7 @@ where
     /// rollback all the assertions to the state before the scope was started.
     pub fn scope<T>(
         &mut self,
-        f: impl FnOnce(&mut Solver<B>) -> Result<T, Error>,
+        f: impl FnOnce(&mut Solver<'st, B>) -> Result<T, Error>,
     ) -> Result<T, Error> {
         self.push(1)?;
         let res = f(self)?;
