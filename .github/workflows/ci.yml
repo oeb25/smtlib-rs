@@ -28,11 +28,14 @@ jobs:
     name: Test
     strategy:
       matrix:
-        build: [linux, windows, mac]
+        build: [linux, linux-nightly, windows, mac]
         include:
           - build: linux
             os: ubuntu-latest
             rust: "stable"
+          - build: linux-nightly
+            os: ubuntu-latest
+            rust: "nightly"
           - build: windows
             os: windows-latest
             rust: "stable"
@@ -58,6 +61,11 @@ jobs:
         run: cargo build
       - name: Test
         run: cargo test
+      - name: Test nightly
+        run: cargo test --features const-bit-vec
+        if: ${{ matrix.rust == 'nightly' }}
+        env:
+          TOOLCHAIN_TARGET: ${{ matrix.target }}
   check:
     name: Check
     runs-on: ubuntu-latest
