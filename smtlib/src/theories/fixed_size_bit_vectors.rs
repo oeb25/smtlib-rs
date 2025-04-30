@@ -46,6 +46,12 @@ impl<'st, const M: usize> From<STerm<'st>> for BitVec<'st, M> {
     }
 }
 
+impl<'st, const M: usize> From<(STerm<'st>, Sort<'st>)> for BitVec<'st, M> {
+    fn from((t, _): (STerm<'st>, Sort<'st>)) -> Self {
+        t.into()
+    }
+}
+
 fn i64_to_bit_array<const M: usize>(i: i64) -> [bool; M] {
     std::array::from_fn(|idx| (i >> (M - idx - 1)) & 1 == 1)
 }
@@ -361,6 +367,17 @@ mod tests {
         insta::assert_ron_snapshot!(a, @"10");
         insta::assert_ron_snapshot!(b, @"3");
         insta::assert_ron_snapshot!(c, @"13");
+
+        Ok(())
+    }
+
+    #[test]
+    fn bit_vec_dynamic() -> Result<(), Box<dyn std::error::Error>> {
+        let st = Storage::new();
+        let a = BitVec::<64>::new_const(&st, "a");
+
+        assert!(BitVec::<64>::try_from_dynamic(a.into_dynamic()).is_some());
+        assert!(BitVec::<32>::try_from_dynamic(a.into_dynamic()).is_none());
 
         Ok(())
     }
