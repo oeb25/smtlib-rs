@@ -9,7 +9,7 @@ use smtlib_lowlevel::{
 
 use crate::{
     funs, sorts,
-    terms::{qual_ident, Dynamic},
+    terms::{qual_ident, Const, Dynamic},
     Bool, Error, Logic, Model, SatResult, SatResultWithModel, Sorted,
 };
 
@@ -156,6 +156,38 @@ where
             SatResult::Unsat => Ok(SatResultWithModel::Unsat),
             SatResult::Sat => Ok(SatResultWithModel::Sat(self.get_model()?)),
             SatResult::Unknown => Ok(SatResultWithModel::Unknown),
+        }
+    }
+
+    /// Checks for satisfiability of the assertions sent to the solver using
+    /// [`Solver::assert`] as well as the ones provided in the assumptions.
+    /// A satisfying model can be fetched using [`Solver::get_model`] in case
+    /// of `sat`.
+    ///
+    /// `check_sat_assuming` preserves the context and the given assumptions do
+    /// not affect later calls to [`Solver::check_sat`].
+    pub fn check_sat_assuming(
+        &mut self,
+        assumptions: &[Const<'st, Bool<'st>>],
+    ) -> Result<SatResult, Error> {
+        let mut prop_lits = Vec::new();
+        for assumption in assumptions {
+            self.declare_all_consts(assumption.term())?;
+            let name = self.st().alloc_str(assumption.name());
+            prop_lits.push(ast::PropLiteral::Symbol(Symbol(name)));
+        }
+        let prop_lits = self.st().alloc_slice(&prop_lits);
+        let cmd = ast::Command::CheckSatAssuming(prop_lits);
+        match self.driver.exec(cmd)? {
+            ast::GeneralResponse::SpecificSuccessResponse(
+                ast::SpecificSuccessResponse::CheckSatResponse(res),
+            ) => Ok(match res {
+                ast::CheckSatResponse::Sat => SatResult::Sat,
+                ast::CheckSatResponse::Unsat => SatResult::Unsat,
+                ast::CheckSatResponse::Unknown => SatResult::Unknown,
+            }),
+            ast::GeneralResponse::Error(msg) => Err(Error::Smt(msg.to_string(), format!("{cmd}"))),
+            res => todo!("{res:?}"),
         }
     }
     /// Produces the model for satisfying the assertions. If you are looking to

@@ -38,3 +38,24 @@ fn negative_numbers() {
         None => panic!("Oh no! This should never happen, as x was part of an assert"),
     }
 }
+
+#[test]
+fn check_sat_assuming() {
+    let st = Storage::new();
+    let mut solver =
+        Solver::new(&st, crate::backend::z3_binary::Z3Binary::new("z3").unwrap()).unwrap();
+
+    let x = Int::new_const(&st, "x");
+    let prop_1 = Bool::new_const(&st, "prop_1");
+    let prop_2 = Bool::new_const(&st, "prop_2");
+    solver.assert(prop_1.implies(x._eq(42))).unwrap();
+    solver.assert(prop_2.implies(x._neq(42))).unwrap();
+    solver.assert(*prop_1).unwrap();
+
+    assert_eq!(solver.check_sat().unwrap(), SatResult::Sat);
+    assert_eq!(
+        solver.check_sat_assuming(&[prop_2]).unwrap(),
+        SatResult::Unsat
+    );
+    assert_eq!(solver.check_sat().unwrap(), SatResult::Sat);
+}
