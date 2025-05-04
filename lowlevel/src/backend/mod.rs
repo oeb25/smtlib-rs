@@ -43,6 +43,12 @@ pub trait Backend {
     fn exec(&mut self, cmd: crate::Command) -> Result<String, crate::Error>;
 }
 
+impl Backend for Box<dyn Backend> {
+    fn exec(&mut self, cmd: crate::Command) -> Result<String, crate::Error> {
+        (**self).exec(cmd)
+    }
+}
+
 struct BinaryBackend {
     #[allow(unused)]
     child: Child,
