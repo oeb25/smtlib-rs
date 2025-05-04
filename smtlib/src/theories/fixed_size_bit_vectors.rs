@@ -1,14 +1,19 @@
 #![doc = concat!("```ignore\n", include_str!("./FixedSizeBitVectors.smt2"), "```")]
+// Note: We include functions defined in QF_BV here.
 
 use itertools::Itertools;
 use smtlib_lowlevel::{
-    ast::{self, Term},
-    lexicon, Storage,
+    ast::{self, Identifier, Index, QualIdentifier, Term},
+    lexicon::{self, Numeral},
+    Storage,
 };
 
 use crate::{
     sorts::Sort,
-    terms::{app, qual_ident, Const, Dynamic, IntoWithStorage, STerm, Sorted, StaticSorted},
+    terms::{
+        app, qual_ident, ApplicationArgs, Const, Dynamic, IntoWithStorage, STerm, Sorted,
+        StaticSorted,
+    },
     Bool,
 };
 
@@ -87,10 +92,8 @@ impl<'st, const M: usize> TryFrom<BitVec<'st, M>> for [bool; M] {
 
 impl<'st, const M: usize> StaticSorted<'st> for BitVec<'st, M> {
     type Inner = Self;
-    const AST_SORT: ast::Sort<'static> = ast::Sort::new_indexed(
-        "BitVec",
-        &[ast::Index::Numeral(lexicon::Numeral::from_usize(M))],
-    );
+    const AST_SORT: ast::Sort<'static> =
+        ast::Sort::new_indexed("BitVec", &[Index::Numeral(lexicon::Numeral::from_usize(M))]);
     fn static_st(&self) -> &'st Storage {
         self.sterm().st()
     }
@@ -134,6 +137,24 @@ impl<'st, const M: usize> BitVec<'st, M> {
     fn unop<T: From<STerm<'st>>>(self, op: &'st str) -> T {
         app(self.st(), op, self.term()).into()
     }
+    fn unop_indexed<T: From<STerm<'st>>>(
+        self,
+        op: &'st str,
+        index: impl IntoIterator<Item = usize>,
+    ) -> T {
+        let index = index
+            .into_iter()
+            .map(|i| Index::Numeral(Numeral::from_usize(i)))
+            .collect_vec();
+        let qual_id =
+            QualIdentifier::Identifier(Identifier::indexed(op, self.st().alloc_slice(&index)));
+
+        STerm::new(
+            self.st(),
+            Term::Application(qual_id, self.term().into_args(self.st())),
+        )
+        .into()
+    }
 
     #[cfg(feature = "const-bit-vec")]
     /// Extract a slice of the bit-vec.
@@ -144,26 +165,39 @@ impl<'st, const M: usize> BitVec<'st, M> {
     /// M > I >= J
     /// ```
     pub fn extract<const I: usize, const J: usize>(self) -> BitVec<'st, { I - J + 1 }> {
-        use smtlib_lowlevel::{ast, lexicon::Numeral};
-
-        use crate::terms::ApplicationArgs;
-
         assert!(M > I);
         assert!(I >= J);
 
-        let extract_id = ast::QualIdentifier::Identifier(ast::Identifier::indexed(
-            "extract",
-            self.st().alloc_slice(&[
-                ast::Index::Numeral(Numeral::from_usize(I)),
-                ast::Index::Numeral(Numeral::from_usize(J)),
-            ]),
-        ));
+        self.extract_(I, J)
+    }
 
-        STerm::new(
-            self.st(),
-            Term::Application(extract_id, self.term().into_args(self.st())),
-        )
-        .into()
+    /// Extract a slice of the bit-vec.
+    ///
+    /// The constraints `i`, `j`, `M`, and `O` are:
+    ///
+    /// ```ignore
+    /// M > i >= j
+    /// O = j - i + 1
+    /// ```
+    pub fn extract_<const O: usize>(self, i: usize, j: usize) -> BitVec<'st, O> {
+        assert!(M > i);
+        assert!(i >= j);
+        assert_eq!(O, i - j + 1);
+
+        self.unop_indexed("extract", [i, j])
+    }
+
+    #[cfg(feature = "const-bit-vec")]
+    /// Concatenate `count` copies of `self` to a new bit-vec
+    pub fn repeat<const N: usize>(self) -> BitVec<'st, { N * M }> {
+        self.repeat_(N)
+    }
+
+    /// Concatenate `count` copies of `self` to a new bit-vec
+    pub fn repeat_<const O: usize>(self, count: usize) -> BitVec<'st, O> {
+        assert!(count > 0);
+        assert_eq!(O, M * count);
+        self.unop_indexed("repeat", [count])
     }
 
     #[cfg(feature = "const-bit-vec")]
@@ -173,7 +207,52 @@ impl<'st, const M: usize> BitVec<'st, M> {
         self,
         other: impl Into<BitVec<'st, N>>,
     ) -> BitVec<'st, { N + M }> {
+        self.concat_(other)
+    }
+
+    /// Concatenates `self` and `other` bit-vecs to a single contiguous bit-vec
+    /// with length `N + M`
+    pub fn concat_<const N: usize, const O: usize>(
+        self,
+        other: impl Into<BitVec<'st, N>>,
+    ) -> BitVec<'st, O> {
+        assert_eq!(O, N + M);
         app(self.st(), "concat", (self.term(), other.into().term())).into()
+    }
+
+    #[cfg(feature = "const-bit-vec")]
+    /// Extend the bit-vec with zeros to the left.
+    pub fn zero_extend<const I: usize>(self) -> BitVec<'st, { M + I }> {
+        self.zero_extend_(I)
+    }
+
+    /// Extend the bit-vec with zeros to the left.
+    pub fn zero_extend_<const O: usize>(self, n: usize) -> BitVec<'st, O> {
+        assert_eq!(M + n, O);
+        self.unop_indexed("zero_extend", [n])
+    }
+
+    #[cfg(feature = "const-bit-vec")]
+    /// Extend the bit-vec with the sign bit to the left.
+    pub fn sign_extend<const I: usize>(self) -> BitVec<'st, { M + I }> {
+        self.sign_extend_(I)
+    }
+
+    /// Extend the bit-vec with the sign bit to the left.
+    pub fn sign_extend_<const O: usize>(self, n: usize) -> BitVec<'st, O> {
+        assert_eq!(M + n, O);
+        self.unop_indexed("sign_extend", [n])
+    }
+
+    // Indexed
+
+    /// Rotate the bit-vec to the left.
+    pub fn rotate_left(self, n: usize) -> Self {
+        self.unop_indexed("rotate_left", [n])
+    }
+    /// Rotate the bit-vec to the right.
+    pub fn rotate_right(self, n: usize) -> Self {
+        self.unop_indexed("rotate_right", [n])
     }
 
     // Unary
@@ -198,6 +277,28 @@ impl<'st, const M: usize> BitVec<'st, M> {
     /// Calls `(bvxnor self other)` i.e. bitwise xnor
     pub fn bvxnor(self, other: impl Into<Self>) -> Self {
         self.binop("bvxnor", other.into())
+    }
+    /// Calls `(bvcomp self other)` i.e. bitwise comparison
+    pub fn bvcomp(self, other: impl Into<Self>) -> BitVec<'st, 1> {
+        self.binop("bvcomp", other.into())
+    }
+    /// Calls `(bvsdiv self other)` i.e. signed division
+    pub fn bvsdiv(self, other: impl Into<Self>) -> Self {
+        self.binop("bvsdiv", other.into())
+    }
+    /// Calls `(bvsrem self other)` i.e. signed remainder
+    /// (sign follows dividend)
+    pub fn bvsrem(self, other: impl Into<Self>) -> Self {
+        self.binop("bvsrem", other.into())
+    }
+    /// Calls `(bvsmod self other)` i.e. signed remainder
+    /// (sign follows divisor)
+    pub fn bvsmod(self, other: impl Into<Self>) -> Self {
+        self.binop("bvsmod", other.into())
+    }
+    /// Calls `(bvashr self other)` i.e. arithmetic shift right
+    pub fn bvashr(self, other: impl Into<Self>) -> Self {
+        self.binop("bvashr", other.into())
     }
     /// Calls `(bvult self other)`
     pub fn bvult(self, other: impl Into<Self>) -> Bool<'st> {
@@ -299,8 +400,7 @@ impl_op!(BitVec<'st, M>, [bool; M], BitAnd, bitand, bvand, BitAndAssign, bitand_
 impl_op!(BitVec<'st, M>, [bool; M], BitOr, bitor, bvor, BitOrAssign, bitor_assign, |);
 impl_op!(BitVec<'st, M>, [bool; M], BitXor, bitxor, bvxor, BitXorAssign, bitxor_assign, ^);
 impl_op!(BitVec<'st, M>, [bool; M], Add, add, bvadd, AddAssign, add_assign, +);
-// impl_op!(BitVec<'st, M>, [bool; M], Sub, sub, bvsub, SubAssign, sub_assign,
-// -);
+impl_op!(BitVec<'st, M>, [bool; M], Sub, sub, bvsub, SubAssign, sub_assign, -);
 impl_op!(BitVec<'st, M>, [bool; M], Mul, mul, bvmul, MulAssign, mul_assign, *);
 impl_op!(BitVec<'st, M>, [bool; M], Div, div, bvudiv, DivAssign, div_assign, /);
 impl_op!(BitVec<'st, M>, [bool; M], Rem, rem, bvurem, RemAssign, rem_assign, %);
