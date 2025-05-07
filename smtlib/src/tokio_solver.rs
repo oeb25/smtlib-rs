@@ -186,7 +186,7 @@ mod tests {
 
         let model = solver.check_sat_with_model().await?.expect_sat()?;
 
-        insta::assert_display_snapshot!(model, @"{ x: 10, y: 12 }");
+        insta::assert_snapshot!(model, @"{ x: 10, y: 12 }");
 
         Ok(())
     }
