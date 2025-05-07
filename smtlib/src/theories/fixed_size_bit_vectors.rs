@@ -46,6 +46,12 @@ impl<'st, const M: usize> From<STerm<'st>> for BitVec<'st, M> {
     }
 }
 
+impl<'st, const M: usize> From<(STerm<'st>, Sort<'st>)> for BitVec<'st, M> {
+    fn from((t, _): (STerm<'st>, Sort<'st>)) -> Self {
+        t.into()
+    }
+}
+
 fn i64_to_bit_array<const M: usize>(i: i64) -> [bool; M] {
     std::array::from_fn(|idx| (i >> (M - idx - 1)) & 1 == 1)
 }
@@ -138,21 +144,28 @@ impl<'st, const M: usize> BitVec<'st, M> {
     /// M > I >= J
     /// ```
     pub fn extract<const I: usize, const J: usize>(self) -> BitVec<'st, { I - J + 1 }> {
+        use smtlib_lowlevel::{ast, lexicon::Numeral};
+
+        use crate::terms::ApplicationArgs;
+
         assert!(M > I);
         assert!(I >= J);
 
-        Term::Application(
-            ast::QualIdentifier::Identifier(ast::Identifier::Indexed(
-                Symbol("extract".to_string()),
-                vec![
-                    Index::Numeral(Numeral(I.to_string())),
-                    Index::Numeral(Numeral(J.to_string())),
-                ],
-            )),
-            vec![self.into()],
+        let extract_id = ast::QualIdentifier::Identifier(ast::Identifier::indexed(
+            "extract",
+            self.st().alloc_slice(&[
+                ast::Index::Numeral(Numeral::from_usize(I)),
+                ast::Index::Numeral(Numeral::from_usize(J)),
+            ]),
+        ));
+
+        STerm::new(
+            self.st(),
+            Term::Application(extract_id, self.term().into_args(self.st())),
         )
         .into()
     }
+
     #[cfg(feature = "const-bit-vec")]
     /// Concatenates `self` and `other` bit-vecs to a single contiguous bit-vec
     /// with length `N + M`
@@ -160,11 +173,7 @@ impl<'st, const M: usize> BitVec<'st, M> {
         self,
         other: impl Into<BitVec<'st, N>>,
     ) -> BitVec<'st, { N + M }> {
-        Term::Application(
-            qual_ident("concat".to_string(), None),
-            vec![self.into(), other.into().into()],
-        )
-        .into()
+        app(self.st(), "concat", (self.term(), other.into().term())).into()
     }
 
     // Unary
@@ -301,23 +310,27 @@ impl_op!(BitVec<'st, M>, [bool; M], Shl, shl, bvshl, ShlAssign, shl_assign, <<);
 #[cfg(feature = "const-bit-vec")]
 #[cfg(test)]
 mod tests {
-    use smtlib_lowlevel::backend::Z3Binary;
+    use smtlib_lowlevel::{backend::z3_binary::Z3Binary, Storage};
 
     use super::BitVec;
-    use crate::{terms::Sorted, Solver};
+    use crate::{
+        terms::{Sorted, StaticSorted},
+        SatResult, Solver,
+    };
 
     #[test]
     fn bit_vec_extract_concat() -> Result<(), Box<dyn std::error::Error>> {
-        let a = BitVec::<6>::from_name("a");
-        let b = BitVec::from_name("b");
-        let c = BitVec::from_name("c");
-        let d = BitVec::from([true, false, true, true, false, true]);
+        let st = Storage::new();
+        let a = BitVec::<6>::new_const(&st, "a");
+        let b = BitVec::<4>::new_const(&st, "b");
+        let c = BitVec::<10>::new_const(&st, "c");
+        let d = BitVec::<6>::new(&st, [true, false, true, true, false, true]);
 
-        let mut solver = Solver::new(Z3Binary::new("z3")?)?;
+        let mut solver = Solver::new(&st, Z3Binary::new("z3")?)?;
 
         solver.assert(a._eq(!d))?;
-        solver.assert(b._eq(a.extract::<5, 2>()))?;
         solver.assert(c._eq(a.concat(b)))?;
+        solver.assert(b._eq(a.extract::<5, 2>()))?;
 
         let model = solver.check_sat_with_model()?.expect_sat()?;
 
@@ -331,29 +344,41 @@ mod tests {
         Ok(())
     }
 
-    // #[test]
-    // fn bit_vec_math() -> Result<(), Box<dyn std::error::Error>> {
-    //     let a = BitVec::<6>::from_name("a");
-    //     let b = BitVec::<6>::from_name("b");
-    //     let c = BitVec::<6>::from_name("c");
+    #[test]
+    fn bit_vec_math() -> Result<(), Box<dyn std::error::Error>> {
+        let st = Storage::new();
+        let a = BitVec::<6>::new_const(&st, "a");
+        let b = BitVec::<6>::new_const(&st, "b");
+        let c = BitVec::<6>::new_const(&st, "c");
 
-    //     let mut solver = Solver::new(Z3Binary::new("z3")?)?;
+        let mut solver = Solver::new(&st, Z3Binary::new("z3")?)?;
 
-    //     solver.assert(a._eq(BitVec::<6>::from(10)))?;
-    //     solver.assert(b._eq(BitVec::<6>::from(3)))?;
-    //     // solver.assert(c._eq(a % b))?;
-    //     solver.assert(c._eq(a + b))?;
+        solver.assert(a._eq(10))?;
+        solver.assert(b._eq(3))?;
+        // solver.assert(c._eq(a % b))?;
+        solver.assert(c._eq(a + b))?;
 
-    //     solver.check_sat()?;
-    //     let model = solver.get_model()?;
+        assert_eq!(solver.check_sat()?, SatResult::Sat);
+        let model = solver.get_model()?;
 
-    //     let a: i64 = model.eval(a).unwrap().try_into()?;
-    //     let b: i64 = model.eval(b).unwrap().try_into()?;
-    //     let c: i64 = model.eval(c).unwrap().try_into()?;
-    //     insta::assert_ron_snapshot!(c, @"");
-    //     // insta::assert_ron_snapshot!(b, @"");
-    //     // insta::assert_ron_snapshot!(c, @"");
+        let a: i64 = model.eval(a).unwrap().try_into()?;
+        let b: i64 = model.eval(b).unwrap().try_into()?;
+        let c: i64 = model.eval(c).unwrap().try_into()?;
+        insta::assert_ron_snapshot!(a, @"10");
+        insta::assert_ron_snapshot!(b, @"3");
+        insta::assert_ron_snapshot!(c, @"13");
 
-    //     Ok(())
-    // }
+        Ok(())
+    }
+
+    #[test]
+    fn bit_vec_dynamic() -> Result<(), Box<dyn std::error::Error>> {
+        let st = Storage::new();
+        let a = BitVec::<64>::new_const(&st, "a");
+
+        assert!(BitVec::<64>::try_from_dynamic(a.into_dynamic()).is_some());
+        assert!(BitVec::<32>::try_from_dynamic(a.into_dynamic()).is_none());
+
+        Ok(())
+    }
 }
