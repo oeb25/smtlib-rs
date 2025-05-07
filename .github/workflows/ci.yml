@@ -75,7 +75,7 @@ jobs:
         build: [msrv, debug, release]
         include:
           - build: msrv
-            rust: 1.84.1 # MSRV
+            rust: 1.82 # MSRV: Keep in sync with Cargo.toml's rust-version
             target: x86_64-unknown-linux-gnu
             features: full
           - build: debug
