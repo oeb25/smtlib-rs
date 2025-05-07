@@ -128,6 +128,9 @@ pub enum Error {
         /// The actual sort
         actual: String,
     },
+    /// Operation is not supported by the underlying solver
+    #[error("Operation is not supported by the underlying solver")]
+    Unsupported,
 }
 
 /// A [`Model`] contains the values of all named constants returned through
