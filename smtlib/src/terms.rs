@@ -157,9 +157,9 @@ pub(crate) fn qual_ident<'st>(s: &'st str, sort: Option<ast::Sort<'st>>) -> Qual
 #[derive(Debug, Clone, Copy)]
 pub struct Const<'st, T>(pub(crate) &'st str, pub(crate) T);
 
-impl<T> Const<'_, T> {
+impl<'st, T> Const<'st, T> {
     /// The name of the constant
-    pub fn name(&self) -> &str {
+    pub fn name(&self) -> &'st str {
         self.0
     }
 }
