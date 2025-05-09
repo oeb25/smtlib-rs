@@ -179,6 +179,11 @@ impl<'st, const M: usize> BitVec<'st, M> {
     /// M > i >= j
     /// O = j - i + 1
     /// ```
+    ///
+    /// Note: This is a version of `BitVec::extract` that does not depend on
+    /// unstable feature `generic_const_exprs`. If you're using nightly
+    /// consider enabling `"const-bit-vec"` feature flag and
+    /// use `BitVec::extract` instead.
     pub fn extract_<const O: usize>(self, i: usize, j: usize) -> BitVec<'st, O> {
         assert!(M > i);
         assert!(i >= j);
@@ -194,6 +199,11 @@ impl<'st, const M: usize> BitVec<'st, M> {
     }
 
     /// Concatenate `count` copies of `self` to a new bit-vec
+    ///
+    /// Note: This is a version of `BitVec::repeat` that does not depend on
+    /// unstable feature `generic_const_exprs`. If you're using nightly
+    /// consider enabling `"const-bit-vec"` feature flag and
+    /// use `BitVec::repeat` instead.
     pub fn repeat_<const O: usize>(self, count: usize) -> BitVec<'st, O> {
         assert!(count > 0);
         assert_eq!(O, M * count);
@@ -212,6 +222,11 @@ impl<'st, const M: usize> BitVec<'st, M> {
 
     /// Concatenates `self` and `other` bit-vecs to a single contiguous bit-vec
     /// with length `N + M`
+    ///
+    /// Note: This is a version of `BitVec::concat` that does not depend on
+    /// unstable feature `generic_const_exprs`. If you're using nightly
+    /// consider enabling `"const-bit-vec"` feature flag and
+    /// use `BitVec::concat` instead.
     pub fn concat_<const N: usize, const O: usize>(
         self,
         other: impl Into<BitVec<'st, N>>,
@@ -227,6 +242,11 @@ impl<'st, const M: usize> BitVec<'st, M> {
     }
 
     /// Extend the bit-vec with zeros to the left.
+    ///
+    /// Note: This is a version of `BitVec::zero_extend` that does not depend on
+    /// unstable feature `generic_const_exprs`. If you're using nightly
+    /// consider enabling `"const-bit-vec"` feature flag and
+    /// use `BitVec::zero_extend` instead.
     pub fn zero_extend_<const O: usize>(self, n: usize) -> BitVec<'st, O> {
         assert_eq!(M + n, O);
         self.unop_indexed("zero_extend", [n])
@@ -239,6 +259,11 @@ impl<'st, const M: usize> BitVec<'st, M> {
     }
 
     /// Extend the bit-vec with the sign bit to the left.
+    ///
+    /// Note: This is a version of `BitVec::sign_extend` that does not depend on
+    /// unstable feature `generic_const_exprs`. If you're using nightly
+    /// consider enabling `"const-bit-vec"` feature flag and
+    /// use `BitVec::sign_extend` instead.
     pub fn sign_extend_<const O: usize>(self, n: usize) -> BitVec<'st, O> {
         assert_eq!(M + n, O);
         self.unop_indexed("sign_extend", [n])
