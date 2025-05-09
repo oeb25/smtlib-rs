@@ -89,6 +89,7 @@ where
         match self.driver.exec(cmd)? {
             ast::GeneralResponse::Success => Ok(()),
             ast::GeneralResponse::Error(e) => Err(Error::Smt(e.to_string(), cmd.to_string())),
+            ast::GeneralResponse::Unsupported => Err(Error::Unsupported),
             _ => todo!(),
         }
     }

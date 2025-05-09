@@ -7,15 +7,15 @@ publish = false
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-color-eyre = "0.6.2"
-heck = "0.4.1"
-indexmap = { version = "2.1.0", features = ["serde"] }
+color-eyre = "0.6.4"
+heck = "0.5"
+indexmap = { version = "2.2.6", features = ["serde"] }
 itertools.workspace = true
 prettyplease = "0.2.15"
-proc-macro2 = "1.0.71"
-quote = "1.0.33"
+proc-macro2 = "1.0.83"
+quote = "1.0.35"
 serde.workspace = true
-syn = "2.0.43"
+syn = "2.0.87"
 toml = "0.8.8"
 xflags = "0.3.2"
 xshell = "0.2.5"

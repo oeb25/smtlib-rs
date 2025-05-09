@@ -71,8 +71,8 @@ impl<'st> Numeral<'st> {
 impl std::fmt::Display for Numeral<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.repr {
-            NumeralRepr::Number(n) => write!(f, "{}", n),
-            NumeralRepr::String(s) => write!(f, "{}", s),
+            NumeralRepr::Number(n) => write!(f, "{n}"),
+            NumeralRepr::String(s) => write!(f, "{s}"),
         }
     }
 }
