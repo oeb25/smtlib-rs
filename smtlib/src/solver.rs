@@ -173,8 +173,7 @@ where
         let mut prop_lits = Vec::new();
         for assumption in assumptions {
             self.declare_all_consts(assumption.term())?;
-            let name = self.st().alloc_str(assumption.name());
-            prop_lits.push(ast::PropLiteral::Symbol(Symbol(name)));
+            prop_lits.push(ast::PropLiteral::Symbol(Symbol(assumption.name())));
         }
         let prop_lits = self.st().alloc_slice(&prop_lits);
         let cmd = ast::Command::CheckSatAssuming(prop_lits);
