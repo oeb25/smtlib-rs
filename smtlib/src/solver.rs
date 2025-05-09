@@ -170,11 +170,13 @@ where
         &mut self,
         assumptions: &[Const<'st, Bool<'st>>],
     ) -> Result<SatResult, Error> {
-        let mut prop_lits = Vec::new();
         for assumption in assumptions {
             self.declare_all_consts(assumption.term())?;
-            prop_lits.push(ast::PropLiteral::Symbol(Symbol(assumption.name())));
         }
+        let prop_lits = assumptions
+            .iter()
+            .map(|assumption| ast::PropLiteral::Symbol(Symbol(assumption.name())))
+            .collect_vec();
         let prop_lits = self.st().alloc_slice(&prop_lits);
         let cmd = ast::Command::CheckSatAssuming(prop_lits);
         match self.driver.exec(cmd)? {
