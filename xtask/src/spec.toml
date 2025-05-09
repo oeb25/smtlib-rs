@@ -152,7 +152,7 @@ syntax = "<symbol> ( <sorted_var>* ) <sort> <term>"
 syntax = "<symbol>"
 
 [prop_literal.not]
-syntax = "<symbol>"
+syntax = "( not <symbol> )"
 
 [command]
 response = "specific_success_response"

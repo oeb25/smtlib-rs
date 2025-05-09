@@ -1367,14 +1367,14 @@ impl<'st> SmtlibParse<'st> for FunctionDef<'st> {
 pub enum PropLiteral<'st> {
     /// `<symbol>`
     Symbol(Symbol<'st>),
-    /// `<symbol>`
+    /// `(not <symbol>)`
     Not(Symbol<'st>),
 }
 impl std::fmt::Display for PropLiteral<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             Self::Symbol(m0) => write!(f, "{}", m0),
-            Self::Not(m0) => write!(f, "{}", m0),
+            Self::Not(m0) => write!(f, "(not {})", m0),
         }
     }
 }
@@ -1386,12 +1386,19 @@ impl<'st> PropLiteral<'st> {
 impl<'st> SmtlibParse<'st> for PropLiteral<'st> {
     type Output = PropLiteral<'st>;
     fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
-        (Symbol::is_start_of(offset, p)) || (Symbol::is_start_of(offset, p))
+        (p.nth(offset) == Token::LParen
+            && p.nth_matches(offset + 1, Token::Symbol, "not"))
+            || (Symbol::is_start_of(offset, p))
     }
     fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
         let offset = 0;
-        if Symbol::is_start_of(offset, p) {
+        if p.nth(offset) == Token::LParen
+            && p.nth_matches(offset + 1, Token::Symbol, "not")
+        {
+            p.expect(Token::LParen)?;
+            p.expect_matches(Token::Symbol, "not")?;
             let m0 = <Symbol<'st> as SmtlibParse<'st>>::parse(p)?;
+            p.expect(Token::RParen)?;
             #[allow(clippy::useless_conversion)] return Ok(Self::Not(m0.into()));
         }
         if Symbol::is_start_of(offset, p) {
