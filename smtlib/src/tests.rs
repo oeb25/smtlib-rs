@@ -54,8 +54,12 @@ fn check_sat_assuming() {
 
     assert_eq!(solver.check_sat().unwrap(), SatResult::Sat);
     assert_eq!(
-        solver.check_sat_assuming(&[prop_2]).unwrap(),
+        solver.check_sat_assuming(&[(prop_2, true)]).unwrap(),
         SatResult::Unsat
     );
     assert_eq!(solver.check_sat().unwrap(), SatResult::Sat);
+    assert_eq!(
+        solver.check_sat_assuming(&[(prop_2, false)]).unwrap(),
+        SatResult::Sat
+    );
 }

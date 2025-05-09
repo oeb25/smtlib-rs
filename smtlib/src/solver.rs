@@ -168,14 +168,20 @@ where
     /// not affect later calls to [`Solver::check_sat`].
     pub fn check_sat_assuming(
         &mut self,
-        assumptions: &[Const<'st, Bool<'st>>],
+        assumptions: &[(Const<'st, Bool<'st>>, bool)],
     ) -> Result<SatResult, Error> {
-        for assumption in assumptions {
+        for (assumption, _) in assumptions {
             self.declare_all_consts(assumption.term())?;
         }
         let prop_lits = assumptions
             .iter()
-            .map(|assumption| ast::PropLiteral::Symbol(Symbol(assumption.name())))
+            .map(|(assumption, assume_true)| {
+                let symbol = Symbol(assumption.name());
+                match assume_true {
+                    true => ast::PropLiteral::Symbol(symbol),
+                    false => ast::PropLiteral::Not(symbol),
+                }
+            })
             .collect_vec();
         let prop_lits = self.st().alloc_slice(&prop_lits);
         let cmd = ast::Command::CheckSatAssuming(prop_lits);
