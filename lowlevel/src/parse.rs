@@ -169,7 +169,7 @@ impl SourceSpan {
 
 impl From<SourceSpan> for miette::SourceSpan {
     fn from(s: SourceSpan) -> Self {
-        Self::new(s.offset.into(), s.length.into())
+        Self::new(s.offset.into(), s.length)
     }
 }
 impl From<(usize, usize)> for SourceSpan {
