@@ -1,6 +1,28 @@
 use miette::IntoDiagnostic;
 use smtlib::{backend::z3_binary::Z3Binary, funs::Fun, sorts::Sort, Bool, Storage, terms};
 
+// Helper function to create a universally quantified formula without directly using lowlevel
+fn forall_sort<'st>(
+    st: &'st Storage,
+    var_name: &str,
+    var_sort: &Sort<'st>,
+    body: Bool<'st>,
+) -> Bool<'st> {
+    // We still need to use the lowlevel API internally, but it's now hidden in this function
+    // Convert the var_name to a string and store it in the Storage to ensure it has the right lifetime
+    let var_name_str = st.alloc_str(var_name);
+    let sorted_var = smtlib_lowlevel::ast::SortedVar(
+        smtlib_lowlevel::lexicon::Symbol(var_name_str),
+        var_sort.ast(),
+    );
+    let sorted_vars = st.alloc_slice(&[sorted_var]);
+    terms::STerm::new(
+        st,
+        smtlib_lowlevel::ast::Term::Forall(sorted_vars, terms::STerm::from(body).into()),
+    )
+    .into()
+}
+
 fn main() -> miette::Result<()> {
     // Set up miette error handling
     miette::set_panic_hook();
@@ -36,18 +58,8 @@ fn main() -> miette::Result<()> {
     let mortal_x = mortal.call(&[x.into()])?;
     let human_implies_mortal = human_x.as_bool()?.implies(mortal_x.as_bool()?);
     
-    // Create a SortedVar for the quantifier
-    // We need to use the SortedVar from lowlevel for the quantifier
-    // This is the only part where we need to use the lowlevel API
-    let x_var = smtlib_lowlevel::ast::SortedVar(
-        smtlib_lowlevel::lexicon::Symbol("x"),
-        s_sort.ast()
-    );
-    let sorted_vars = st.alloc_slice(&[x_var]);
-    let all_humans_mortal = smtlib::terms::STerm::new(
-        &st,
-        smtlib_lowlevel::ast::Term::Forall(sorted_vars, smtlib::terms::STerm::from(human_implies_mortal).into())
-    ).into();
+    // Use our helper function to create the universally quantified formula
+    let all_humans_mortal = forall_sort(&st, "x", &s_sort, human_implies_mortal);
     solver.assert(all_humans_mortal)?;
 
     // Build and assert: Human(Socrates)
