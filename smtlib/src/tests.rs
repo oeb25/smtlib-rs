@@ -40,6 +40,47 @@ fn negative_numbers() {
 }
 
 #[test]
+fn big_numbers() {
+    let st = Storage::new();
+    let mut solver =
+        Solver::new(&st, crate::backend::z3_binary::Z3Binary::new("z3").unwrap()).unwrap();
+    let x = Int::new_const(&st, "x");
+
+    macro_rules! check {
+        ($t:ty) => {
+            solver
+                .scope(|solver| {
+                    solver.assert(x._eq(<$t>::MIN)).unwrap();
+                    let model = solver.check_sat_with_model().unwrap().expect_sat().unwrap();
+                    assert_eq!(<$t>::try_from(model.eval(x).unwrap()), Ok(<$t>::MIN));
+                    Ok(())
+                })
+                .unwrap();
+            solver
+                .scope(|solver| {
+                    solver.assert(x._eq(<$t>::MAX)).unwrap();
+                    let model = solver.check_sat_with_model().unwrap().expect_sat().unwrap();
+                    assert_eq!(<$t>::try_from(model.eval(x).unwrap()), Ok(<$t>::MAX));
+                    Ok(())
+                })
+                .unwrap();
+        };
+    }
+    check!(i8);
+    check!(i16);
+    check!(i32);
+    check!(i64);
+    check!(i128);
+    check!(isize);
+    check!(u8);
+    check!(u16);
+    check!(u32);
+    check!(u64);
+    check!(u128);
+    check!(usize);
+}
+
+#[test]
 fn check_sat_assuming() {
     let st = Storage::new();
     let mut solver =

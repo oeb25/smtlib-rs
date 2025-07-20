@@ -1,8 +1,8 @@
 #![doc = concat!("```ignore\n", include_str!("./Ints.smt2"), "```")]
 
 use smtlib_lowlevel::{
-    ast::{self, SpecConstant, Term},
-    lexicon::Numeral,
+    ast::{self, Identifier, QualIdentifier, SpecConstant, Term},
+    lexicon::{Numeral, Symbol},
     Storage,
 };
 
@@ -63,25 +63,121 @@ impl<'st> StaticSorted<'st> for Int<'st> {
         self.0.st()
     }
 }
-impl<'st> IntoWithStorage<'st, Int<'st>> for i64 {
+impl<'st> IntoWithStorage<'st, Int<'st>> for i128 {
     fn into_with_storage(self, st: &'st Storage) -> Int<'st> {
         let term = if self < 0 {
             app(
                 st,
                 "-",
-                Term::SpecConstant(SpecConstant::Numeral(Numeral::from_usize(
+                Term::SpecConstant(SpecConstant::Numeral(Numeral::from_u128(
                     self.unsigned_abs() as _,
                 ))),
             )
         } else {
             STerm::new(
                 st,
-                Term::SpecConstant(SpecConstant::Numeral(Numeral::from_usize(self as _))),
+                Term::SpecConstant(SpecConstant::Numeral(Numeral::from_u128(self as _))),
             )
         };
         term.into()
     }
 }
+/// Error returned when trying to convert an [`Int`] to a primitive type.
+#[derive(Debug, thiserror::Error, PartialEq, Eq, PartialOrd, Ord)]
+pub enum TryFromError {
+    #[error("numeral was a string. this happens when the numeral is too large to fit into u128")]
+    /// The numeral is too large to fit into a u128.
+    NumeralWasString,
+    #[error("out of range {}", if *neg { format!("-{abs}") } else { abs.to_string() })]
+    /// Too large to fit into the target type.
+    OutOfRange {
+        /// The number is negative.
+        neg: bool,
+        /// The absolute value of the number.
+        abs: u128,
+    },
+    #[error("numeral was not a spec constant or a negation of a numeral")]
+    /// The term was not a numeral or a negation of a numeral.
+    NotANumeral,
+}
+impl<'st> TryFrom<Int<'st>> for i128 {
+    type Error = TryFromError;
+    fn try_from(i: Int<'st>) -> Result<Self, Self::Error> {
+        match i.term() {
+            Term::SpecConstant(SpecConstant::Numeral(c)) => {
+                let n = c.into_u128().map_err(|_| TryFromError::NumeralWasString)?;
+                n.try_into()
+                    .map_err(|_| TryFromError::OutOfRange { abs: n, neg: false })
+            }
+            Term::Application(
+                QualIdentifier::Identifier(Identifier::Simple(Symbol("-"))),
+                [Term::SpecConstant(SpecConstant::Numeral(c))],
+            ) => {
+                let n = c.into_u128().map_err(|_| TryFromError::NumeralWasString)?;
+                if n == i128::MIN as u128 {
+                    // This is a special case, as i128::MIN cannot be
+                    // represented as a positive i128.
+                    return Ok(i128::MIN);
+                }
+                n.try_into()
+                    .map_err(|_| TryFromError::OutOfRange { abs: n, neg: true })
+                    .map(|n: i128| -n)
+            }
+            _ => Err(TryFromError::NotANumeral),
+        }
+    }
+}
+impl<'st> IntoWithStorage<'st, Int<'st>> for u128 {
+    fn into_with_storage(self, st: &'st Storage) -> Int<'st> {
+        STerm::new(
+            st,
+            Term::SpecConstant(SpecConstant::Numeral(Numeral::from_u128(self as _))),
+        )
+        .into()
+    }
+}
+impl<'st> TryFrom<Int<'st>> for u128 {
+    type Error = TryFromError;
+    fn try_from(i: Int<'st>) -> Result<Self, Self::Error> {
+        match i.term() {
+            Term::SpecConstant(SpecConstant::Numeral(c)) => {
+                c.into_u128().map_err(|_| TryFromError::NumeralWasString)
+            }
+            _ => Err(TryFromError::NotANumeral),
+        }
+    }
+}
+macro_rules! impl_int_conv {
+    (from $s:ty, into $t:ty) => {
+        impl<'st> IntoWithStorage<'st, Int<'st>> for $t {
+            fn into_with_storage(self, st: &'st Storage) -> Int<'st> {
+                IntoWithStorage::into_with_storage(self as $s, st)
+            }
+        }
+        impl<'st> TryFrom<Int<'st>> for $t {
+            type Error = TryFromError;
+            fn try_from(i: Int<'st>) -> Result<Self, Self::Error> {
+                let n = <$s>::try_from(i)?;
+                n.try_into().map_err(|_| TryFromError::OutOfRange {
+                    abs: n as u128,
+                    #[allow(unused_comparisons)]
+                    neg: n < 0,
+                })
+            }
+        }
+    };
+}
+impl_int_conv!(from i128, into i8);
+impl_int_conv!(from i128, into i16);
+impl_int_conv!(from i128, into i32);
+impl_int_conv!(from i128, into i64);
+impl_int_conv!(from i128, into isize);
+impl_int_conv!(from u128, into u8);
+impl_int_conv!(from u128, into u16);
+impl_int_conv!(from u128, into u32);
+impl_int_conv!(from u128, into u64);
+impl_int_conv!(from u128, into usize);
+
 impl<'st> Int<'st> {
     /// Returns the sort of ints.
     pub fn sort() -> Sort<'st> {
