@@ -139,7 +139,7 @@ where
     ///
     /// If you are not interested in the produced model, check out
     /// [`TokioSolver::check_sat`].
-    pub async fn check_sat_with_model(&mut self) -> Result<SatResultWithModel, Error> {
+    pub async fn check_sat_with_model(&mut self) -> Result<SatResultWithModel<'st>, Error> {
         match self.check_sat().await? {
             SatResult::Unsat => Ok(SatResultWithModel::Unsat),
             SatResult::Sat => Ok(SatResultWithModel::Sat(self.get_model().await?)),
@@ -152,7 +152,7 @@ where
     ///
     /// > **NOTE:** This must only be called after having called
     /// > [`TokioSolver::check_sat`] and it returning [`SatResult::Sat`].
-    pub async fn get_model(&mut self) -> Result<Model, Error> {
+    pub async fn get_model(&mut self) -> Result<Model<'st>, Error> {
         match self.driver.exec(ast::Command::GetModel).await? {
             ast::GeneralResponse::SpecificSuccessResponse(
                 ast::SpecificSuccessResponse::GetModelResponse(model),

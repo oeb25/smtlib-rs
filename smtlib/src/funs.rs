@@ -67,7 +67,7 @@ impl<'st> Fun<'st> {
     }
 
     /// Get the lowlevel AST representation of the function declaration.
-    pub fn ast(&self) -> ast::FunctionDec {
+    pub fn ast(&self) -> ast::FunctionDec<'st> {
         ast::FunctionDec(
             Symbol(self.name),
             self.st

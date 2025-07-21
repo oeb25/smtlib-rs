@@ -193,7 +193,7 @@ pub mod tokio {
 
 // TODO: Use the definitions from 3.6.3 Scoping of variables and parameters
 impl<'st> Term<'st> {
-    pub fn all_consts(&self) -> HashSet<&QualIdentifier> {
+    pub fn all_consts(&self) -> HashSet<&QualIdentifier<'st>> {
         match self {
             Term::SpecConstant(_) => HashSet::new(),
             Term::Identifier(q) => std::iter::once(q).collect(),
