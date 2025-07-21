@@ -16,6 +16,6 @@ proc-macro2 = "1.0.83"
 quote = "1.0.35"
 serde.workspace = true
 syn = "2.0.87"
-toml = "0.8.8"
+toml = "0.9.2"
 xflags = "0.3.2"
 xshell = "0.2.5"
