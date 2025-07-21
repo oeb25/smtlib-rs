@@ -507,6 +507,7 @@ impl<'st> QuantifierVars<'st> for &'st [SortedVar<'st>] {
     }
 }
 
+// TODO: we actually don't need to pass `st` as we can get it from `term`
 /// Universally quantifies over `vars` in expression `term`.
 pub fn forall<'st>(st: &'st Storage, vars: impl QuantifierVars<'st>, term: Bool<'st>) -> Bool<'st> {
     STerm::new(
@@ -515,6 +516,7 @@ pub fn forall<'st>(st: &'st Storage, vars: impl QuantifierVars<'st>, term: Bool<
     )
     .into()
 }
+// TODO: we actually don't need to pass `st` as we can get it from `term`
 /// Existentially quantifies over `vars` in expression `term`.
 pub fn exists<'st>(st: &'st Storage, vars: impl QuantifierVars<'st>, term: Bool<'st>) -> Bool<'st> {
     STerm::new(
