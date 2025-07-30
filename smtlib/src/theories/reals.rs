@@ -73,6 +73,11 @@ impl<'st> IntoWithStorage<'st, Real<'st>> for f64 {
     }
 }
 impl<'st> Real<'st> {
+    /// Construct a new real.
+    pub fn new(st: &'st Storage, value: impl IntoWithStorage<'st, Real<'st>>) -> Real<'st> {
+        value.into_with_storage(st)
+    }
+
     /// Returns the sort of reals.
     pub fn sort() -> Sort<'st> {
         Self::AST_SORT.into()
