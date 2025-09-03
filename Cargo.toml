@@ -3,14 +3,14 @@ members = ["smtlib", "lowlevel", "xtask"]
 resolver = "2"
 
 [workspace.package]
-version = "0.3.0"
+version = "0.3.1"
 rust-version = "1.82"
 
 [workspace.dependencies]
 itertools = "0.14.0"
 miette = { version = "7.0.0" }
 serde = { version = "1.0.152", features = ["derive"] }
-smtlib-lowlevel = { path = "./lowlevel", version = "0.3.0" }
+smtlib-lowlevel = { path = "./lowlevel", version = "0.3.1" }
 thiserror = "2.0"
 insta = { version = "1.40.0", features = ["ron"] }
 tokio = { version = "1.37.0", features = ["io-util", "process"] }
