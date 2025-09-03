@@ -49,15 +49,15 @@ impl<'st, X: StaticSorted<'st>, Y: StaticSorted<'st>> StaticSorted<'st> for Arra
     }
 }
 
-#[allow(unused)]
 impl<'st, X: StaticSorted<'st>, Y: StaticSorted<'st>> Array<'st, X, Y> {
     /// The value stored at `index` --- `(select self index)`
-    fn select(self, index: X) -> Y {
+    pub fn select(self, index: X) -> Y {
         app(self.st(), "select", (self.0.term(), index.term())).into()
     }
+
     /// Copy of this array with `value` stored at `index` --- `(store self index
     /// value)`
-    fn store(self, index: X, value: Y) -> Array<'st, X, Y> {
+    pub fn store(self, index: X, value: Y) -> Array<'st, X, Y> {
         app(
             self.st(),
             "store",
