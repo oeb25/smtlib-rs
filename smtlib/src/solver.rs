@@ -93,6 +93,17 @@ where
             _ => todo!(),
         }
     }
+    /// Set the :opt.priority option to the given value
+    pub fn set_opt_priority(&mut self, priority: ast::OptimizationPriority) -> Result<(), Error> {
+        let cmd = ast::Command::SetOption(ast::Option::OptPriority(priority));
+
+        match self.driver.exec(cmd)? {
+            ast::GeneralResponse::Success => Ok(()),
+            ast::GeneralResponse::Error(e) => Err(Error::Smt(e.to_string(), cmd.to_string())),
+            ast::GeneralResponse::Unsupported => Err(Error::Unsupported),
+            _ => todo!(),
+        }
+    }
     /// Explicitly sets the logic for the solver. For some backends this is not
     /// required, as they will infer what ever logic fits the current program.
     ///
@@ -126,6 +137,54 @@ where
             ast::GeneralResponse::Success => Ok(()),
             ast::GeneralResponse::Error(e) => Err(Error::Smt(e.to_string(), cmd.to_string())),
             _ => todo!(),
+        }
+    }
+    /// Adds the optimization goal of `g` as a goal to the solver.
+    pub fn maximize<S>(&mut self, g: S) -> Result<(), Error>
+    where
+        S: Sorted<'st>,
+    {
+        let term = g.into().term();
+
+        self.declare_all_consts(term)?;
+
+        let cmd = ast::Command::Maximize(term);
+
+        match self.driver.exec(cmd)? {
+            ast::GeneralResponse::Success => Ok(()),
+            ast::GeneralResponse::Error(e) => Err(Error::Smt(e.to_string(), cmd.to_string())),
+            _ => unimplemented!(),
+        }
+    }
+    /// Adds soft-constraint `b` to the solver.
+    pub fn assert_soft(&mut self, b: Bool<'st>) -> Result<(), Error> {
+        let term = b.term();
+
+        self.declare_all_consts(&term)?;
+
+        let cmd = ast::Command::AssertSoft(term, &[]);
+
+        match self.driver.exec(cmd)? {
+            ast::GeneralResponse::Success => Ok(()),
+            ast::GeneralResponse::Error(e) => Err(Error::Smt(e.to_string(), cmd.to_string())),
+            _ => unimplemented!(),
+        }
+    }
+    /// Adds the optimization goal of `g` as a goal to the solver.
+    pub fn minimize<S>(&mut self, g: S) -> Result<(), Error>
+    where
+        S: Sorted<'st>,
+    {
+        let term = g.into().term();
+
+        self.declare_all_consts(&term)?;
+
+        let cmd = ast::Command::Minimize(term);
+
+        match self.driver.exec(cmd)? {
+            ast::GeneralResponse::Success => Ok(()),
+            ast::GeneralResponse::Error(e) => Err(Error::Smt(e.to_string(), cmd.to_string())),
+            _ => unimplemented!(),
         }
     }
     /// Checks for satisfiability of the assertions sent to the solver using
@@ -236,6 +295,22 @@ where
             _ => todo!(),
         }
     }
+    /// Evaluate the given term
+    pub fn eval<S>(&mut self, term: S) -> Result<S::Inner, Error>
+    where
+        S: Sorted<'st>,
+        S::Inner: From<&'st ast::Term<'st>>,
+    {
+        let cmd = ast::Command::Eval(term.into().term());
+
+        match self.driver.exec(cmd)? {
+            ast::GeneralResponse::SpecificSuccessResponse(
+                ast::SpecificSuccessResponse::EvalResponse(ast::EvalResponse(t)),
+            ) => Ok(t.into()),
+            ast::GeneralResponse::Error(e) => Err(Error::Smt(e.to_string(), cmd.to_string())),
+            _ => unimplemented!(),
+        }
+    }
     /// Simplifies the given term
     pub fn simplify(
         &mut self,
@@ -277,7 +352,7 @@ where
         match self.driver.exec(cmd)? {
             ast::GeneralResponse::Success => {}
             ast::GeneralResponse::Error(e) => {
-                return Err(Error::Smt(e.to_string(), cmd.to_string()))
+                return Err(Error::Smt(e.to_string(), cmd.to_string()));
             }
             _ => todo!(),
         };
@@ -294,7 +369,7 @@ where
         match self.driver.exec(cmd)? {
             ast::GeneralResponse::Success => {}
             ast::GeneralResponse::Error(e) => {
-                return Err(Error::Smt(e.to_string(), cmd.to_string()))
+                return Err(Error::Smt(e.to_string(), cmd.to_string()));
             }
             _ => todo!(),
         };

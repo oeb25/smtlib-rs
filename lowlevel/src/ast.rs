@@ -154,6 +154,8 @@ impl<'st> SmtlibParse<'st> for CheckSatResponse {
 pub enum Command<'st> {
     /// `(assert <term>)`
     Assert(&'st Term<'st>),
+    /// `(assert-soft <term> <optimization_attribute>*)`
+    AssertSoft(&'st Term<'st>, &'st [OptimizationAttribute<'st>]),
     /// `(check-sat)`
     CheckSat,
     /// `(check-sat-assuming (<prop_literal>*))`
@@ -178,6 +180,8 @@ pub enum Command<'st> {
     DefineSort(Symbol<'st>, &'st [Symbol<'st>], Sort<'st>),
     /// `(echo <string>)`
     Echo(&'st str),
+    /// `(eval <term>)`
+    Eval(&'st Term<'st>),
     /// `(exit)`
     Exit,
     /// `(get-assertions)`
@@ -198,6 +202,10 @@ pub enum Command<'st> {
     GetUnsatCore,
     /// `(get-value (<term>+))`
     GetValue(&'st [&'st Term<'st>]),
+    /// `(maximize <term>)`
+    Maximize(&'st Term<'st>),
+    /// `(minimize <term>)`
+    Minimize(&'st Term<'st>),
     /// `(pop <numeral>)`
     Pop(Numeral<'st>),
     /// `(push <numeral>)`
@@ -219,6 +227,9 @@ impl std::fmt::Display for Command<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             Self::Assert(m0) => write!(f, "(assert {})", m0),
+            Self::AssertSoft(m0, m1) => {
+                write!(f, "(assert-soft {} {})", m0, m1.iter().format(" "))
+            }
             Self::CheckSat => write!(f, "(check-sat)"),
             Self::CheckSatAssuming(m0) => {
                 write!(f, "(check-sat-assuming ({}))", m0.iter().format(" "))
@@ -249,6 +260,7 @@ impl std::fmt::Display for Command<'_> {
                 write!(f, "(define-sort {} ({}) {})", m0, m1.iter().format(" "), m2)
             }
             Self::Echo(m0) => write!(f, "(echo {})", m0),
+            Self::Eval(m0) => write!(f, "(eval {})", m0),
             Self::Exit => write!(f, "(exit)"),
             Self::GetAssertions => write!(f, "(get-assertions)"),
             Self::GetAssignment => write!(f, "(get-assignment)"),
@@ -259,6 +271,8 @@ impl std::fmt::Display for Command<'_> {
             Self::GetUnsatAssumptions => write!(f, "(get-unsat-assumptions)"),
             Self::GetUnsatCore => write!(f, "(get-unsat-core)"),
             Self::GetValue(m0) => write!(f, "(get-value ({}))", m0.iter().format(" ")),
+            Self::Maximize(m0) => write!(f, "(maximize {})", m0),
+            Self::Minimize(m0) => write!(f, "(minimize {})", m0),
             Self::Pop(m0) => write!(f, "(pop {})", m0),
             Self::Push(m0) => write!(f, "(push {})", m0),
             Self::Reset => write!(f, "(reset)"),
@@ -313,6 +327,10 @@ impl<'st> SmtlibParse<'st> for Command<'st> {
             || (p.nth(offset) == Token::LParen
                 && p.nth_matches(offset + 1, Token::Reserved, "pop"))
             || (p.nth(offset) == Token::LParen
+                && p.nth_matches(offset + 1, Token::Symbol, "minimize"))
+            || (p.nth(offset) == Token::LParen
+                && p.nth_matches(offset + 1, Token::Symbol, "maximize"))
+            || (p.nth(offset) == Token::LParen
                 && p.nth_matches(offset + 1, Token::Reserved, "get-unsat-core")
                 && p.nth(offset + 2) == Token::RParen)
             || (p.nth(offset) == Token::LParen
@@ -338,6 +356,8 @@ impl<'st> SmtlibParse<'st> for Command<'st> {
                 && p.nth_matches(offset + 1, Token::Reserved, "exit")
                 && p.nth(offset + 2) == Token::RParen)
             || (p.nth(offset) == Token::LParen
+                && p.nth_matches(offset + 1, Token::Symbol, "eval"))
+            || (p.nth(offset) == Token::LParen
                 && p.nth_matches(offset + 1, Token::Reserved, "echo"))
             || (p.nth(offset) == Token::LParen
                 && p.nth_matches(offset + 1, Token::Reserved, "define-fun-rec"))
@@ -352,6 +372,8 @@ impl<'st> SmtlibParse<'st> for Command<'st> {
             || (p.nth(offset) == Token::LParen
                 && p.nth_matches(offset + 1, Token::Reserved, "check-sat")
                 && p.nth(offset + 2) == Token::RParen)
+            || (p.nth(offset) == Token::LParen
+                && p.nth_matches(offset + 1, Token::Symbol, "assert-soft"))
             || (p.nth(offset) == Token::LParen
                 && p.nth_matches(offset + 1, Token::Reserved, "assert"))
     }
@@ -515,6 +537,24 @@ impl<'st> SmtlibParse<'st> for Command<'st> {
             #[allow(clippy::useless_conversion)] return Ok(Self::Pop(m0.into()));
         }
         if p.nth(offset) == Token::LParen
+            && p.nth_matches(offset + 1, Token::Symbol, "minimize")
+        {
+            p.expect(Token::LParen)?;
+            p.expect_matches(Token::Symbol, "minimize")?;
+            let m0 = <Term<'st> as SmtlibParse<'st>>::parse(p)?;
+            p.expect(Token::RParen)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Minimize(m0.into()));
+        }
+        if p.nth(offset) == Token::LParen
+            && p.nth_matches(offset + 1, Token::Symbol, "maximize")
+        {
+            p.expect(Token::LParen)?;
+            p.expect_matches(Token::Symbol, "maximize")?;
+            let m0 = <Term<'st> as SmtlibParse<'st>>::parse(p)?;
+            p.expect(Token::RParen)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Maximize(m0.into()));
+        }
+        if p.nth(offset) == Token::LParen
             && p.nth_matches(offset + 1, Token::Reserved, "get-unsat-core")
             && p.nth(offset + 2) == Token::RParen
         {
@@ -596,6 +636,15 @@ impl<'st> SmtlibParse<'st> for Command<'st> {
             #[allow(clippy::useless_conversion)] return Ok(Self::Exit);
         }
         if p.nth(offset) == Token::LParen
+            && p.nth_matches(offset + 1, Token::Symbol, "eval")
+        {
+            p.expect(Token::LParen)?;
+            p.expect_matches(Token::Symbol, "eval")?;
+            let m0 = <Term<'st> as SmtlibParse<'st>>::parse(p)?;
+            p.expect(Token::RParen)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Eval(m0.into()));
+        }
+        if p.nth(offset) == Token::LParen
             && p.nth_matches(offset + 1, Token::Reserved, "echo")
         {
             p.expect(Token::LParen)?;
@@ -666,6 +715,17 @@ impl<'st> SmtlibParse<'st> for Command<'st> {
             #[allow(clippy::useless_conversion)] return Ok(Self::CheckSat);
         }
         if p.nth(offset) == Token::LParen
+            && p.nth_matches(offset + 1, Token::Symbol, "assert-soft")
+        {
+            p.expect(Token::LParen)?;
+            p.expect_matches(Token::Symbol, "assert-soft")?;
+            let m0 = <Term<'st> as SmtlibParse<'st>>::parse(p)?;
+            let m1 = p.any::<OptimizationAttribute<'st>>()?;
+            p.expect(Token::RParen)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(Self::AssertSoft(m0.into(), m1.into()));
+        }
+        if p.nth(offset) == Token::LParen
             && p.nth_matches(offset + 1, Token::Reserved, "assert")
         {
             p.expect(Token::LParen)?;
@@ -681,6 +741,7 @@ impl<'st> Command<'st> {
     pub fn has_response(&self) -> bool {
         match self {
             Self::Assert(_) => false,
+            Self::AssertSoft(_, _) => false,
             Self::CheckSat => true,
             Self::CheckSatAssuming(_) => true,
             Self::DeclareConst(_, _) => false,
@@ -693,6 +754,7 @@ impl<'st> Command<'st> {
             Self::DefineFunsRec(_, _) => false,
             Self::DefineSort(_, _, _) => false,
             Self::Echo(_) => true,
+            Self::Eval(_) => true,
             Self::Exit => false,
             Self::GetAssertions => true,
             Self::GetAssignment => true,
@@ -703,6 +765,8 @@ impl<'st> Command<'st> {
             Self::GetUnsatAssumptions => true,
             Self::GetUnsatCore => true,
             Self::GetValue(_) => true,
+            Self::Maximize(_) => false,
+            Self::Minimize(_) => false,
             Self::Pop(_) => false,
             Self::Push(_) => false,
             Self::Reset => false,
@@ -720,6 +784,7 @@ impl<'st> Command<'st> {
     ) -> Result<std::option::Option<SpecificSuccessResponse<'st>>, ParseError> {
         match self {
             Self::Assert(_) => Ok(None),
+            Self::AssertSoft(_, _) => Ok(None),
             Self::CheckSat => {
                 Ok(
                     Some(
@@ -756,6 +821,19 @@ impl<'st> Command<'st> {
                     Some(
                         SpecificSuccessResponse::EchoResponse(
                             <EchoResponse<
+                                'st,
+                            > as SmtlibParse<
+                                'st,
+                            >>::parse(&mut Parser::new(st, response))?,
+                        ),
+                    ),
+                )
+            }
+            Self::Eval(_) => {
+                Ok(
+                    Some(
+                        SpecificSuccessResponse::EvalResponse(
+                            <EvalResponse<
                                 'st,
                             > as SmtlibParse<
                                 'st,
@@ -882,6 +960,8 @@ impl<'st> Command<'st> {
                     ),
                 )
             }
+            Self::Maximize(_) => Ok(None),
+            Self::Minimize(_) => Ok(None),
             Self::Pop(_) => Ok(None),
             Self::Push(_) => Ok(None),
             Self::Reset => Ok(None),
@@ -1056,6 +1136,30 @@ impl<'st> SmtlibParse<'st> for ErrorBehavior {
             #[allow(clippy::useless_conversion)] return Ok(Self::ContinuedExecution);
         }
         Err(p.stuck("ErrorBehavior"))
+    }
+}
+/// `<term>`
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub struct EvalResponse<'st>(pub &'st Term<'st>);
+impl std::fmt::Display for EvalResponse<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+impl<'st> EvalResponse<'st> {
+    pub fn parse(st: &'st Storage, src: &str) -> Result<EvalResponse<'st>, ParseError> {
+        <EvalResponse<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
+    }
+}
+impl<'st> SmtlibParse<'st> for EvalResponse<'st> {
+    type Output = EvalResponse<'st>;
+    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
+        Term::is_start_of(offset, p)
+    }
+    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
+        let m0 = <Term<'st> as SmtlibParse<'st>>::parse(p)?;
+        Ok(Self(m0))
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -2054,6 +2158,112 @@ impl<'st> SmtlibParse<'st> for ModelResponse<'st> {
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub enum OptimizationAttribute<'st> {
+    /// `<attribute>`
+    Attribute(Attribute<'st>),
+    /// `:id <symbol>`
+    Id(Symbol<'st>),
+    /// `:weight <numeral>`
+    Weight(Numeral<'st>),
+}
+impl std::fmt::Display for OptimizationAttribute<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::Attribute(m0) => write!(f, "{}", m0),
+            Self::Id(m0) => write!(f, ":id {}", m0),
+            Self::Weight(m0) => write!(f, ":weight {}", m0),
+        }
+    }
+}
+impl<'st> OptimizationAttribute<'st> {
+    pub fn parse(
+        st: &'st Storage,
+        src: &str,
+    ) -> Result<OptimizationAttribute<'st>, ParseError> {
+        <OptimizationAttribute<
+            'st,
+        > as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
+    }
+}
+impl<'st> SmtlibParse<'st> for OptimizationAttribute<'st> {
+    type Output = OptimizationAttribute<'st>;
+    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
+        (p.nth_matches(offset, Token::Keyword, ":weight"))
+            || (p.nth_matches(offset, Token::Keyword, ":id"))
+            || (Attribute::is_start_of(offset, p))
+    }
+    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
+        let offset = 0;
+        if p.nth_matches(offset, Token::Keyword, ":weight") {
+            p.expect_matches(Token::Keyword, ":weight")?;
+            let m0 = <Numeral<'st> as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Weight(m0.into()));
+        }
+        if p.nth_matches(offset, Token::Keyword, ":id") {
+            p.expect_matches(Token::Keyword, ":id")?;
+            let m0 = <Symbol<'st> as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Id(m0.into()));
+        }
+        if Attribute::is_start_of(offset, p) {
+            let m0 = <Attribute<'st> as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Attribute(m0.into()));
+        }
+        Err(p.stuck("OptimizationAttribute"))
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub enum OptimizationPriority {
+    /// `box`
+    Box,
+    /// `lex`
+    Lex,
+    /// `pareto`
+    Pareto,
+}
+impl std::fmt::Display for OptimizationPriority {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::Box => write!(f, "box"),
+            Self::Lex => write!(f, "lex"),
+            Self::Pareto => write!(f, "pareto"),
+        }
+    }
+}
+impl<'st> OptimizationPriority {
+    pub fn parse(
+        st: &'st Storage,
+        src: &str,
+    ) -> Result<OptimizationPriority, ParseError> {
+        <OptimizationPriority as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
+    }
+}
+impl<'st> SmtlibParse<'st> for OptimizationPriority {
+    type Output = OptimizationPriority;
+    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
+        (p.nth_matches(offset, Token::Symbol, "pareto"))
+            || (p.nth_matches(offset, Token::Symbol, "lex"))
+            || (p.nth_matches(offset, Token::Symbol, "box"))
+    }
+    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
+        let offset = 0;
+        if p.nth_matches(offset, Token::Symbol, "pareto") {
+            p.expect_matches(Token::Symbol, "pareto")?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Pareto);
+        }
+        if p.nth_matches(offset, Token::Symbol, "lex") {
+            p.expect_matches(Token::Symbol, "lex")?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Lex);
+        }
+        if p.nth_matches(offset, Token::Symbol, "box") {
+            p.expect_matches(Token::Symbol, "box")?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Box);
+        }
+        Err(p.stuck("OptimizationPriority"))
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub enum Option<'st> {
     /// `<attribute>`
     Attribute(Attribute<'st>),
@@ -2063,6 +2273,8 @@ pub enum Option<'st> {
     GlobalDeclarations(BValue),
     /// `:interactive-mode <b_value>`
     InteractiveMode(BValue),
+    /// `:opt.priority <optimization_priority>`
+    OptPriority(OptimizationPriority),
     /// `:print-success <b_value>`
     PrintSuccess(BValue),
     /// `:produce-assertions <b_value>`
@@ -2095,6 +2307,7 @@ impl std::fmt::Display for Option<'_> {
             }
             Self::GlobalDeclarations(m0) => write!(f, ":global-declarations {}", m0),
             Self::InteractiveMode(m0) => write!(f, ":interactive-mode {}", m0),
+            Self::OptPriority(m0) => write!(f, ":opt.priority {}", m0),
             Self::PrintSuccess(m0) => write!(f, ":print-success {}", m0),
             Self::ProduceAssertions(m0) => write!(f, ":produce-assertions {}", m0),
             Self::ProduceAssignments(m0) => write!(f, ":produce-assignments {}", m0),
@@ -2132,6 +2345,7 @@ impl<'st> SmtlibParse<'st> for Option<'st> {
             || (p.nth_matches(offset, Token::Keyword, ":produce-assignments"))
             || (p.nth_matches(offset, Token::Keyword, ":produce-assertions"))
             || (p.nth_matches(offset, Token::Keyword, ":print-success"))
+            || (p.nth_matches(offset, Token::Keyword, ":opt.priority"))
             || (p.nth_matches(offset, Token::Keyword, ":interactive-mode"))
             || (p.nth_matches(offset, Token::Keyword, ":global-declarations"))
             || (p.nth_matches(offset, Token::Keyword, ":diagnostic-output-channel"))
@@ -2202,6 +2416,11 @@ impl<'st> SmtlibParse<'st> for Option<'st> {
             let m0 = <BValue as SmtlibParse<'st>>::parse(p)?;
             #[allow(clippy::useless_conversion)]
             return Ok(Self::PrintSuccess(m0.into()));
+        }
+        if p.nth_matches(offset, Token::Keyword, ":opt.priority") {
+            p.expect_matches(Token::Keyword, ":opt.priority")?;
+            let m0 = <OptimizationPriority as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::OptPriority(m0.into()));
         }
         if p.nth_matches(offset, Token::Keyword, ":interactive-mode") {
             p.expect_matches(Token::Keyword, ":interactive-mode")?;
@@ -2825,6 +3044,8 @@ pub enum SpecificSuccessResponse<'st> {
     CheckSatResponse(CheckSatResponse),
     /// `<echo_response>`
     EchoResponse(EchoResponse<'st>),
+    /// `<eval_response>`
+    EvalResponse(EvalResponse<'st>),
     /// `<get_assertions_response>`
     GetAssertionsResponse(GetAssertionsResponse<'st>),
     /// `<get_assignment_response>`
@@ -2851,6 +3072,7 @@ impl std::fmt::Display for SpecificSuccessResponse<'_> {
         match self {
             Self::CheckSatResponse(m0) => write!(f, "{}", m0),
             Self::EchoResponse(m0) => write!(f, "{}", m0),
+            Self::EvalResponse(m0) => write!(f, "{}", m0),
             Self::GetAssertionsResponse(m0) => write!(f, "{}", m0),
             Self::GetAssignmentResponse(m0) => write!(f, "{}", m0),
             Self::GetInfoResponse(m0) => write!(f, "{}", m0),
@@ -2887,6 +3109,7 @@ impl<'st> SmtlibParse<'st> for SpecificSuccessResponse<'st> {
             || (GetInfoResponse::is_start_of(offset, p))
             || (GetAssignmentResponse::is_start_of(offset, p))
             || (GetAssertionsResponse::is_start_of(offset, p))
+            || (EvalResponse::is_start_of(offset, p))
             || (EchoResponse::is_start_of(offset, p))
             || (CheckSatResponse::is_start_of(offset, p))
     }
@@ -2941,6 +3164,11 @@ impl<'st> SmtlibParse<'st> for SpecificSuccessResponse<'st> {
             let m0 = <GetAssertionsResponse<'st> as SmtlibParse<'st>>::parse(p)?;
             #[allow(clippy::useless_conversion)]
             return Ok(Self::GetAssertionsResponse(m0.into()));
+        }
+        if EvalResponse::is_start_of(offset, p) {
+            let m0 = <EvalResponse<'st> as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(Self::EvalResponse(m0.into()));
         }
         if EchoResponse::is_start_of(offset, p) {
             let m0 = <EchoResponse<'st> as SmtlibParse<'st>>::parse(p)?;
