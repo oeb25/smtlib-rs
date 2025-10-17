@@ -1,14 +1,15 @@
 #![doc = concat!("```ignore\n", include_str!("./Reals.smt2"), "```")]
 
 use smtlib_lowlevel::{
-    Storage,
     ast::{self, Term},
+    Storage,
 };
 
 use crate::{
-    Bool, impl_op,
+    impl_op,
     sorts::Sort,
-    terms::{Const, Dynamic, IntoWithStorage, STerm, Sorted, StaticSorted, app, qual_ident},
+    terms::{app, qual_ident, Const, Dynamic, IntoWithStorage, STerm, Sorted, StaticSorted},
+    Bool,
 };
 
 /// A [`Real`] is a term containing a

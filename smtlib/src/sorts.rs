@@ -11,12 +11,12 @@
 
 use itertools::Itertools;
 use smtlib_lowlevel::{
-    Storage,
     ast::{self, Identifier},
     lexicon::{Numeral, Symbol},
+    Storage,
 };
 
-use crate::terms::{self, STerm, qual_ident};
+use crate::terms::{self, qual_ident, STerm};
 
 /// A SMT-LIB sort.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
