@@ -88,28 +88,28 @@ impl<'st> Real<'st> {
         app(self.st(), op, (self.term(), other.term())).into()
     }
     /// Construct the term expressing `(> self other)`
-    pub fn gt(self, other: impl Into<Self>) -> Bool<'st> {
-        self.binop(">", other.into())
+    pub fn gt(self, other: impl IntoWithStorage<'st, Self>) -> Bool<'st> {
+        self.binop(">", other.into_with_storage(self.st()))
     }
     /// Construct the term expressing `(>= self other)`
-    pub fn ge(self, other: impl Into<Self>) -> Bool<'st> {
-        self.binop(">=", other.into())
+    pub fn ge(self, other: impl IntoWithStorage<'st, Self>) -> Bool<'st> {
+        self.binop(">=", other.into_with_storage(self.st()))
     }
     /// Construct the term expressing `(< self other)`
-    pub fn lt(self, other: impl Into<Self>) -> Bool<'st> {
-        self.binop("<", other.into())
+    pub fn lt(self, other: impl IntoWithStorage<'st, Self>) -> Bool<'st> {
+        self.binop("<", other.into_with_storage(self.st()))
     }
     /// Construct the term expressing `(<= self other)`
-    pub fn le(self, other: impl Into<Self>) -> Bool<'st> {
-        self.binop("<=", other.into())
+    pub fn le(self, other: impl IntoWithStorage<'st, Self>) -> Bool<'st> {
+        self.binop("<=", other.into_with_storage(self.st()))
     }
     /// Construct the term expressing `(abs self)`
     pub fn abs(self) -> Real<'st> {
         app(self.st(), "abs", self.term()).into()
     }
     /// Construct the term expressing floor division of two terms
-    pub fn floor_div<R>(self, rhs: impl Into<Self>) -> Self {
-        self.binop("div", rhs.into())
+    pub fn floor_div<R>(self, rhs: impl IntoWithStorage<'st, Self>) -> Self {
+        self.binop("div", rhs.into_with_storage(self.st()))
     }
 }
 
