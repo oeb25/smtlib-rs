@@ -74,6 +74,25 @@ impl<'st> IntoWithStorage<'st, Real<'st>> for f64 {
         STerm::new(st, term).into()
     }
 }
+
+#[cfg(feature = "decimal")]
+impl<'st> IntoWithStorage<'st, Real<'st>> for rust_decimal::Decimal {
+    fn into_with_storage(self, st: &'st Storage) -> Real<'st> {
+        // Make sure to format as Real
+        let mut s = self.abs().to_string();
+        if !s.contains(".") {
+            s += ".0";
+        }
+        let id = Term::Identifier(qual_ident(st.alloc_str(&s), None));
+        let term = if self.is_sign_negative() {
+            Term::Application(qual_ident("-", None), st.alloc_slice(&[st.alloc_term(id)]))
+        } else {
+            id
+        };
+        STerm::new(st, term).into()
+    }
+}
+
 impl<'st> Real<'st> {
     /// Construct a new real.
     pub fn new(st: &'st Storage, value: impl IntoWithStorage<'st, Real<'st>>) -> Real<'st> {
