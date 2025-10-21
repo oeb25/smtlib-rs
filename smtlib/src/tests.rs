@@ -104,3 +104,21 @@ fn check_sat_assuming() {
         SatResult::Sat
     );
 }
+
+#[test]
+fn check_maximize() {
+    let st = Storage::new();
+    let mut solver =
+        Solver::new(&st, crate::backend::z3_binary::Z3Binary::new("z3").unwrap()).unwrap();
+
+    let x = Int::new_const(&st, "x");
+    let b = Bool::new_const(&st, "b");
+    solver.assert(x.le(100)).unwrap();
+    solver.assert(b.implies(x._eq(42))).unwrap();
+    solver.maximize(x).unwrap();
+
+    let sat_res = solver.check_sat_with_model().unwrap();
+    let model = sat_res.expect_sat().unwrap();
+    assert_eq!(model.eval(x).unwrap().to_string(), "100".to_string());
+    assert_eq!(model.eval(b).unwrap().to_string(), "false".to_string());
+}

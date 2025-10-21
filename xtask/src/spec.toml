@@ -263,6 +263,30 @@ syntax = "( set-option <option> )"
 syntax = "( simplify <term> )"
 response = "<simplify_response>"
 
+# Z3 eval extension
+
+[command.eval]
+syntax = "( eval <term> )"
+response = "<eval_response>"
+
+# Z3 Max-SMT extensions
+
+# https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/nbjorner-scss2014.pdf
+
+[command.maximize]
+syntax = "( maximize <term> )"
+
+[command.minimize]
+syntax = "( minimize <term> )"
+
+[command.assert-soft]
+syntax = "( assert-soft <term> <optimization_attribute>* )"
+
+[optimization_attribute]
+weight = { syntax = ":weight <numeral>" }
+id = { syntax = ":id <symbol>"}
+attribute = { syntax = "<attribute>" }
+
 [script]
 syntax = "<command>*"
 separator = "\n"
@@ -290,7 +314,21 @@ random-seed = { syntax = ":random-seed <numeral>" }
 regular-output-channel = { syntax = ":regular-output-channel <string>" }
 reproducible-resource-limit = { syntax = ":reproducible-resource-limit <numeral>" }
 verbosity = { syntax = ":verbosity <numeral>" }
+
+# optimization options
+"opt.priority" = { syntax = ":opt.priority <optimization_priority>"}
+
+# cont'd
 attribute = { syntax = "<attribute>" }
+
+[optimization_priority.pareto]
+syntax = "pareto"
+
+[optimization_priority.lex]
+syntax = "lex"
+
+[optimization_priority.box]
+syntax = "box"
 
 # Info flags.
 
@@ -380,6 +418,11 @@ syntax = "( <valuation_pair>+ )"
 [simplify_response]
 syntax = "<term>"
 
+# Z3 eval extension
+
+[eval_response]
+syntax = "<term>"
+
 [specific_success_response]
 get_unsat_assumptions_response = { syntax = "<get_unsat_assumptions_response>" }
 check_sat_response = { syntax = "<check_sat_response>" }
@@ -393,6 +436,8 @@ get_proof_response = { syntax = "<get_proof_response>" }
 get_unsat_core_response = { syntax = "<get_unsat_core_response>" }
 get_value_response = { syntax = "<get_value_response>" }
 simplify_response = { syntax = "<simplify_response>" }
+# Z3 eval extension
+eval_response = { syntax = "<eval_response>" }
 
 [general_response]
 success = { syntax = "success" }
