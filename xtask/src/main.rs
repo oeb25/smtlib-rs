@@ -3,7 +3,7 @@ mod logics;
 
 use std::path::{Path, PathBuf};
 
-use color_eyre::Result;
+use color_eyre::{eyre::bail, Result};
 
 mod flags {
     xflags::xflags! {
@@ -11,11 +11,20 @@ mod flags {
 
         cmd xtask {
             /// Generate the ast from the SMT-LIB standard
-            cmd ast {}
-            cmd logics {}
+            cmd ast {
+                /// Check that the existing content matches the generated (does not write)
+                optional --check
+            }
+            cmd logics {
+                /// Check that the existing content matches the generated (does not write)
+                optional --check
+            }
         }
     }
 }
+
+const AST_PATH: &str = "./lowlevel/src/ast.rs";
+const LOGICS_PATH: &str = "./smtlib/src/logics.rs";
 
 fn main() -> Result<()> {
     color_eyre::install()?;
@@ -25,17 +34,42 @@ fn main() -> Result<()> {
 
     let e = flags::Xtask::from_env_or_exit();
     match e.subcommand {
-        flags::XtaskCmd::Ast(_) => {
+        flags::XtaskCmd::Ast(args) => {
             let output = add_preamble("cargo xtask ast", ast::generate()?);
-            sh.write_file("./lowlevel/src/ast.rs", output)?;
+            write_or_check(&sh, AST_PATH, args.check, &output)?;
         }
-        flags::XtaskCmd::Logics(_) => {
+        flags::XtaskCmd::Logics(args) => {
             let output = add_preamble("cargo xtask logics", logics::generate(&sh)?);
-            sh.write_file("./smtlib/src/logics.rs", output)?;
+            write_or_check(&sh, LOGICS_PATH, args.check, &output)?;
         }
     }
 
     Ok(())
+}
+
+fn write_or_check(
+    sh: &xshell::Shell,
+    path: impl AsRef<Path>,
+    check: bool,
+    content: &str,
+) -> Result<()> {
+    let path = path.as_ref();
+
+    if check {
+        let previous = sh.read_file(path)?;
+
+        if content == previous {
+            Ok(())
+        } else {
+            bail!(
+                "generated `{}` does not match contents on disk",
+                path.display()
+            )
+        }
+    } else {
+        sh.write_file(path, content)?;
+        Ok(())
+    }
 }
 
 fn add_preamble(generator: &'static str, mut text: String) -> String {

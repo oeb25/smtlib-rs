@@ -99,6 +99,21 @@ jobs:
         run: cargo check
         env:
           TOOLCHAIN_TARGET: ${{ matrix.target }}
+  generate:
+    name: Check generated files
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Install rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Check generated AST
+        run: cargo xtask ast --check
+      - name: Check generated Logics
+        run: cargo xtask logics --check
   lockfile:
     runs-on: ubuntu-latest
     steps:
