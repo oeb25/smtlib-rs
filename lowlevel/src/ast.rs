@@ -7,273 +7,6 @@ use itertools::Itertools;
 use crate::lexicon::*;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub enum SpecConstant<'st> {
-    /// `<numeral>`
-    Numeral(Numeral<'st>),
-    /// `<decimal>`
-    Decimal(Decimal<'st>),
-    /// `<hexadecimal>`
-    Hexadecimal(Hexadecimal<'st>),
-    /// `<binary>`
-    Binary(Binary<'st>),
-    /// `<string>`
-    String(&'st str),
-}
-impl std::fmt::Display for SpecConstant<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::Numeral(m0) => write!(f, "{}", m0),
-            Self::Decimal(m0) => write!(f, "{}", m0),
-            Self::Hexadecimal(m0) => write!(f, "{}", m0),
-            Self::Binary(m0) => write!(f, "{}", m0),
-            Self::String(m0) => write!(f, "{}", m0),
-        }
-    }
-}
-impl<'st> SpecConstant<'st> {
-    pub fn parse(st: &'st Storage, src: &str) -> Result<SpecConstant<'st>, ParseError> {
-        <SpecConstant<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
-    }
-}
-impl<'st> SmtlibParse<'st> for SpecConstant<'st> {
-    type Output = SpecConstant<'st>;
-    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
-        (String::is_start_of(offset, p)) || (Binary::is_start_of(offset, p))
-            || (Hexadecimal::is_start_of(offset, p)) || (Decimal::is_start_of(offset, p))
-            || (Numeral::is_start_of(offset, p))
-    }
-    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
-        let offset = 0;
-        if String::is_start_of(offset, p) {
-            let m0 = <String as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::String(m0.into()));
-        }
-        if Binary::is_start_of(offset, p) {
-            let m0 = <Binary<'st> as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Binary(m0.into()));
-        }
-        if Hexadecimal::is_start_of(offset, p) {
-            let m0 = <Hexadecimal<'st> as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Hexadecimal(m0.into()));
-        }
-        if Decimal::is_start_of(offset, p) {
-            let m0 = <Decimal<'st> as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Decimal(m0.into()));
-        }
-        if Numeral::is_start_of(offset, p) {
-            let m0 = <Numeral<'st> as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Numeral(m0.into()));
-        }
-        Err(p.stuck("SpecConstant"))
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub enum SExpr<'st> {
-    /// `<spec_constant>`
-    SpecConstant(SpecConstant<'st>),
-    /// `<symbol>`
-    Symbol(Symbol<'st>),
-    /// `<reserved>`
-    Reserved(Reserved<'st>),
-    /// `<keyword>`
-    Keyword(Keyword<'st>),
-    /// `(<s_expr>*)`
-    Paren(&'st [SExpr<'st>]),
-}
-impl std::fmt::Display for SExpr<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::SpecConstant(m0) => write!(f, "{}", m0),
-            Self::Symbol(m0) => write!(f, "{}", m0),
-            Self::Reserved(m0) => write!(f, "{}", m0),
-            Self::Keyword(m0) => write!(f, "{}", m0),
-            Self::Paren(m0) => write!(f, "({})", m0.iter().format(" ")),
-        }
-    }
-}
-impl<'st> SExpr<'st> {
-    pub fn parse(st: &'st Storage, src: &str) -> Result<SExpr<'st>, ParseError> {
-        <SExpr<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
-    }
-}
-impl<'st> SmtlibParse<'st> for SExpr<'st> {
-    type Output = SExpr<'st>;
-    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
-        (p.nth(offset) == Token::LParen) || (Keyword::is_start_of(offset, p))
-            || (Reserved::is_start_of(offset, p)) || (Symbol::is_start_of(offset, p))
-            || (SpecConstant::is_start_of(offset, p))
-    }
-    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
-        let offset = 0;
-        if p.nth(offset) == Token::LParen {
-            p.expect(Token::LParen)?;
-            let m0 = p.any::<SExpr<'st>>()?;
-            p.expect(Token::RParen)?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Paren(m0.into()));
-        }
-        if Keyword::is_start_of(offset, p) {
-            let m0 = <Keyword<'st> as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Keyword(m0.into()));
-        }
-        if Reserved::is_start_of(offset, p) {
-            let m0 = <Reserved<'st> as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Reserved(m0.into()));
-        }
-        if Symbol::is_start_of(offset, p) {
-            let m0 = <Symbol<'st> as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Symbol(m0.into()));
-        }
-        if SpecConstant::is_start_of(offset, p) {
-            let m0 = <SpecConstant<'st> as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)]
-            return Ok(Self::SpecConstant(m0.into()));
-        }
-        Err(p.stuck("SExpr"))
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub enum Index<'st> {
-    /// `<numeral>`
-    Numeral(Numeral<'st>),
-    /// `<symbol>`
-    Symbol(Symbol<'st>),
-}
-impl std::fmt::Display for Index<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::Numeral(m0) => write!(f, "{}", m0),
-            Self::Symbol(m0) => write!(f, "{}", m0),
-        }
-    }
-}
-impl<'st> Index<'st> {
-    pub fn parse(st: &'st Storage, src: &str) -> Result<Index<'st>, ParseError> {
-        <Index<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
-    }
-}
-impl<'st> SmtlibParse<'st> for Index<'st> {
-    type Output = Index<'st>;
-    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
-        (Symbol::is_start_of(offset, p)) || (Numeral::is_start_of(offset, p))
-    }
-    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
-        let offset = 0;
-        if Symbol::is_start_of(offset, p) {
-            let m0 = <Symbol<'st> as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Symbol(m0.into()));
-        }
-        if Numeral::is_start_of(offset, p) {
-            let m0 = <Numeral<'st> as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Numeral(m0.into()));
-        }
-        Err(p.stuck("Index"))
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub enum Identifier<'st> {
-    /// `<symbol>`
-    Simple(Symbol<'st>),
-    /// `(_ <symbol> <index>+)`
-    Indexed(Symbol<'st>, &'st [Index<'st>]),
-}
-impl std::fmt::Display for Identifier<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::Simple(m0) => write!(f, "{}", m0),
-            Self::Indexed(m0, m1) => write!(f, "(_ {} {})", m0, m1.iter().format(" ")),
-        }
-    }
-}
-impl<'st> Identifier<'st> {
-    pub fn parse(st: &'st Storage, src: &str) -> Result<Identifier<'st>, ParseError> {
-        <Identifier<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
-    }
-}
-impl<'st> SmtlibParse<'st> for Identifier<'st> {
-    type Output = Identifier<'st>;
-    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
-        (p.nth(offset) == Token::LParen
-            && p.nth_matches(offset + 1, Token::Reserved, "_"))
-            || (Symbol::is_start_of(offset, p))
-    }
-    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
-        let offset = 0;
-        if p.nth(offset) == Token::LParen
-            && p.nth_matches(offset + 1, Token::Reserved, "_")
-        {
-            p.expect(Token::LParen)?;
-            p.expect_matches(Token::Reserved, "_")?;
-            let m0 = <Symbol<'st> as SmtlibParse<'st>>::parse(p)?;
-            let m1 = p.non_zero::<Index<'st>>()?;
-            p.expect(Token::RParen)?;
-            #[allow(clippy::useless_conversion)]
-            return Ok(Self::Indexed(m0.into(), m1.into()));
-        }
-        if Symbol::is_start_of(offset, p) {
-            let m0 = <Symbol<'st> as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Simple(m0.into()));
-        }
-        Err(p.stuck("Identifier"))
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub enum AttributeValue<'st> {
-    /// `<spec_constant>`
-    SpecConstant(SpecConstant<'st>),
-    /// `<symbol>`
-    Symbol(Symbol<'st>),
-    /// `(<s_expr>)`
-    Expr(SExpr<'st>),
-}
-impl std::fmt::Display for AttributeValue<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::SpecConstant(m0) => write!(f, "{}", m0),
-            Self::Symbol(m0) => write!(f, "{}", m0),
-            Self::Expr(m0) => write!(f, "({})", m0),
-        }
-    }
-}
-impl<'st> AttributeValue<'st> {
-    pub fn parse(
-        st: &'st Storage,
-        src: &str,
-    ) -> Result<AttributeValue<'st>, ParseError> {
-        <AttributeValue<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
-    }
-}
-impl<'st> SmtlibParse<'st> for AttributeValue<'st> {
-    type Output = AttributeValue<'st>;
-    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
-        (p.nth(offset) == Token::LParen) || (Symbol::is_start_of(offset, p))
-            || (SpecConstant::is_start_of(offset, p))
-    }
-    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
-        let offset = 0;
-        if p.nth(offset) == Token::LParen {
-            p.expect(Token::LParen)?;
-            let m0 = <SExpr<'st> as SmtlibParse<'st>>::parse(p)?;
-            p.expect(Token::RParen)?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Expr(m0.into()));
-        }
-        if Symbol::is_start_of(offset, p) {
-            let m0 = <Symbol<'st> as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Symbol(m0.into()));
-        }
-        if SpecConstant::is_start_of(offset, p) {
-            let m0 = <SpecConstant<'st> as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)]
-            return Ok(Self::SpecConstant(m0.into()));
-        }
-        Err(p.stuck("AttributeValue"))
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub enum Attribute<'st> {
     /// `<keyword>`
     Keyword(Keyword<'st>),
@@ -317,1096 +50,103 @@ impl<'st> SmtlibParse<'st> for Attribute<'st> {
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub enum Sort<'st> {
-    /// `<identifier>`
-    Sort(Identifier<'st>),
-    /// `(<identifier> <sort>+)`
-    Parametric(Identifier<'st>, &'st [Sort<'st>]),
+pub enum AttributeValue<'st> {
+    /// `(<s_expr>)`
+    Expr(SExpr<'st>),
+    /// `<spec_constant>`
+    SpecConstant(SpecConstant<'st>),
+    /// `<symbol>`
+    Symbol(Symbol<'st>),
 }
-impl std::fmt::Display for Sort<'_> {
+impl std::fmt::Display for AttributeValue<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            Self::Sort(m0) => write!(f, "{}", m0),
-            Self::Parametric(m0, m1) => write!(f, "({} {})", m0, m1.iter().format(" ")),
+            Self::Expr(m0) => write!(f, "({})", m0),
+            Self::SpecConstant(m0) => write!(f, "{}", m0),
+            Self::Symbol(m0) => write!(f, "{}", m0),
         }
     }
 }
-impl<'st> Sort<'st> {
-    pub fn parse(st: &'st Storage, src: &str) -> Result<Sort<'st>, ParseError> {
-        <Sort<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
-    }
-}
-impl<'st> SmtlibParse<'st> for Sort<'st> {
-    type Output = Sort<'st>;
-    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
-        (Identifier::is_start_of(offset, p)) || (p.nth(offset) == Token::LParen)
-    }
-    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
-        let offset = 0;
-        if Identifier::is_start_of(offset, p) {
-            let m0 = <Identifier<'st> as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Sort(m0.into()));
-        }
-        if p.nth(offset) == Token::LParen {
-            p.expect(Token::LParen)?;
-            let m0 = <Identifier<'st> as SmtlibParse<'st>>::parse(p)?;
-            let m1 = p.non_zero::<Sort<'st>>()?;
-            p.expect(Token::RParen)?;
-            #[allow(clippy::useless_conversion)]
-            return Ok(Self::Parametric(m0.into(), m1.into()));
-        }
-        Err(p.stuck("Sort"))
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub enum QualIdentifier<'st> {
-    /// `<identifier>`
-    Identifier(Identifier<'st>),
-    /// `(as <identifier> <sort>)`
-    Sorted(Identifier<'st>, Sort<'st>),
-}
-impl std::fmt::Display for QualIdentifier<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::Identifier(m0) => write!(f, "{}", m0),
-            Self::Sorted(m0, m1) => write!(f, "(as {} {})", m0, m1),
-        }
-    }
-}
-impl<'st> QualIdentifier<'st> {
+impl<'st> AttributeValue<'st> {
     pub fn parse(
         st: &'st Storage,
         src: &str,
-    ) -> Result<QualIdentifier<'st>, ParseError> {
-        <QualIdentifier<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
+    ) -> Result<AttributeValue<'st>, ParseError> {
+        <AttributeValue<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
     }
 }
-impl<'st> SmtlibParse<'st> for QualIdentifier<'st> {
-    type Output = QualIdentifier<'st>;
-    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
-        (p.nth(offset) == Token::LParen
-            && p.nth_matches(offset + 1, Token::Reserved, "as"))
-            || (Identifier::is_start_of(offset, p))
-    }
-    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
-        let offset = 0;
-        if p.nth(offset) == Token::LParen
-            && p.nth_matches(offset + 1, Token::Reserved, "as")
-        {
-            p.expect(Token::LParen)?;
-            p.expect_matches(Token::Reserved, "as")?;
-            let m0 = <Identifier<'st> as SmtlibParse<'st>>::parse(p)?;
-            let m1 = <Sort<'st> as SmtlibParse<'st>>::parse(p)?;
-            p.expect(Token::RParen)?;
-            #[allow(clippy::useless_conversion)]
-            return Ok(Self::Sorted(m0.into(), m1.into()));
-        }
-        if Identifier::is_start_of(offset, p) {
-            let m0 = <Identifier<'st> as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Identifier(m0.into()));
-        }
-        Err(p.stuck("QualIdentifier"))
-    }
-}
-/// `(<symbol> <term>)`
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub struct VarBinding<'st>(pub Symbol<'st>, pub &'st Term<'st>);
-impl std::fmt::Display for VarBinding<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "({} {})", self.0, self.1)
-    }
-}
-impl<'st> VarBinding<'st> {
-    pub fn parse(st: &'st Storage, src: &str) -> Result<VarBinding<'st>, ParseError> {
-        <VarBinding<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
-    }
-}
-impl<'st> SmtlibParse<'st> for VarBinding<'st> {
-    type Output = VarBinding<'st>;
-    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
-        p.nth(offset) == Token::LParen
-    }
-    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
-        p.expect(Token::LParen)?;
-        let m0 = <Symbol<'st> as SmtlibParse<'st>>::parse(p)?;
-        let m1 = <Term<'st> as SmtlibParse<'st>>::parse(p)?;
-        p.expect(Token::RParen)?;
-        Ok(Self(m0, m1))
-    }
-}
-/// `(<symbol> <sort>)`
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub struct SortedVar<'st>(pub Symbol<'st>, pub Sort<'st>);
-impl std::fmt::Display for SortedVar<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "({} {})", self.0, self.1)
-    }
-}
-impl<'st> SortedVar<'st> {
-    pub fn parse(st: &'st Storage, src: &str) -> Result<SortedVar<'st>, ParseError> {
-        <SortedVar<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
-    }
-}
-impl<'st> SmtlibParse<'st> for SortedVar<'st> {
-    type Output = SortedVar<'st>;
-    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
-        p.nth(offset) == Token::LParen
-    }
-    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
-        p.expect(Token::LParen)?;
-        let m0 = <Symbol<'st> as SmtlibParse<'st>>::parse(p)?;
-        let m1 = <Sort<'st> as SmtlibParse<'st>>::parse(p)?;
-        p.expect(Token::RParen)?;
-        Ok(Self(m0, m1))
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub enum Pattern<'st> {
-    /// `<symbol>`
-    Symbol(Symbol<'st>),
-    /// `(<symbol> <symbol>+)`
-    Application(Symbol<'st>, &'st [Symbol<'st>]),
-}
-impl std::fmt::Display for Pattern<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::Symbol(m0) => write!(f, "{}", m0),
-            Self::Application(m0, m1) => write!(f, "({} {})", m0, m1.iter().format(" ")),
-        }
-    }
-}
-impl<'st> Pattern<'st> {
-    pub fn parse(st: &'st Storage, src: &str) -> Result<Pattern<'st>, ParseError> {
-        <Pattern<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
-    }
-}
-impl<'st> SmtlibParse<'st> for Pattern<'st> {
-    type Output = Pattern<'st>;
+impl<'st> SmtlibParse<'st> for AttributeValue<'st> {
+    type Output = AttributeValue<'st>;
     fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
         (p.nth(offset) == Token::LParen) || (Symbol::is_start_of(offset, p))
-    }
-    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
-        let offset = 0;
-        if p.nth(offset) == Token::LParen {
-            p.expect(Token::LParen)?;
-            let m0 = <Symbol<'st> as SmtlibParse<'st>>::parse(p)?;
-            let m1 = p.non_zero::<Symbol<'st>>()?;
-            p.expect(Token::RParen)?;
-            #[allow(clippy::useless_conversion)]
-            return Ok(Self::Application(m0.into(), m1.into()));
-        }
-        if Symbol::is_start_of(offset, p) {
-            let m0 = <Symbol<'st> as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Symbol(m0.into()));
-        }
-        Err(p.stuck("Pattern"))
-    }
-}
-/// `(<pattern> <term>)`
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub struct MatchCase<'st>(pub Pattern<'st>, pub &'st Term<'st>);
-impl std::fmt::Display for MatchCase<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "({} {})", self.0, self.1)
-    }
-}
-impl<'st> MatchCase<'st> {
-    pub fn parse(st: &'st Storage, src: &str) -> Result<MatchCase<'st>, ParseError> {
-        <MatchCase<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
-    }
-}
-impl<'st> SmtlibParse<'st> for MatchCase<'st> {
-    type Output = MatchCase<'st>;
-    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
-        p.nth(offset) == Token::LParen
-    }
-    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
-        p.expect(Token::LParen)?;
-        let m0 = <Pattern<'st> as SmtlibParse<'st>>::parse(p)?;
-        let m1 = <Term<'st> as SmtlibParse<'st>>::parse(p)?;
-        p.expect(Token::RParen)?;
-        Ok(Self(m0, m1))
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub enum Term<'st> {
-    /// `<spec_constant>`
-    SpecConstant(SpecConstant<'st>),
-    /// `<qual_identifier>`
-    Identifier(QualIdentifier<'st>),
-    /// `(<qual_identifier> <term>+)`
-    Application(QualIdentifier<'st>, &'st [&'st Term<'st>]),
-    /// `(let (<var_binding>+) <term>)`
-    Let(&'st [VarBinding<'st>], &'st Term<'st>),
-    /// `(forall (<sorted_var>+) <term>)`
-    Forall(&'st [SortedVar<'st>], &'st Term<'st>),
-    /// `(exists (<sorted_var>+) <term>)`
-    Exists(&'st [SortedVar<'st>], &'st Term<'st>),
-    /// `(match <term> (<match_case>+))`
-    Match(&'st Term<'st>, &'st [MatchCase<'st>]),
-    /// `(! <term> <attribute>+)`
-    Annotation(&'st Term<'st>, &'st [Attribute<'st>]),
-}
-impl std::fmt::Display for Term<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::SpecConstant(m0) => write!(f, "{}", m0),
-            Self::Identifier(m0) => write!(f, "{}", m0),
-            Self::Application(m0, m1) => write!(f, "({} {})", m0, m1.iter().format(" ")),
-            Self::Let(m0, m1) => write!(f, "(let ({}) {})", m0.iter().format(" "), m1),
-            Self::Forall(m0, m1) => {
-                write!(f, "(forall ({}) {})", m0.iter().format(" "), m1)
-            }
-            Self::Exists(m0, m1) => {
-                write!(f, "(exists ({}) {})", m0.iter().format(" "), m1)
-            }
-            Self::Match(m0, m1) => {
-                write!(f, "(match {} ({}))", m0, m1.iter().format(" "))
-            }
-            Self::Annotation(m0, m1) => write!(f, "(! {} {})", m0, m1.iter().format(" ")),
-        }
-    }
-}
-impl<'st> Term<'st> {
-    pub fn parse(st: &'st Storage, src: &str) -> Result<&'st Term<'st>, ParseError> {
-        <Term<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
-    }
-}
-impl<'st> SmtlibParse<'st> for Term<'st> {
-    type Output = &'st Term<'st>;
-    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
-        (p.nth(offset) == Token::LParen
-            && p.nth_matches(offset + 1, Token::Reserved, "match"))
-            || (p.nth(offset) == Token::LParen
-                && p.nth_matches(offset + 1, Token::Reserved, "exists")
-                && p.nth(offset + 2) == Token::LParen)
-            || (p.nth(offset) == Token::LParen
-                && p.nth_matches(offset + 1, Token::Reserved, "forall")
-                && p.nth(offset + 2) == Token::LParen)
-            || (p.nth(offset) == Token::LParen
-                && p.nth_matches(offset + 1, Token::Reserved, "let")
-                && p.nth(offset + 2) == Token::LParen)
-            || (p.nth(offset) == Token::LParen
-                && p.nth_matches(offset + 1, Token::Reserved, "!"))
-            || (p.nth(offset) == Token::LParen)
-            || (QualIdentifier::is_start_of(offset, p))
             || (SpecConstant::is_start_of(offset, p))
     }
     fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
         let offset = 0;
-        if p.nth(offset) == Token::LParen
-            && p.nth_matches(offset + 1, Token::Reserved, "match")
-        {
-            p.expect(Token::LParen)?;
-            p.expect_matches(Token::Reserved, "match")?;
-            let m0 = <Term<'st> as SmtlibParse<'st>>::parse(p)?;
-            p.expect(Token::LParen)?;
-            let m1 = p.non_zero::<MatchCase<'st>>()?;
-            p.expect(Token::RParen)?;
-            p.expect(Token::RParen)?;
-            #[allow(clippy::useless_conversion)]
-            return Ok(p.storage.alloc(Self::Match(m0.into(), m1.into())));
-        }
-        if p.nth(offset) == Token::LParen
-            && p.nth_matches(offset + 1, Token::Reserved, "exists")
-            && p.nth(offset + 2) == Token::LParen
-        {
-            p.expect(Token::LParen)?;
-            p.expect_matches(Token::Reserved, "exists")?;
-            p.expect(Token::LParen)?;
-            let m0 = p.non_zero::<SortedVar<'st>>()?;
-            p.expect(Token::RParen)?;
-            let m1 = <Term<'st> as SmtlibParse<'st>>::parse(p)?;
-            p.expect(Token::RParen)?;
-            #[allow(clippy::useless_conversion)]
-            return Ok(p.storage.alloc(Self::Exists(m0.into(), m1.into())));
-        }
-        if p.nth(offset) == Token::LParen
-            && p.nth_matches(offset + 1, Token::Reserved, "forall")
-            && p.nth(offset + 2) == Token::LParen
-        {
-            p.expect(Token::LParen)?;
-            p.expect_matches(Token::Reserved, "forall")?;
-            p.expect(Token::LParen)?;
-            let m0 = p.non_zero::<SortedVar<'st>>()?;
-            p.expect(Token::RParen)?;
-            let m1 = <Term<'st> as SmtlibParse<'st>>::parse(p)?;
-            p.expect(Token::RParen)?;
-            #[allow(clippy::useless_conversion)]
-            return Ok(p.storage.alloc(Self::Forall(m0.into(), m1.into())));
-        }
-        if p.nth(offset) == Token::LParen
-            && p.nth_matches(offset + 1, Token::Reserved, "let")
-            && p.nth(offset + 2) == Token::LParen
-        {
-            p.expect(Token::LParen)?;
-            p.expect_matches(Token::Reserved, "let")?;
-            p.expect(Token::LParen)?;
-            let m0 = p.non_zero::<VarBinding<'st>>()?;
-            p.expect(Token::RParen)?;
-            let m1 = <Term<'st> as SmtlibParse<'st>>::parse(p)?;
-            p.expect(Token::RParen)?;
-            #[allow(clippy::useless_conversion)]
-            return Ok(p.storage.alloc(Self::Let(m0.into(), m1.into())));
-        }
-        if p.nth(offset) == Token::LParen
-            && p.nth_matches(offset + 1, Token::Reserved, "!")
-        {
-            p.expect(Token::LParen)?;
-            p.expect_matches(Token::Reserved, "!")?;
-            let m0 = <Term<'st> as SmtlibParse<'st>>::parse(p)?;
-            let m1 = p.non_zero::<Attribute<'st>>()?;
-            p.expect(Token::RParen)?;
-            #[allow(clippy::useless_conversion)]
-            return Ok(p.storage.alloc(Self::Annotation(m0.into(), m1.into())));
-        }
         if p.nth(offset) == Token::LParen {
             p.expect(Token::LParen)?;
-            let m0 = <QualIdentifier<'st> as SmtlibParse<'st>>::parse(p)?;
-            let m1 = p.non_zero::<Term<'st>>()?;
+            let m0 = <SExpr<'st> as SmtlibParse<'st>>::parse(p)?;
             p.expect(Token::RParen)?;
-            #[allow(clippy::useless_conversion)]
-            return Ok(p.storage.alloc(Self::Application(m0.into(), m1.into())));
-        }
-        if QualIdentifier::is_start_of(offset, p) {
-            let m0 = <QualIdentifier<'st> as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)]
-            return Ok(p.storage.alloc(Self::Identifier(m0.into())));
-        }
-        if SpecConstant::is_start_of(offset, p) {
-            let m0 = <SpecConstant<'st> as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)]
-            return Ok(p.storage.alloc(Self::SpecConstant(m0.into())));
-        }
-        Err(p.stuck("Term"))
-    }
-}
-/// `(<identifier> <numeral> <attribute>*)`
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub struct SortSymbolDecl<'st>(
-    pub Identifier<'st>,
-    pub Numeral<'st>,
-    pub &'st [Attribute<'st>],
-);
-impl std::fmt::Display for SortSymbolDecl<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "({} {} {})", self.0, self.1, self.2.iter().format(" "))
-    }
-}
-impl<'st> SortSymbolDecl<'st> {
-    pub fn parse(
-        st: &'st Storage,
-        src: &str,
-    ) -> Result<SortSymbolDecl<'st>, ParseError> {
-        <SortSymbolDecl<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
-    }
-}
-impl<'st> SmtlibParse<'st> for SortSymbolDecl<'st> {
-    type Output = SortSymbolDecl<'st>;
-    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
-        p.nth(offset) == Token::LParen
-    }
-    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
-        p.expect(Token::LParen)?;
-        let m0 = <Identifier<'st> as SmtlibParse<'st>>::parse(p)?;
-        let m1 = <Numeral<'st> as SmtlibParse<'st>>::parse(p)?;
-        let m2 = p.any::<Attribute<'st>>()?;
-        p.expect(Token::RParen)?;
-        Ok(Self(m0, m1, m2))
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub enum MetaSpecConstant {
-    /// `NUMERAL`
-    Numeral,
-    /// `DECIMAL`
-    Decimal,
-    /// `STRING`
-    String,
-}
-impl std::fmt::Display for MetaSpecConstant {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::Numeral => write!(f, "NUMERAL"),
-            Self::Decimal => write!(f, "DECIMAL"),
-            Self::String => write!(f, "STRING"),
-        }
-    }
-}
-impl<'st> MetaSpecConstant {
-    pub fn parse(st: &'st Storage, src: &str) -> Result<MetaSpecConstant, ParseError> {
-        <MetaSpecConstant as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
-    }
-}
-impl<'st> SmtlibParse<'st> for MetaSpecConstant {
-    type Output = MetaSpecConstant;
-    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
-        (p.nth_matches(offset, Token::Reserved, "STRING"))
-            || (p.nth_matches(offset, Token::Reserved, "DECIMAL"))
-            || (p.nth_matches(offset, Token::Reserved, "NUMERAL"))
-    }
-    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
-        let offset = 0;
-        if p.nth_matches(offset, Token::Reserved, "STRING") {
-            p.expect_matches(Token::Reserved, "STRING")?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::String);
-        }
-        if p.nth_matches(offset, Token::Reserved, "DECIMAL") {
-            p.expect_matches(Token::Reserved, "DECIMAL")?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Decimal);
-        }
-        if p.nth_matches(offset, Token::Reserved, "NUMERAL") {
-            p.expect_matches(Token::Reserved, "NUMERAL")?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Numeral);
-        }
-        Err(p.stuck("MetaSpecConstant"))
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub enum FunSymbolDecl<'st> {
-    /// `(<spec_constant> <sort> <attribute>*)`
-    SpecConstant(SpecConstant<'st>, Sort<'st>, &'st [Attribute<'st>]),
-    /// `(<meta_spec_constant> <sort> <attribute>*)`
-    MetaSpecConstant(MetaSpecConstant, Sort<'st>, &'st [Attribute<'st>]),
-    /// `(<identifier> <sort>+ <attribute>*)`
-    Identifier(Identifier<'st>, &'st [Sort<'st>], &'st [Attribute<'st>]),
-}
-impl std::fmt::Display for FunSymbolDecl<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::SpecConstant(m0, m1, m2) => {
-                write!(f, "({} {} {})", m0, m1, m2.iter().format(" "))
-            }
-            Self::MetaSpecConstant(m0, m1, m2) => {
-                write!(f, "({} {} {})", m0, m1, m2.iter().format(" "))
-            }
-            Self::Identifier(m0, m1, m2) => {
-                write!(f, "({} {} {})", m0, m1.iter().format(" "), m2.iter().format(" "))
-            }
-        }
-    }
-}
-impl<'st> FunSymbolDecl<'st> {
-    pub fn parse(st: &'st Storage, src: &str) -> Result<FunSymbolDecl<'st>, ParseError> {
-        <FunSymbolDecl<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
-    }
-}
-impl<'st> SmtlibParse<'st> for FunSymbolDecl<'st> {
-    type Output = FunSymbolDecl<'st>;
-    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
-        (p.nth(offset) == Token::LParen) || (p.nth(offset) == Token::LParen)
-            || (p.nth(offset) == Token::LParen)
-    }
-    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
-        let offset = 0;
-        if p.nth(offset) == Token::LParen {
-            p.expect(Token::LParen)?;
-            let m0 = <Identifier<'st> as SmtlibParse<'st>>::parse(p)?;
-            let m1 = p.non_zero::<Sort<'st>>()?;
-            let m2 = p.any::<Attribute<'st>>()?;
-            p.expect(Token::RParen)?;
-            #[allow(clippy::useless_conversion)]
-            return Ok(Self::Identifier(m0.into(), m1.into(), m2.into()));
-        }
-        if p.nth(offset) == Token::LParen {
-            p.expect(Token::LParen)?;
-            let m0 = <MetaSpecConstant as SmtlibParse<'st>>::parse(p)?;
-            let m1 = <Sort<'st> as SmtlibParse<'st>>::parse(p)?;
-            let m2 = p.any::<Attribute<'st>>()?;
-            p.expect(Token::RParen)?;
-            #[allow(clippy::useless_conversion)]
-            return Ok(Self::MetaSpecConstant(m0.into(), m1.into(), m2.into()));
-        }
-        if p.nth(offset) == Token::LParen {
-            p.expect(Token::LParen)?;
-            let m0 = <SpecConstant<'st> as SmtlibParse<'st>>::parse(p)?;
-            let m1 = <Sort<'st> as SmtlibParse<'st>>::parse(p)?;
-            let m2 = p.any::<Attribute<'st>>()?;
-            p.expect(Token::RParen)?;
-            #[allow(clippy::useless_conversion)]
-            return Ok(Self::SpecConstant(m0.into(), m1.into(), m2.into()));
-        }
-        Err(p.stuck("FunSymbolDecl"))
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub enum ParFunSymbolDecl<'st> {
-    /// `(par (<symbol>+) (<identifier> <sort>+ <attribute>*))`
-    Par(&'st [Symbol<'st>], Identifier<'st>, &'st [Sort<'st>], &'st [Attribute<'st>]),
-    /// `<fun_symbol_decl>`
-    FunSymbolDecl(FunSymbolDecl<'st>),
-}
-impl std::fmt::Display for ParFunSymbolDecl<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::Par(m0, m1, m2, m3) => {
-                write!(
-                    f, "(par ({}) ({} {} {}))", m0.iter().format(" "), m1, m2.iter()
-                    .format(" "), m3.iter().format(" ")
-                )
-            }
-            Self::FunSymbolDecl(m0) => write!(f, "{}", m0),
-        }
-    }
-}
-impl<'st> ParFunSymbolDecl<'st> {
-    pub fn parse(
-        st: &'st Storage,
-        src: &str,
-    ) -> Result<ParFunSymbolDecl<'st>, ParseError> {
-        <ParFunSymbolDecl<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
-    }
-}
-impl<'st> SmtlibParse<'st> for ParFunSymbolDecl<'st> {
-    type Output = ParFunSymbolDecl<'st>;
-    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
-        (p.nth(offset) == Token::LParen
-            && p.nth_matches(offset + 1, Token::Reserved, "par")
-            && p.nth(offset + 2) == Token::LParen)
-            || (FunSymbolDecl::is_start_of(offset, p))
-    }
-    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
-        let offset = 0;
-        if p.nth(offset) == Token::LParen
-            && p.nth_matches(offset + 1, Token::Reserved, "par")
-            && p.nth(offset + 2) == Token::LParen
-        {
-            p.expect(Token::LParen)?;
-            p.expect_matches(Token::Reserved, "par")?;
-            p.expect(Token::LParen)?;
-            let m0 = p.non_zero::<Symbol<'st>>()?;
-            p.expect(Token::RParen)?;
-            p.expect(Token::LParen)?;
-            let m1 = <Identifier<'st> as SmtlibParse<'st>>::parse(p)?;
-            let m2 = p.non_zero::<Sort<'st>>()?;
-            let m3 = p.any::<Attribute<'st>>()?;
-            p.expect(Token::RParen)?;
-            p.expect(Token::RParen)?;
-            #[allow(clippy::useless_conversion)]
-            return Ok(Self::Par(m0.into(), m1.into(), m2.into(), m3.into()));
-        }
-        if FunSymbolDecl::is_start_of(offset, p) {
-            let m0 = <FunSymbolDecl<'st> as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)]
-            return Ok(Self::FunSymbolDecl(m0.into()));
-        }
-        Err(p.stuck("ParFunSymbolDecl"))
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub enum TheoryAttribute<'st> {
-    /// `:sorts (<sort_symbol_decl>+)`
-    Sorts(&'st [SortSymbolDecl<'st>]),
-    /// `:funs (<par_fun_symbol_decl>+)`
-    Funs(&'st [ParFunSymbolDecl<'st>]),
-    /// `:sorts-description <string>`
-    SortsDescription(&'st str),
-    /// `:funs-description <string>`
-    FunsDescription(&'st str),
-    /// `:definition <string>`
-    Definition(&'st str),
-    /// `:values <string>`
-    Values(&'st str),
-    /// `:notes <string>`
-    Notes(&'st str),
-    /// `<attribute>`
-    Attribute(Attribute<'st>),
-}
-impl std::fmt::Display for TheoryAttribute<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::Sorts(m0) => write!(f, ":sorts ({})", m0.iter().format(" ")),
-            Self::Funs(m0) => write!(f, ":funs ({})", m0.iter().format(" ")),
-            Self::SortsDescription(m0) => write!(f, ":sorts-description {}", m0),
-            Self::FunsDescription(m0) => write!(f, ":funs-description {}", m0),
-            Self::Definition(m0) => write!(f, ":definition {}", m0),
-            Self::Values(m0) => write!(f, ":values {}", m0),
-            Self::Notes(m0) => write!(f, ":notes {}", m0),
-            Self::Attribute(m0) => write!(f, "{}", m0),
-        }
-    }
-}
-impl<'st> TheoryAttribute<'st> {
-    pub fn parse(
-        st: &'st Storage,
-        src: &str,
-    ) -> Result<TheoryAttribute<'st>, ParseError> {
-        <TheoryAttribute<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
-    }
-}
-impl<'st> SmtlibParse<'st> for TheoryAttribute<'st> {
-    type Output = TheoryAttribute<'st>;
-    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
-        (p.nth_matches(offset, Token::Keyword, ":funs")
-            && p.nth(offset + 1) == Token::LParen)
-            || (p.nth_matches(offset, Token::Keyword, ":sorts")
-                && p.nth(offset + 1) == Token::LParen)
-            || (p.nth_matches(offset, Token::Keyword, ":notes"))
-            || (p.nth_matches(offset, Token::Keyword, ":values"))
-            || (p.nth_matches(offset, Token::Keyword, ":definition"))
-            || (p.nth_matches(offset, Token::Keyword, ":funs-description"))
-            || (p.nth_matches(offset, Token::Keyword, ":sorts-description"))
-            || (Attribute::is_start_of(offset, p))
-    }
-    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
-        let offset = 0;
-        if p.nth_matches(offset, Token::Keyword, ":funs")
-            && p.nth(offset + 1) == Token::LParen
-        {
-            p.expect_matches(Token::Keyword, ":funs")?;
-            p.expect(Token::LParen)?;
-            let m0 = p.non_zero::<ParFunSymbolDecl<'st>>()?;
-            p.expect(Token::RParen)?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Funs(m0.into()));
-        }
-        if p.nth_matches(offset, Token::Keyword, ":sorts")
-            && p.nth(offset + 1) == Token::LParen
-        {
-            p.expect_matches(Token::Keyword, ":sorts")?;
-            p.expect(Token::LParen)?;
-            let m0 = p.non_zero::<SortSymbolDecl<'st>>()?;
-            p.expect(Token::RParen)?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Sorts(m0.into()));
-        }
-        if p.nth_matches(offset, Token::Keyword, ":notes") {
-            p.expect_matches(Token::Keyword, ":notes")?;
-            let m0 = <String as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Notes(m0.into()));
-        }
-        if p.nth_matches(offset, Token::Keyword, ":values") {
-            p.expect_matches(Token::Keyword, ":values")?;
-            let m0 = <String as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Values(m0.into()));
-        }
-        if p.nth_matches(offset, Token::Keyword, ":definition") {
-            p.expect_matches(Token::Keyword, ":definition")?;
-            let m0 = <String as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Definition(m0.into()));
-        }
-        if p.nth_matches(offset, Token::Keyword, ":funs-description") {
-            p.expect_matches(Token::Keyword, ":funs-description")?;
-            let m0 = <String as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)]
-            return Ok(Self::FunsDescription(m0.into()));
-        }
-        if p.nth_matches(offset, Token::Keyword, ":sorts-description") {
-            p.expect_matches(Token::Keyword, ":sorts-description")?;
-            let m0 = <String as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)]
-            return Ok(Self::SortsDescription(m0.into()));
-        }
-        if Attribute::is_start_of(offset, p) {
-            let m0 = <Attribute<'st> as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Attribute(m0.into()));
-        }
-        Err(p.stuck("TheoryAttribute"))
-    }
-}
-/// `(theory <symbol> <theory_attribute>+)`
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub struct TheoryDecl<'st>(pub Symbol<'st>, pub &'st [TheoryAttribute<'st>]);
-impl std::fmt::Display for TheoryDecl<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "(theory {} {})", self.0, self.1.iter().format(" "))
-    }
-}
-impl<'st> TheoryDecl<'st> {
-    pub fn parse(st: &'st Storage, src: &str) -> Result<TheoryDecl<'st>, ParseError> {
-        <TheoryDecl<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
-    }
-}
-impl<'st> SmtlibParse<'st> for TheoryDecl<'st> {
-    type Output = TheoryDecl<'st>;
-    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
-        p.nth(offset) == Token::LParen
-            && p.nth_matches(offset + 1, Token::Symbol, "theory")
-    }
-    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
-        p.expect(Token::LParen)?;
-        p.expect_matches(Token::Symbol, "theory")?;
-        let m0 = <Symbol<'st> as SmtlibParse<'st>>::parse(p)?;
-        let m1 = p.non_zero::<TheoryAttribute<'st>>()?;
-        p.expect(Token::RParen)?;
-        Ok(Self(m0, m1))
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub enum LogicAttribute<'st> {
-    /// `:theories (<symbol>*)`
-    Theories(&'st [Symbol<'st>]),
-    /// `:language <string>`
-    Language(&'st str),
-    /// `:extensions <string>`
-    Extensions(&'st str),
-    /// `:values <string>`
-    Values(&'st str),
-    /// `:notes <string>`
-    Notes(&'st str),
-    /// `<attribute>`
-    Attribute(Attribute<'st>),
-}
-impl std::fmt::Display for LogicAttribute<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::Theories(m0) => write!(f, ":theories ({})", m0.iter().format(" ")),
-            Self::Language(m0) => write!(f, ":language {}", m0),
-            Self::Extensions(m0) => write!(f, ":extensions {}", m0),
-            Self::Values(m0) => write!(f, ":values {}", m0),
-            Self::Notes(m0) => write!(f, ":notes {}", m0),
-            Self::Attribute(m0) => write!(f, "{}", m0),
-        }
-    }
-}
-impl<'st> LogicAttribute<'st> {
-    pub fn parse(
-        st: &'st Storage,
-        src: &str,
-    ) -> Result<LogicAttribute<'st>, ParseError> {
-        <LogicAttribute<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
-    }
-}
-impl<'st> SmtlibParse<'st> for LogicAttribute<'st> {
-    type Output = LogicAttribute<'st>;
-    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
-        (p.nth_matches(offset, Token::Keyword, ":theories")
-            && p.nth(offset + 1) == Token::LParen)
-            || (p.nth_matches(offset, Token::Keyword, ":notes"))
-            || (p.nth_matches(offset, Token::Keyword, ":values"))
-            || (p.nth_matches(offset, Token::Keyword, ":extensions"))
-            || (p.nth_matches(offset, Token::Keyword, ":language"))
-            || (Attribute::is_start_of(offset, p))
-    }
-    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
-        let offset = 0;
-        if p.nth_matches(offset, Token::Keyword, ":theories")
-            && p.nth(offset + 1) == Token::LParen
-        {
-            p.expect_matches(Token::Keyword, ":theories")?;
-            p.expect(Token::LParen)?;
-            let m0 = p.any::<Symbol<'st>>()?;
-            p.expect(Token::RParen)?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Theories(m0.into()));
-        }
-        if p.nth_matches(offset, Token::Keyword, ":notes") {
-            p.expect_matches(Token::Keyword, ":notes")?;
-            let m0 = <String as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Notes(m0.into()));
-        }
-        if p.nth_matches(offset, Token::Keyword, ":values") {
-            p.expect_matches(Token::Keyword, ":values")?;
-            let m0 = <String as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Values(m0.into()));
-        }
-        if p.nth_matches(offset, Token::Keyword, ":extensions") {
-            p.expect_matches(Token::Keyword, ":extensions")?;
-            let m0 = <String as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Extensions(m0.into()));
-        }
-        if p.nth_matches(offset, Token::Keyword, ":language") {
-            p.expect_matches(Token::Keyword, ":language")?;
-            let m0 = <String as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Language(m0.into()));
-        }
-        if Attribute::is_start_of(offset, p) {
-            let m0 = <Attribute<'st> as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Attribute(m0.into()));
-        }
-        Err(p.stuck("LogicAttribute"))
-    }
-}
-/// `(logic <symbol> <logic_attribute>+)`
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub struct Logic<'st>(pub Symbol<'st>, pub &'st [LogicAttribute<'st>]);
-impl std::fmt::Display for Logic<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "(logic {} {})", self.0, self.1.iter().format(" "))
-    }
-}
-impl<'st> Logic<'st> {
-    pub fn parse(st: &'st Storage, src: &str) -> Result<Logic<'st>, ParseError> {
-        <Logic<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
-    }
-}
-impl<'st> SmtlibParse<'st> for Logic<'st> {
-    type Output = Logic<'st>;
-    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
-        p.nth(offset) == Token::LParen
-            && p.nth_matches(offset + 1, Token::Symbol, "logic")
-    }
-    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
-        p.expect(Token::LParen)?;
-        p.expect_matches(Token::Symbol, "logic")?;
-        let m0 = <Symbol<'st> as SmtlibParse<'st>>::parse(p)?;
-        let m1 = p.non_zero::<LogicAttribute<'st>>()?;
-        p.expect(Token::RParen)?;
-        Ok(Self(m0, m1))
-    }
-}
-/// `(<symbol> <numeral>)`
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub struct SortDec<'st>(pub Symbol<'st>, pub Numeral<'st>);
-impl std::fmt::Display for SortDec<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "({} {})", self.0, self.1)
-    }
-}
-impl<'st> SortDec<'st> {
-    pub fn parse(st: &'st Storage, src: &str) -> Result<SortDec<'st>, ParseError> {
-        <SortDec<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
-    }
-}
-impl<'st> SmtlibParse<'st> for SortDec<'st> {
-    type Output = SortDec<'st>;
-    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
-        p.nth(offset) == Token::LParen
-    }
-    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
-        p.expect(Token::LParen)?;
-        let m0 = <Symbol<'st> as SmtlibParse<'st>>::parse(p)?;
-        let m1 = <Numeral<'st> as SmtlibParse<'st>>::parse(p)?;
-        p.expect(Token::RParen)?;
-        Ok(Self(m0, m1))
-    }
-}
-/// `(<symbol> <sort>)`
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub struct SelectorDec<'st>(pub Symbol<'st>, pub Sort<'st>);
-impl std::fmt::Display for SelectorDec<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "({} {})", self.0, self.1)
-    }
-}
-impl<'st> SelectorDec<'st> {
-    pub fn parse(st: &'st Storage, src: &str) -> Result<SelectorDec<'st>, ParseError> {
-        <SelectorDec<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
-    }
-}
-impl<'st> SmtlibParse<'st> for SelectorDec<'st> {
-    type Output = SelectorDec<'st>;
-    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
-        p.nth(offset) == Token::LParen
-    }
-    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
-        p.expect(Token::LParen)?;
-        let m0 = <Symbol<'st> as SmtlibParse<'st>>::parse(p)?;
-        let m1 = <Sort<'st> as SmtlibParse<'st>>::parse(p)?;
-        p.expect(Token::RParen)?;
-        Ok(Self(m0, m1))
-    }
-}
-/// `(<symbol> <selector_dec>*)`
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub struct ConstructorDec<'st>(pub Symbol<'st>, pub &'st [SelectorDec<'st>]);
-impl std::fmt::Display for ConstructorDec<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "({} {})", self.0, self.1.iter().format(" "))
-    }
-}
-impl<'st> ConstructorDec<'st> {
-    pub fn parse(
-        st: &'st Storage,
-        src: &str,
-    ) -> Result<ConstructorDec<'st>, ParseError> {
-        <ConstructorDec<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
-    }
-}
-impl<'st> SmtlibParse<'st> for ConstructorDec<'st> {
-    type Output = ConstructorDec<'st>;
-    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
-        p.nth(offset) == Token::LParen
-    }
-    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
-        p.expect(Token::LParen)?;
-        let m0 = <Symbol<'st> as SmtlibParse<'st>>::parse(p)?;
-        let m1 = p.any::<SelectorDec<'st>>()?;
-        p.expect(Token::RParen)?;
-        Ok(Self(m0, m1))
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub enum DatatypeDec<'st> {
-    /// `(<constructor_dec>+)`
-    DatatypeDec(&'st [ConstructorDec<'st>]),
-    /// `(par (<symbol>+) (<constructor_dec>+))`
-    Par(&'st [Symbol<'st>], &'st [ConstructorDec<'st>]),
-}
-impl std::fmt::Display for DatatypeDec<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::DatatypeDec(m0) => write!(f, "({})", m0.iter().format(" ")),
-            Self::Par(m0, m1) => {
-                write!(
-                    f, "(par ({}) ({}))", m0.iter().format(" "), m1.iter().format(" ")
-                )
-            }
-        }
-    }
-}
-impl<'st> DatatypeDec<'st> {
-    pub fn parse(st: &'st Storage, src: &str) -> Result<DatatypeDec<'st>, ParseError> {
-        <DatatypeDec<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
-    }
-}
-impl<'st> SmtlibParse<'st> for DatatypeDec<'st> {
-    type Output = DatatypeDec<'st>;
-    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
-        (p.nth(offset) == Token::LParen
-            && p.nth_matches(offset + 1, Token::Reserved, "par")
-            && p.nth(offset + 2) == Token::LParen) || (p.nth(offset) == Token::LParen)
-    }
-    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
-        let offset = 0;
-        if p.nth(offset) == Token::LParen
-            && p.nth_matches(offset + 1, Token::Reserved, "par")
-            && p.nth(offset + 2) == Token::LParen
-        {
-            p.expect(Token::LParen)?;
-            p.expect_matches(Token::Reserved, "par")?;
-            p.expect(Token::LParen)?;
-            let m0 = p.non_zero::<Symbol<'st>>()?;
-            p.expect(Token::RParen)?;
-            p.expect(Token::LParen)?;
-            let m1 = p.non_zero::<ConstructorDec<'st>>()?;
-            p.expect(Token::RParen)?;
-            p.expect(Token::RParen)?;
-            #[allow(clippy::useless_conversion)]
-            return Ok(Self::Par(m0.into(), m1.into()));
-        }
-        if p.nth(offset) == Token::LParen {
-            p.expect(Token::LParen)?;
-            let m0 = p.non_zero::<ConstructorDec<'st>>()?;
-            p.expect(Token::RParen)?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::DatatypeDec(m0.into()));
-        }
-        Err(p.stuck("DatatypeDec"))
-    }
-}
-/// `(<symbol> (<sort>*) <sort>)`
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub struct FunctionDec<'st>(pub Symbol<'st>, pub &'st [Sort<'st>], pub Sort<'st>);
-impl std::fmt::Display for FunctionDec<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "({} ({}) {})", self.0, self.1.iter().format(" "), self.2)
-    }
-}
-impl<'st> FunctionDec<'st> {
-    pub fn parse(st: &'st Storage, src: &str) -> Result<FunctionDec<'st>, ParseError> {
-        <FunctionDec<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
-    }
-}
-impl<'st> SmtlibParse<'st> for FunctionDec<'st> {
-    type Output = FunctionDec<'st>;
-    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
-        p.nth(offset) == Token::LParen
-    }
-    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
-        p.expect(Token::LParen)?;
-        let m0 = <Symbol<'st> as SmtlibParse<'st>>::parse(p)?;
-        p.expect(Token::LParen)?;
-        let m1 = p.any::<Sort<'st>>()?;
-        p.expect(Token::RParen)?;
-        let m2 = <Sort<'st> as SmtlibParse<'st>>::parse(p)?;
-        p.expect(Token::RParen)?;
-        Ok(Self(m0, m1, m2))
-    }
-}
-/// `<symbol> (<sorted_var>*) <sort> <term>`
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub struct FunctionDef<'st>(
-    pub Symbol<'st>,
-    pub &'st [SortedVar<'st>],
-    pub Sort<'st>,
-    pub &'st Term<'st>,
-);
-impl std::fmt::Display for FunctionDef<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{} ({}) {} {}", self.0, self.1.iter().format(" "), self.2, self.3)
-    }
-}
-impl<'st> FunctionDef<'st> {
-    pub fn parse(st: &'st Storage, src: &str) -> Result<FunctionDef<'st>, ParseError> {
-        <FunctionDef<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
-    }
-}
-impl<'st> SmtlibParse<'st> for FunctionDef<'st> {
-    type Output = FunctionDef<'st>;
-    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
-        Symbol::is_start_of(offset, p)
-    }
-    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
-        let m0 = <Symbol<'st> as SmtlibParse<'st>>::parse(p)?;
-        p.expect(Token::LParen)?;
-        let m1 = p.any::<SortedVar<'st>>()?;
-        p.expect(Token::RParen)?;
-        let m2 = <Sort<'st> as SmtlibParse<'st>>::parse(p)?;
-        let m3 = <Term<'st> as SmtlibParse<'st>>::parse(p)?;
-        Ok(Self(m0, m1, m2, m3))
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub enum PropLiteral<'st> {
-    /// `<symbol>`
-    Symbol(Symbol<'st>),
-    /// `(not <symbol>)`
-    Not(Symbol<'st>),
-}
-impl std::fmt::Display for PropLiteral<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::Symbol(m0) => write!(f, "{}", m0),
-            Self::Not(m0) => write!(f, "(not {})", m0),
-        }
-    }
-}
-impl<'st> PropLiteral<'st> {
-    pub fn parse(st: &'st Storage, src: &str) -> Result<PropLiteral<'st>, ParseError> {
-        <PropLiteral<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
-    }
-}
-impl<'st> SmtlibParse<'st> for PropLiteral<'st> {
-    type Output = PropLiteral<'st>;
-    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
-        (p.nth(offset) == Token::LParen
-            && p.nth_matches(offset + 1, Token::Symbol, "not"))
-            || (Symbol::is_start_of(offset, p))
-    }
-    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
-        let offset = 0;
-        if p.nth(offset) == Token::LParen
-            && p.nth_matches(offset + 1, Token::Symbol, "not")
-        {
-            p.expect(Token::LParen)?;
-            p.expect_matches(Token::Symbol, "not")?;
-            let m0 = <Symbol<'st> as SmtlibParse<'st>>::parse(p)?;
-            p.expect(Token::RParen)?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Not(m0.into()));
+            #[allow(clippy::useless_conversion)] return Ok(Self::Expr(m0.into()));
         }
         if Symbol::is_start_of(offset, p) {
             let m0 = <Symbol<'st> as SmtlibParse<'st>>::parse(p)?;
             #[allow(clippy::useless_conversion)] return Ok(Self::Symbol(m0.into()));
         }
-        Err(p.stuck("PropLiteral"))
+        if SpecConstant::is_start_of(offset, p) {
+            let m0 = <SpecConstant<'st> as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(Self::SpecConstant(m0.into()));
+        }
+        Err(p.stuck("AttributeValue"))
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub enum CheckSatResponse {
+    /// `sat`
+    Sat,
+    /// `unknown`
+    Unknown,
+    /// `unsat`
+    Unsat,
+}
+impl std::fmt::Display for CheckSatResponse {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::Sat => write!(f, "sat"),
+            Self::Unknown => write!(f, "unknown"),
+            Self::Unsat => write!(f, "unsat"),
+        }
+    }
+}
+impl<'st> CheckSatResponse {
+    pub fn parse(st: &'st Storage, src: &str) -> Result<CheckSatResponse, ParseError> {
+        <CheckSatResponse as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
+    }
+}
+impl<'st> SmtlibParse<'st> for CheckSatResponse {
+    type Output = CheckSatResponse;
+    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
+        (p.nth_matches(offset, Token::Symbol, "unsat"))
+            || (p.nth_matches(offset, Token::Symbol, "unknown"))
+            || (p.nth_matches(offset, Token::Symbol, "sat"))
+    }
+    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
+        let offset = 0;
+        if p.nth_matches(offset, Token::Symbol, "unsat") {
+            p.expect_matches(Token::Symbol, "unsat")?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Unsat);
+        }
+        if p.nth_matches(offset, Token::Symbol, "unknown") {
+            p.expect_matches(Token::Symbol, "unknown")?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Unknown);
+        }
+        if p.nth_matches(offset, Token::Symbol, "sat") {
+            p.expect_matches(Token::Symbol, "sat")?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Sat);
+        }
+        Err(p.stuck("CheckSatResponse"))
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -2165,654 +905,93 @@ impl<'st> Command<'st> {
         }
     }
 }
-/// `<command>*`
+/// `(<symbol> <selector_dec>*)`
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub struct Script<'st>(pub &'st [Command<'st>]);
-impl std::fmt::Display for Script<'_> {
+pub struct ConstructorDec<'st>(pub Symbol<'st>, pub &'st [SelectorDec<'st>]);
+impl std::fmt::Display for ConstructorDec<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}", self.0.iter().format("\n"))
+        write!(f, "({} {})", self.0, self.1.iter().format(" "))
     }
 }
-impl<'st> Script<'st> {
-    pub fn parse(st: &'st Storage, src: &str) -> Result<Script<'st>, ParseError> {
-        <Script<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
-    }
-}
-impl<'st> SmtlibParse<'st> for Script<'st> {
-    type Output = Script<'st>;
-    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
-        todo!("{offset:?}, {p:?}")
-    }
-    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
-        let m0 = p.any::<Command<'st>>()?;
-        Ok(Self(m0))
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub enum Option<'st> {
-    /// `:diagnostic-output-channel <string>`
-    DiagnosticOutputChannel(&'st str),
-    /// `:global-declarations <b_value>`
-    GlobalDeclarations(BValue),
-    /// `:interactive-mode <b_value>`
-    InteractiveMode(BValue),
-    /// `:print-success <b_value>`
-    PrintSuccess(BValue),
-    /// `:produce-assertions <b_value>`
-    ProduceAssertions(BValue),
-    /// `:produce-assignments <b_value>`
-    ProduceAssignments(BValue),
-    /// `:produce-models <b_value>`
-    ProduceModels(BValue),
-    /// `:produce-proofs <b_value>`
-    ProduceProofs(BValue),
-    /// `:produce-unsat-assumptions <b_value>`
-    ProduceUnsatAssumptions(BValue),
-    /// `:produce-unsat-cores <b_value>`
-    ProduceUnsatCores(BValue),
-    /// `:random-seed <numeral>`
-    RandomSeed(Numeral<'st>),
-    /// `:regular-output-channel <string>`
-    RegularOutputChannel(&'st str),
-    /// `:reproducible-resource-limit <numeral>`
-    ReproducibleResourceLimit(Numeral<'st>),
-    /// `:verbosity <numeral>`
-    Verbosity(Numeral<'st>),
-    /// `<attribute>`
-    Attribute(Attribute<'st>),
-}
-impl std::fmt::Display for Option<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::DiagnosticOutputChannel(m0) => {
-                write!(f, ":diagnostic-output-channel {}", m0)
-            }
-            Self::GlobalDeclarations(m0) => write!(f, ":global-declarations {}", m0),
-            Self::InteractiveMode(m0) => write!(f, ":interactive-mode {}", m0),
-            Self::PrintSuccess(m0) => write!(f, ":print-success {}", m0),
-            Self::ProduceAssertions(m0) => write!(f, ":produce-assertions {}", m0),
-            Self::ProduceAssignments(m0) => write!(f, ":produce-assignments {}", m0),
-            Self::ProduceModels(m0) => write!(f, ":produce-models {}", m0),
-            Self::ProduceProofs(m0) => write!(f, ":produce-proofs {}", m0),
-            Self::ProduceUnsatAssumptions(m0) => {
-                write!(f, ":produce-unsat-assumptions {}", m0)
-            }
-            Self::ProduceUnsatCores(m0) => write!(f, ":produce-unsat-cores {}", m0),
-            Self::RandomSeed(m0) => write!(f, ":random-seed {}", m0),
-            Self::RegularOutputChannel(m0) => write!(f, ":regular-output-channel {}", m0),
-            Self::ReproducibleResourceLimit(m0) => {
-                write!(f, ":reproducible-resource-limit {}", m0)
-            }
-            Self::Verbosity(m0) => write!(f, ":verbosity {}", m0),
-            Self::Attribute(m0) => write!(f, "{}", m0),
-        }
-    }
-}
-impl<'st> Option<'st> {
-    pub fn parse(st: &'st Storage, src: &str) -> Result<Option<'st>, ParseError> {
-        <Option<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
-    }
-}
-impl<'st> SmtlibParse<'st> for Option<'st> {
-    type Output = Option<'st>;
-    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
-        (p.nth_matches(offset, Token::Keyword, ":verbosity"))
-            || (p.nth_matches(offset, Token::Keyword, ":reproducible-resource-limit"))
-            || (p.nth_matches(offset, Token::Keyword, ":regular-output-channel"))
-            || (p.nth_matches(offset, Token::Keyword, ":random-seed"))
-            || (p.nth_matches(offset, Token::Keyword, ":produce-unsat-cores"))
-            || (p.nth_matches(offset, Token::Keyword, ":produce-unsat-assumptions"))
-            || (p.nth_matches(offset, Token::Keyword, ":produce-proofs"))
-            || (p.nth_matches(offset, Token::Keyword, ":produce-models"))
-            || (p.nth_matches(offset, Token::Keyword, ":produce-assignments"))
-            || (p.nth_matches(offset, Token::Keyword, ":produce-assertions"))
-            || (p.nth_matches(offset, Token::Keyword, ":print-success"))
-            || (p.nth_matches(offset, Token::Keyword, ":interactive-mode"))
-            || (p.nth_matches(offset, Token::Keyword, ":global-declarations"))
-            || (p.nth_matches(offset, Token::Keyword, ":diagnostic-output-channel"))
-            || (Attribute::is_start_of(offset, p))
-    }
-    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
-        let offset = 0;
-        if p.nth_matches(offset, Token::Keyword, ":verbosity") {
-            p.expect_matches(Token::Keyword, ":verbosity")?;
-            let m0 = <Numeral<'st> as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Verbosity(m0.into()));
-        }
-        if p.nth_matches(offset, Token::Keyword, ":reproducible-resource-limit") {
-            p.expect_matches(Token::Keyword, ":reproducible-resource-limit")?;
-            let m0 = <Numeral<'st> as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)]
-            return Ok(Self::ReproducibleResourceLimit(m0.into()));
-        }
-        if p.nth_matches(offset, Token::Keyword, ":regular-output-channel") {
-            p.expect_matches(Token::Keyword, ":regular-output-channel")?;
-            let m0 = <String as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)]
-            return Ok(Self::RegularOutputChannel(m0.into()));
-        }
-        if p.nth_matches(offset, Token::Keyword, ":random-seed") {
-            p.expect_matches(Token::Keyword, ":random-seed")?;
-            let m0 = <Numeral<'st> as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::RandomSeed(m0.into()));
-        }
-        if p.nth_matches(offset, Token::Keyword, ":produce-unsat-cores") {
-            p.expect_matches(Token::Keyword, ":produce-unsat-cores")?;
-            let m0 = <BValue as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)]
-            return Ok(Self::ProduceUnsatCores(m0.into()));
-        }
-        if p.nth_matches(offset, Token::Keyword, ":produce-unsat-assumptions") {
-            p.expect_matches(Token::Keyword, ":produce-unsat-assumptions")?;
-            let m0 = <BValue as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)]
-            return Ok(Self::ProduceUnsatAssumptions(m0.into()));
-        }
-        if p.nth_matches(offset, Token::Keyword, ":produce-proofs") {
-            p.expect_matches(Token::Keyword, ":produce-proofs")?;
-            let m0 = <BValue as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)]
-            return Ok(Self::ProduceProofs(m0.into()));
-        }
-        if p.nth_matches(offset, Token::Keyword, ":produce-models") {
-            p.expect_matches(Token::Keyword, ":produce-models")?;
-            let m0 = <BValue as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)]
-            return Ok(Self::ProduceModels(m0.into()));
-        }
-        if p.nth_matches(offset, Token::Keyword, ":produce-assignments") {
-            p.expect_matches(Token::Keyword, ":produce-assignments")?;
-            let m0 = <BValue as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)]
-            return Ok(Self::ProduceAssignments(m0.into()));
-        }
-        if p.nth_matches(offset, Token::Keyword, ":produce-assertions") {
-            p.expect_matches(Token::Keyword, ":produce-assertions")?;
-            let m0 = <BValue as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)]
-            return Ok(Self::ProduceAssertions(m0.into()));
-        }
-        if p.nth_matches(offset, Token::Keyword, ":print-success") {
-            p.expect_matches(Token::Keyword, ":print-success")?;
-            let m0 = <BValue as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)]
-            return Ok(Self::PrintSuccess(m0.into()));
-        }
-        if p.nth_matches(offset, Token::Keyword, ":interactive-mode") {
-            p.expect_matches(Token::Keyword, ":interactive-mode")?;
-            let m0 = <BValue as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)]
-            return Ok(Self::InteractiveMode(m0.into()));
-        }
-        if p.nth_matches(offset, Token::Keyword, ":global-declarations") {
-            p.expect_matches(Token::Keyword, ":global-declarations")?;
-            let m0 = <BValue as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)]
-            return Ok(Self::GlobalDeclarations(m0.into()));
-        }
-        if p.nth_matches(offset, Token::Keyword, ":diagnostic-output-channel") {
-            p.expect_matches(Token::Keyword, ":diagnostic-output-channel")?;
-            let m0 = <String as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)]
-            return Ok(Self::DiagnosticOutputChannel(m0.into()));
-        }
-        if Attribute::is_start_of(offset, p) {
-            let m0 = <Attribute<'st> as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Attribute(m0.into()));
-        }
-        Err(p.stuck("Option"))
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub enum InfoFlag<'st> {
-    /// `:all-statistics`
-    AllStatistics,
-    /// `:assertion-stack-levels`
-    AssertionStackLevels,
-    /// `:authors`
-    Authors,
-    /// `:error-behavior`
-    ErrorBehavior,
-    /// `:name`
-    Name,
-    /// `:reason-unknown`
-    ReasonUnknown,
-    /// `:version`
-    Version,
-    /// `<keyword>`
-    Keyword(Keyword<'st>),
-}
-impl std::fmt::Display for InfoFlag<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::AllStatistics => write!(f, ":all-statistics"),
-            Self::AssertionStackLevels => write!(f, ":assertion-stack-levels"),
-            Self::Authors => write!(f, ":authors"),
-            Self::ErrorBehavior => write!(f, ":error-behavior"),
-            Self::Name => write!(f, ":name"),
-            Self::ReasonUnknown => write!(f, ":reason-unknown"),
-            Self::Version => write!(f, ":version"),
-            Self::Keyword(m0) => write!(f, "{}", m0),
-        }
-    }
-}
-impl<'st> InfoFlag<'st> {
-    pub fn parse(st: &'st Storage, src: &str) -> Result<InfoFlag<'st>, ParseError> {
-        <InfoFlag<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
-    }
-}
-impl<'st> SmtlibParse<'st> for InfoFlag<'st> {
-    type Output = InfoFlag<'st>;
-    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
-        (p.nth_matches(offset, Token::Keyword, ":version"))
-            || (p.nth_matches(offset, Token::Keyword, ":reason-unknown"))
-            || (p.nth_matches(offset, Token::Keyword, ":name"))
-            || (p.nth_matches(offset, Token::Keyword, ":error-behavior"))
-            || (p.nth_matches(offset, Token::Keyword, ":authors"))
-            || (p.nth_matches(offset, Token::Keyword, ":assertion-stack-levels"))
-            || (p.nth_matches(offset, Token::Keyword, ":all-statistics"))
-            || (Keyword::is_start_of(offset, p))
-    }
-    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
-        let offset = 0;
-        if p.nth_matches(offset, Token::Keyword, ":version") {
-            p.expect_matches(Token::Keyword, ":version")?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Version);
-        }
-        if p.nth_matches(offset, Token::Keyword, ":reason-unknown") {
-            p.expect_matches(Token::Keyword, ":reason-unknown")?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::ReasonUnknown);
-        }
-        if p.nth_matches(offset, Token::Keyword, ":name") {
-            p.expect_matches(Token::Keyword, ":name")?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Name);
-        }
-        if p.nth_matches(offset, Token::Keyword, ":error-behavior") {
-            p.expect_matches(Token::Keyword, ":error-behavior")?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::ErrorBehavior);
-        }
-        if p.nth_matches(offset, Token::Keyword, ":authors") {
-            p.expect_matches(Token::Keyword, ":authors")?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Authors);
-        }
-        if p.nth_matches(offset, Token::Keyword, ":assertion-stack-levels") {
-            p.expect_matches(Token::Keyword, ":assertion-stack-levels")?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::AssertionStackLevels);
-        }
-        if p.nth_matches(offset, Token::Keyword, ":all-statistics") {
-            p.expect_matches(Token::Keyword, ":all-statistics")?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::AllStatistics);
-        }
-        if Keyword::is_start_of(offset, p) {
-            let m0 = <Keyword<'st> as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Keyword(m0.into()));
-        }
-        Err(p.stuck("InfoFlag"))
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub enum ErrorBehavior {
-    /// `immediate-exit`
-    ImmediateExit,
-    /// `continued-execution`
-    ContinuedExecution,
-}
-impl std::fmt::Display for ErrorBehavior {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::ImmediateExit => write!(f, "immediate-exit"),
-            Self::ContinuedExecution => write!(f, "continued-execution"),
-        }
-    }
-}
-impl<'st> ErrorBehavior {
-    pub fn parse(st: &'st Storage, src: &str) -> Result<ErrorBehavior, ParseError> {
-        <ErrorBehavior as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
-    }
-}
-impl<'st> SmtlibParse<'st> for ErrorBehavior {
-    type Output = ErrorBehavior;
-    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
-        (p.nth_matches(offset, Token::Symbol, "continued-execution"))
-            || (p.nth_matches(offset, Token::Symbol, "immediate-exit"))
-    }
-    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
-        let offset = 0;
-        if p.nth_matches(offset, Token::Symbol, "continued-execution") {
-            p.expect_matches(Token::Symbol, "continued-execution")?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::ContinuedExecution);
-        }
-        if p.nth_matches(offset, Token::Symbol, "immediate-exit") {
-            p.expect_matches(Token::Symbol, "immediate-exit")?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::ImmediateExit);
-        }
-        Err(p.stuck("ErrorBehavior"))
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub enum ReasonUnknown<'st> {
-    /// `memout`
-    Memout,
-    /// `incomplete`
-    Incomplete,
-    /// `<s_expr>`
-    SExpr(SExpr<'st>),
-}
-impl std::fmt::Display for ReasonUnknown<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::Memout => write!(f, "memout"),
-            Self::Incomplete => write!(f, "incomplete"),
-            Self::SExpr(m0) => write!(f, "{}", m0),
-        }
-    }
-}
-impl<'st> ReasonUnknown<'st> {
-    pub fn parse(st: &'st Storage, src: &str) -> Result<ReasonUnknown<'st>, ParseError> {
-        <ReasonUnknown<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
-    }
-}
-impl<'st> SmtlibParse<'st> for ReasonUnknown<'st> {
-    type Output = ReasonUnknown<'st>;
-    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
-        (p.nth_matches(offset, Token::Symbol, "incomplete"))
-            || (p.nth_matches(offset, Token::Symbol, "memout"))
-            || (SExpr::is_start_of(offset, p))
-    }
-    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
-        let offset = 0;
-        if p.nth_matches(offset, Token::Symbol, "incomplete") {
-            p.expect_matches(Token::Symbol, "incomplete")?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Incomplete);
-        }
-        if p.nth_matches(offset, Token::Symbol, "memout") {
-            p.expect_matches(Token::Symbol, "memout")?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Memout);
-        }
-        if SExpr::is_start_of(offset, p) {
-            let m0 = <SExpr<'st> as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::SExpr(m0.into()));
-        }
-        Err(p.stuck("ReasonUnknown"))
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub enum ModelResponse<'st> {
-    /// `(define-fun <function_def>)`
-    DefineFun(FunctionDef<'st>),
-    /// `(define-fun-rec <function_def>)`
-    DefineFunRec(FunctionDef<'st>),
-    /// `(define-funs-rec (<function_dec>n+1) (<term>n+1))`
-    DefineFunsRec(&'st [FunctionDec<'st>], &'st [&'st Term<'st>]),
-}
-impl std::fmt::Display for ModelResponse<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::DefineFun(m0) => write!(f, "(define-fun {})", m0),
-            Self::DefineFunRec(m0) => write!(f, "(define-fun-rec {})", m0),
-            Self::DefineFunsRec(m0, m1) => {
-                write!(
-                    f, "(define-funs-rec ({}) ({}))", m0.iter().format(" "), m1.iter()
-                    .format(" ")
-                )
-            }
-        }
-    }
-}
-impl<'st> ModelResponse<'st> {
-    pub fn parse(st: &'st Storage, src: &str) -> Result<ModelResponse<'st>, ParseError> {
-        <ModelResponse<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
-    }
-}
-impl<'st> SmtlibParse<'st> for ModelResponse<'st> {
-    type Output = ModelResponse<'st>;
-    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
-        (p.nth(offset) == Token::LParen
-            && p.nth_matches(offset + 1, Token::Symbol, "define-funs-rec")
-            && p.nth(offset + 2) == Token::LParen)
-            || (p.nth(offset) == Token::LParen
-                && p.nth_matches(offset + 1, Token::Reserved, "define-fun-rec"))
-            || (p.nth(offset) == Token::LParen
-                && p.nth_matches(offset + 1, Token::Reserved, "define-fun"))
-    }
-    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
-        let offset = 0;
-        if p.nth(offset) == Token::LParen
-            && p.nth_matches(offset + 1, Token::Symbol, "define-funs-rec")
-            && p.nth(offset + 2) == Token::LParen
-        {
-            p.expect(Token::LParen)?;
-            p.expect_matches(Token::Symbol, "define-funs-rec")?;
-            p.expect(Token::LParen)?;
-            let m0 = p.n_plus_one::<FunctionDec<'st>>()?;
-            p.expect(Token::RParen)?;
-            p.expect(Token::LParen)?;
-            let m1 = p.n_plus_one::<Term<'st>>()?;
-            p.expect(Token::RParen)?;
-            p.expect(Token::RParen)?;
-            #[allow(clippy::useless_conversion)]
-            return Ok(Self::DefineFunsRec(m0.into(), m1.into()));
-        }
-        if p.nth(offset) == Token::LParen
-            && p.nth_matches(offset + 1, Token::Reserved, "define-fun-rec")
-        {
-            p.expect(Token::LParen)?;
-            p.expect_matches(Token::Reserved, "define-fun-rec")?;
-            let m0 = <FunctionDef<'st> as SmtlibParse<'st>>::parse(p)?;
-            p.expect(Token::RParen)?;
-            #[allow(clippy::useless_conversion)]
-            return Ok(Self::DefineFunRec(m0.into()));
-        }
-        if p.nth(offset) == Token::LParen
-            && p.nth_matches(offset + 1, Token::Reserved, "define-fun")
-        {
-            p.expect(Token::LParen)?;
-            p.expect_matches(Token::Reserved, "define-fun")?;
-            let m0 = <FunctionDef<'st> as SmtlibParse<'st>>::parse(p)?;
-            p.expect(Token::RParen)?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::DefineFun(m0.into()));
-        }
-        Err(p.stuck("ModelResponse"))
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub enum InfoResponse<'st> {
-    /// `:assertion-stack-levels <numeral>`
-    AssertionStackLevels(Numeral<'st>),
-    /// `:authors <string>`
-    Authors(&'st str),
-    /// `:error-behavior <error-behavior>`
-    ErrorBehavior(ErrorBehavior),
-    /// `:name <string>`
-    Name(&'st str),
-    /// `:reason-unknown <reason-unknown>`
-    ReasonUnknown(ReasonUnknown<'st>),
-    /// `:version <string>`
-    Version(&'st str),
-    /// `<attribute>`
-    Attribute(Attribute<'st>),
-}
-impl std::fmt::Display for InfoResponse<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::AssertionStackLevels(m0) => write!(f, ":assertion-stack-levels {}", m0),
-            Self::Authors(m0) => write!(f, ":authors {}", m0),
-            Self::ErrorBehavior(m0) => write!(f, ":error-behavior {}", m0),
-            Self::Name(m0) => write!(f, ":name {}", m0),
-            Self::ReasonUnknown(m0) => write!(f, ":reason-unknown {}", m0),
-            Self::Version(m0) => write!(f, ":version {}", m0),
-            Self::Attribute(m0) => write!(f, "{}", m0),
-        }
-    }
-}
-impl<'st> InfoResponse<'st> {
-    pub fn parse(st: &'st Storage, src: &str) -> Result<InfoResponse<'st>, ParseError> {
-        <InfoResponse<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
-    }
-}
-impl<'st> SmtlibParse<'st> for InfoResponse<'st> {
-    type Output = InfoResponse<'st>;
-    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
-        (p.nth_matches(offset, Token::Keyword, ":version"))
-            || (p.nth_matches(offset, Token::Keyword, ":reason-unknown"))
-            || (p.nth_matches(offset, Token::Keyword, ":name"))
-            || (p.nth_matches(offset, Token::Keyword, ":error-behavior"))
-            || (p.nth_matches(offset, Token::Keyword, ":authors"))
-            || (p.nth_matches(offset, Token::Keyword, ":assertion-stack-levels"))
-            || (Attribute::is_start_of(offset, p))
-    }
-    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
-        let offset = 0;
-        if p.nth_matches(offset, Token::Keyword, ":version") {
-            p.expect_matches(Token::Keyword, ":version")?;
-            let m0 = <String as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Version(m0.into()));
-        }
-        if p.nth_matches(offset, Token::Keyword, ":reason-unknown") {
-            p.expect_matches(Token::Keyword, ":reason-unknown")?;
-            let m0 = <ReasonUnknown<'st> as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)]
-            return Ok(Self::ReasonUnknown(m0.into()));
-        }
-        if p.nth_matches(offset, Token::Keyword, ":name") {
-            p.expect_matches(Token::Keyword, ":name")?;
-            let m0 = <String as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Name(m0.into()));
-        }
-        if p.nth_matches(offset, Token::Keyword, ":error-behavior") {
-            p.expect_matches(Token::Keyword, ":error-behavior")?;
-            let m0 = <ErrorBehavior as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)]
-            return Ok(Self::ErrorBehavior(m0.into()));
-        }
-        if p.nth_matches(offset, Token::Keyword, ":authors") {
-            p.expect_matches(Token::Keyword, ":authors")?;
-            let m0 = <String as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Authors(m0.into()));
-        }
-        if p.nth_matches(offset, Token::Keyword, ":assertion-stack-levels") {
-            p.expect_matches(Token::Keyword, ":assertion-stack-levels")?;
-            let m0 = <Numeral<'st> as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)]
-            return Ok(Self::AssertionStackLevels(m0.into()));
-        }
-        if Attribute::is_start_of(offset, p) {
-            let m0 = <Attribute<'st> as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Attribute(m0.into()));
-        }
-        Err(p.stuck("InfoResponse"))
-    }
-}
-/// `(<term> <term>)`
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub struct ValuationPair<'st>(pub &'st Term<'st>, pub &'st Term<'st>);
-impl std::fmt::Display for ValuationPair<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "({} {})", self.0, self.1)
-    }
-}
-impl<'st> ValuationPair<'st> {
-    pub fn parse(st: &'st Storage, src: &str) -> Result<ValuationPair<'st>, ParseError> {
-        <ValuationPair<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
-    }
-}
-impl<'st> SmtlibParse<'st> for ValuationPair<'st> {
-    type Output = ValuationPair<'st>;
-    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
-        p.nth(offset) == Token::LParen
-    }
-    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
-        p.expect(Token::LParen)?;
-        let m0 = <Term<'st> as SmtlibParse<'st>>::parse(p)?;
-        let m1 = <Term<'st> as SmtlibParse<'st>>::parse(p)?;
-        p.expect(Token::RParen)?;
-        Ok(Self(m0, m1))
-    }
-}
-/// `(<symbol> <b_value>)`
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub struct TValuationPair<'st>(pub Symbol<'st>, pub BValue);
-impl std::fmt::Display for TValuationPair<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "({} {})", self.0, self.1)
-    }
-}
-impl<'st> TValuationPair<'st> {
+impl<'st> ConstructorDec<'st> {
     pub fn parse(
         st: &'st Storage,
         src: &str,
-    ) -> Result<TValuationPair<'st>, ParseError> {
-        <TValuationPair<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
+    ) -> Result<ConstructorDec<'st>, ParseError> {
+        <ConstructorDec<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
     }
 }
-impl<'st> SmtlibParse<'st> for TValuationPair<'st> {
-    type Output = TValuationPair<'st>;
+impl<'st> SmtlibParse<'st> for ConstructorDec<'st> {
+    type Output = ConstructorDec<'st>;
     fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
         p.nth(offset) == Token::LParen
     }
     fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
         p.expect(Token::LParen)?;
         let m0 = <Symbol<'st> as SmtlibParse<'st>>::parse(p)?;
-        let m1 = <BValue as SmtlibParse<'st>>::parse(p)?;
+        let m1 = p.any::<SelectorDec<'st>>()?;
         p.expect(Token::RParen)?;
         Ok(Self(m0, m1))
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub enum CheckSatResponse {
-    /// `sat`
-    Sat,
-    /// `unsat`
-    Unsat,
-    /// `unknown`
-    Unknown,
+pub enum DatatypeDec<'st> {
+    /// `(<constructor_dec>+)`
+    DatatypeDec(&'st [ConstructorDec<'st>]),
+    /// `(par (<symbol>+) (<constructor_dec>+))`
+    Par(&'st [Symbol<'st>], &'st [ConstructorDec<'st>]),
 }
-impl std::fmt::Display for CheckSatResponse {
+impl std::fmt::Display for DatatypeDec<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            Self::Sat => write!(f, "sat"),
-            Self::Unsat => write!(f, "unsat"),
-            Self::Unknown => write!(f, "unknown"),
+            Self::DatatypeDec(m0) => write!(f, "({})", m0.iter().format(" ")),
+            Self::Par(m0, m1) => {
+                write!(
+                    f, "(par ({}) ({}))", m0.iter().format(" "), m1.iter().format(" ")
+                )
+            }
         }
     }
 }
-impl<'st> CheckSatResponse {
-    pub fn parse(st: &'st Storage, src: &str) -> Result<CheckSatResponse, ParseError> {
-        <CheckSatResponse as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
+impl<'st> DatatypeDec<'st> {
+    pub fn parse(st: &'st Storage, src: &str) -> Result<DatatypeDec<'st>, ParseError> {
+        <DatatypeDec<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
     }
 }
-impl<'st> SmtlibParse<'st> for CheckSatResponse {
-    type Output = CheckSatResponse;
+impl<'st> SmtlibParse<'st> for DatatypeDec<'st> {
+    type Output = DatatypeDec<'st>;
     fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
-        (p.nth_matches(offset, Token::Symbol, "unknown"))
-            || (p.nth_matches(offset, Token::Symbol, "unsat"))
-            || (p.nth_matches(offset, Token::Symbol, "sat"))
+        (p.nth(offset) == Token::LParen
+            && p.nth_matches(offset + 1, Token::Reserved, "par")
+            && p.nth(offset + 2) == Token::LParen) || (p.nth(offset) == Token::LParen)
     }
     fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
         let offset = 0;
-        if p.nth_matches(offset, Token::Symbol, "unknown") {
-            p.expect_matches(Token::Symbol, "unknown")?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Unknown);
+        if p.nth(offset) == Token::LParen
+            && p.nth_matches(offset + 1, Token::Reserved, "par")
+            && p.nth(offset + 2) == Token::LParen
+        {
+            p.expect(Token::LParen)?;
+            p.expect_matches(Token::Reserved, "par")?;
+            p.expect(Token::LParen)?;
+            let m0 = p.non_zero::<Symbol<'st>>()?;
+            p.expect(Token::RParen)?;
+            p.expect(Token::LParen)?;
+            let m1 = p.non_zero::<ConstructorDec<'st>>()?;
+            p.expect(Token::RParen)?;
+            p.expect(Token::RParen)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(Self::Par(m0.into(), m1.into()));
         }
-        if p.nth_matches(offset, Token::Symbol, "unsat") {
-            p.expect_matches(Token::Symbol, "unsat")?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Unsat);
+        if p.nth(offset) == Token::LParen {
+            p.expect(Token::LParen)?;
+            let m0 = p.non_zero::<ConstructorDec<'st>>()?;
+            p.expect(Token::RParen)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::DatatypeDec(m0.into()));
         }
-        if p.nth_matches(offset, Token::Symbol, "sat") {
-            p.expect_matches(Token::Symbol, "sat")?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Sat);
-        }
-        Err(p.stuck("CheckSatResponse"))
+        Err(p.stuck("DatatypeDec"))
     }
 }
 /// `<string>`
@@ -2837,6 +1016,244 @@ impl<'st> SmtlibParse<'st> for EchoResponse<'st> {
     fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
         let m0 = <String as SmtlibParse<'st>>::parse(p)?;
         Ok(Self(m0))
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub enum ErrorBehavior {
+    /// `continued-execution`
+    ContinuedExecution,
+    /// `immediate-exit`
+    ImmediateExit,
+}
+impl std::fmt::Display for ErrorBehavior {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::ContinuedExecution => write!(f, "continued-execution"),
+            Self::ImmediateExit => write!(f, "immediate-exit"),
+        }
+    }
+}
+impl<'st> ErrorBehavior {
+    pub fn parse(st: &'st Storage, src: &str) -> Result<ErrorBehavior, ParseError> {
+        <ErrorBehavior as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
+    }
+}
+impl<'st> SmtlibParse<'st> for ErrorBehavior {
+    type Output = ErrorBehavior;
+    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
+        (p.nth_matches(offset, Token::Symbol, "immediate-exit"))
+            || (p.nth_matches(offset, Token::Symbol, "continued-execution"))
+    }
+    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
+        let offset = 0;
+        if p.nth_matches(offset, Token::Symbol, "immediate-exit") {
+            p.expect_matches(Token::Symbol, "immediate-exit")?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::ImmediateExit);
+        }
+        if p.nth_matches(offset, Token::Symbol, "continued-execution") {
+            p.expect_matches(Token::Symbol, "continued-execution")?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::ContinuedExecution);
+        }
+        Err(p.stuck("ErrorBehavior"))
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub enum FunSymbolDecl<'st> {
+    /// `(<identifier> <sort>+ <attribute>*)`
+    Identifier(Identifier<'st>, &'st [Sort<'st>], &'st [Attribute<'st>]),
+    /// `(<meta_spec_constant> <sort> <attribute>*)`
+    MetaSpecConstant(MetaSpecConstant, Sort<'st>, &'st [Attribute<'st>]),
+    /// `(<spec_constant> <sort> <attribute>*)`
+    SpecConstant(SpecConstant<'st>, Sort<'st>, &'st [Attribute<'st>]),
+}
+impl std::fmt::Display for FunSymbolDecl<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::Identifier(m0, m1, m2) => {
+                write!(f, "({} {} {})", m0, m1.iter().format(" "), m2.iter().format(" "))
+            }
+            Self::MetaSpecConstant(m0, m1, m2) => {
+                write!(f, "({} {} {})", m0, m1, m2.iter().format(" "))
+            }
+            Self::SpecConstant(m0, m1, m2) => {
+                write!(f, "({} {} {})", m0, m1, m2.iter().format(" "))
+            }
+        }
+    }
+}
+impl<'st> FunSymbolDecl<'st> {
+    pub fn parse(st: &'st Storage, src: &str) -> Result<FunSymbolDecl<'st>, ParseError> {
+        <FunSymbolDecl<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
+    }
+}
+impl<'st> SmtlibParse<'st> for FunSymbolDecl<'st> {
+    type Output = FunSymbolDecl<'st>;
+    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
+        (p.nth(offset) == Token::LParen) || (p.nth(offset) == Token::LParen)
+            || (p.nth(offset) == Token::LParen)
+    }
+    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
+        let offset = 0;
+        if p.nth(offset) == Token::LParen {
+            p.expect(Token::LParen)?;
+            let m0 = <SpecConstant<'st> as SmtlibParse<'st>>::parse(p)?;
+            let m1 = <Sort<'st> as SmtlibParse<'st>>::parse(p)?;
+            let m2 = p.any::<Attribute<'st>>()?;
+            p.expect(Token::RParen)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(Self::SpecConstant(m0.into(), m1.into(), m2.into()));
+        }
+        if p.nth(offset) == Token::LParen {
+            p.expect(Token::LParen)?;
+            let m0 = <MetaSpecConstant as SmtlibParse<'st>>::parse(p)?;
+            let m1 = <Sort<'st> as SmtlibParse<'st>>::parse(p)?;
+            let m2 = p.any::<Attribute<'st>>()?;
+            p.expect(Token::RParen)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(Self::MetaSpecConstant(m0.into(), m1.into(), m2.into()));
+        }
+        if p.nth(offset) == Token::LParen {
+            p.expect(Token::LParen)?;
+            let m0 = <Identifier<'st> as SmtlibParse<'st>>::parse(p)?;
+            let m1 = p.non_zero::<Sort<'st>>()?;
+            let m2 = p.any::<Attribute<'st>>()?;
+            p.expect(Token::RParen)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(Self::Identifier(m0.into(), m1.into(), m2.into()));
+        }
+        Err(p.stuck("FunSymbolDecl"))
+    }
+}
+/// `(<symbol> (<sort>*) <sort>)`
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub struct FunctionDec<'st>(pub Symbol<'st>, pub &'st [Sort<'st>], pub Sort<'st>);
+impl std::fmt::Display for FunctionDec<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "({} ({}) {})", self.0, self.1.iter().format(" "), self.2)
+    }
+}
+impl<'st> FunctionDec<'st> {
+    pub fn parse(st: &'st Storage, src: &str) -> Result<FunctionDec<'st>, ParseError> {
+        <FunctionDec<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
+    }
+}
+impl<'st> SmtlibParse<'st> for FunctionDec<'st> {
+    type Output = FunctionDec<'st>;
+    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
+        p.nth(offset) == Token::LParen
+    }
+    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
+        p.expect(Token::LParen)?;
+        let m0 = <Symbol<'st> as SmtlibParse<'st>>::parse(p)?;
+        p.expect(Token::LParen)?;
+        let m1 = p.any::<Sort<'st>>()?;
+        p.expect(Token::RParen)?;
+        let m2 = <Sort<'st> as SmtlibParse<'st>>::parse(p)?;
+        p.expect(Token::RParen)?;
+        Ok(Self(m0, m1, m2))
+    }
+}
+/// `<symbol> (<sorted_var>*) <sort> <term>`
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub struct FunctionDef<'st>(
+    pub Symbol<'st>,
+    pub &'st [SortedVar<'st>],
+    pub Sort<'st>,
+    pub &'st Term<'st>,
+);
+impl std::fmt::Display for FunctionDef<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{} ({}) {} {}", self.0, self.1.iter().format(" "), self.2, self.3)
+    }
+}
+impl<'st> FunctionDef<'st> {
+    pub fn parse(st: &'st Storage, src: &str) -> Result<FunctionDef<'st>, ParseError> {
+        <FunctionDef<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
+    }
+}
+impl<'st> SmtlibParse<'st> for FunctionDef<'st> {
+    type Output = FunctionDef<'st>;
+    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
+        Symbol::is_start_of(offset, p)
+    }
+    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
+        let m0 = <Symbol<'st> as SmtlibParse<'st>>::parse(p)?;
+        p.expect(Token::LParen)?;
+        let m1 = p.any::<SortedVar<'st>>()?;
+        p.expect(Token::RParen)?;
+        let m2 = <Sort<'st> as SmtlibParse<'st>>::parse(p)?;
+        let m3 = <Term<'st> as SmtlibParse<'st>>::parse(p)?;
+        Ok(Self(m0, m1, m2, m3))
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub enum GeneralResponse<'st> {
+    /// `(error <string>)`
+    Error(&'st str),
+    /// `<specific_success_response>`
+    SpecificSuccessResponse(SpecificSuccessResponse<'st>),
+    /// `success`
+    Success,
+    /// `unsupported`
+    Unsupported,
+}
+impl std::fmt::Display for GeneralResponse<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::Error(m0) => write!(f, "(error {})", m0),
+            Self::SpecificSuccessResponse(m0) => write!(f, "{}", m0),
+            Self::Success => write!(f, "success"),
+            Self::Unsupported => write!(f, "unsupported"),
+        }
+    }
+}
+impl<'st> GeneralResponse<'st> {
+    pub fn parse(
+        st: &'st Storage,
+        src: &str,
+    ) -> Result<GeneralResponse<'st>, ParseError> {
+        <GeneralResponse<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
+    }
+}
+impl<'st> SmtlibParse<'st> for GeneralResponse<'st> {
+    type Output = GeneralResponse<'st>;
+    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
+        (p.nth(offset) == Token::LParen
+            && p.nth_matches(offset + 1, Token::Symbol, "error"))
+            || (p.nth_matches(offset, Token::Symbol, "unsupported"))
+            || (p.nth_matches(offset, Token::Symbol, "success"))
+            || (SpecificSuccessResponse::is_start_of(offset, p))
+    }
+    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
+        let offset = 0;
+        if p.nth(offset) == Token::LParen
+            && p.nth_matches(offset + 1, Token::Symbol, "error")
+        {
+            p.expect(Token::LParen)?;
+            p.expect_matches(Token::Symbol, "error")?;
+            let m0 = <String as SmtlibParse<'st>>::parse(p)?;
+            p.expect(Token::RParen)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Error(m0.into()));
+        }
+        if p.nth_matches(offset, Token::Symbol, "unsupported") {
+            p.expect_matches(Token::Symbol, "unsupported")?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Unsupported);
+        }
+        if p.nth_matches(offset, Token::Symbol, "success") {
+            p.expect_matches(Token::Symbol, "success")?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Success);
+        }
+        if SpecificSuccessResponse::is_start_of(offset, p) {
+            let m0 = <SpecificSuccessResponse<'st> as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(Self::SpecificSuccessResponse(m0.into()));
+        }
+        Err(p.stuck("GeneralResponse"))
     }
 }
 /// `(<term>*)`
@@ -3102,6 +1519,1084 @@ impl<'st> SmtlibParse<'st> for GetValueResponse<'st> {
         Ok(Self(m0))
     }
 }
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub enum Identifier<'st> {
+    /// `(_ <symbol> <index>+)`
+    Indexed(Symbol<'st>, &'st [Index<'st>]),
+    /// `<symbol>`
+    Simple(Symbol<'st>),
+}
+impl std::fmt::Display for Identifier<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::Indexed(m0, m1) => write!(f, "(_ {} {})", m0, m1.iter().format(" ")),
+            Self::Simple(m0) => write!(f, "{}", m0),
+        }
+    }
+}
+impl<'st> Identifier<'st> {
+    pub fn parse(st: &'st Storage, src: &str) -> Result<Identifier<'st>, ParseError> {
+        <Identifier<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
+    }
+}
+impl<'st> SmtlibParse<'st> for Identifier<'st> {
+    type Output = Identifier<'st>;
+    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
+        (p.nth(offset) == Token::LParen
+            && p.nth_matches(offset + 1, Token::Reserved, "_"))
+            || (Symbol::is_start_of(offset, p))
+    }
+    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
+        let offset = 0;
+        if p.nth(offset) == Token::LParen
+            && p.nth_matches(offset + 1, Token::Reserved, "_")
+        {
+            p.expect(Token::LParen)?;
+            p.expect_matches(Token::Reserved, "_")?;
+            let m0 = <Symbol<'st> as SmtlibParse<'st>>::parse(p)?;
+            let m1 = p.non_zero::<Index<'st>>()?;
+            p.expect(Token::RParen)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(Self::Indexed(m0.into(), m1.into()));
+        }
+        if Symbol::is_start_of(offset, p) {
+            let m0 = <Symbol<'st> as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Simple(m0.into()));
+        }
+        Err(p.stuck("Identifier"))
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub enum Index<'st> {
+    /// `<numeral>`
+    Numeral(Numeral<'st>),
+    /// `<symbol>`
+    Symbol(Symbol<'st>),
+}
+impl std::fmt::Display for Index<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::Numeral(m0) => write!(f, "{}", m0),
+            Self::Symbol(m0) => write!(f, "{}", m0),
+        }
+    }
+}
+impl<'st> Index<'st> {
+    pub fn parse(st: &'st Storage, src: &str) -> Result<Index<'st>, ParseError> {
+        <Index<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
+    }
+}
+impl<'st> SmtlibParse<'st> for Index<'st> {
+    type Output = Index<'st>;
+    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
+        (Symbol::is_start_of(offset, p)) || (Numeral::is_start_of(offset, p))
+    }
+    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
+        let offset = 0;
+        if Symbol::is_start_of(offset, p) {
+            let m0 = <Symbol<'st> as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Symbol(m0.into()));
+        }
+        if Numeral::is_start_of(offset, p) {
+            let m0 = <Numeral<'st> as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Numeral(m0.into()));
+        }
+        Err(p.stuck("Index"))
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub enum InfoFlag<'st> {
+    /// `:all-statistics`
+    AllStatistics,
+    /// `:assertion-stack-levels`
+    AssertionStackLevels,
+    /// `:authors`
+    Authors,
+    /// `:error-behavior`
+    ErrorBehavior,
+    /// `<keyword>`
+    Keyword(Keyword<'st>),
+    /// `:name`
+    Name,
+    /// `:reason-unknown`
+    ReasonUnknown,
+    /// `:version`
+    Version,
+}
+impl std::fmt::Display for InfoFlag<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::AllStatistics => write!(f, ":all-statistics"),
+            Self::AssertionStackLevels => write!(f, ":assertion-stack-levels"),
+            Self::Authors => write!(f, ":authors"),
+            Self::ErrorBehavior => write!(f, ":error-behavior"),
+            Self::Keyword(m0) => write!(f, "{}", m0),
+            Self::Name => write!(f, ":name"),
+            Self::ReasonUnknown => write!(f, ":reason-unknown"),
+            Self::Version => write!(f, ":version"),
+        }
+    }
+}
+impl<'st> InfoFlag<'st> {
+    pub fn parse(st: &'st Storage, src: &str) -> Result<InfoFlag<'st>, ParseError> {
+        <InfoFlag<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
+    }
+}
+impl<'st> SmtlibParse<'st> for InfoFlag<'st> {
+    type Output = InfoFlag<'st>;
+    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
+        (p.nth_matches(offset, Token::Keyword, ":version"))
+            || (p.nth_matches(offset, Token::Keyword, ":reason-unknown"))
+            || (p.nth_matches(offset, Token::Keyword, ":name"))
+            || (p.nth_matches(offset, Token::Keyword, ":error-behavior"))
+            || (p.nth_matches(offset, Token::Keyword, ":authors"))
+            || (p.nth_matches(offset, Token::Keyword, ":assertion-stack-levels"))
+            || (p.nth_matches(offset, Token::Keyword, ":all-statistics"))
+            || (Keyword::is_start_of(offset, p))
+    }
+    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
+        let offset = 0;
+        if p.nth_matches(offset, Token::Keyword, ":version") {
+            p.expect_matches(Token::Keyword, ":version")?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Version);
+        }
+        if p.nth_matches(offset, Token::Keyword, ":reason-unknown") {
+            p.expect_matches(Token::Keyword, ":reason-unknown")?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::ReasonUnknown);
+        }
+        if p.nth_matches(offset, Token::Keyword, ":name") {
+            p.expect_matches(Token::Keyword, ":name")?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Name);
+        }
+        if p.nth_matches(offset, Token::Keyword, ":error-behavior") {
+            p.expect_matches(Token::Keyword, ":error-behavior")?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::ErrorBehavior);
+        }
+        if p.nth_matches(offset, Token::Keyword, ":authors") {
+            p.expect_matches(Token::Keyword, ":authors")?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Authors);
+        }
+        if p.nth_matches(offset, Token::Keyword, ":assertion-stack-levels") {
+            p.expect_matches(Token::Keyword, ":assertion-stack-levels")?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::AssertionStackLevels);
+        }
+        if p.nth_matches(offset, Token::Keyword, ":all-statistics") {
+            p.expect_matches(Token::Keyword, ":all-statistics")?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::AllStatistics);
+        }
+        if Keyword::is_start_of(offset, p) {
+            let m0 = <Keyword<'st> as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Keyword(m0.into()));
+        }
+        Err(p.stuck("InfoFlag"))
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub enum InfoResponse<'st> {
+    /// `:assertion-stack-levels <numeral>`
+    AssertionStackLevels(Numeral<'st>),
+    /// `<attribute>`
+    Attribute(Attribute<'st>),
+    /// `:authors <string>`
+    Authors(&'st str),
+    /// `:error-behavior <error-behavior>`
+    ErrorBehavior(ErrorBehavior),
+    /// `:name <string>`
+    Name(&'st str),
+    /// `:reason-unknown <reason-unknown>`
+    ReasonUnknown(ReasonUnknown<'st>),
+    /// `:version <string>`
+    Version(&'st str),
+}
+impl std::fmt::Display for InfoResponse<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::AssertionStackLevels(m0) => write!(f, ":assertion-stack-levels {}", m0),
+            Self::Attribute(m0) => write!(f, "{}", m0),
+            Self::Authors(m0) => write!(f, ":authors {}", m0),
+            Self::ErrorBehavior(m0) => write!(f, ":error-behavior {}", m0),
+            Self::Name(m0) => write!(f, ":name {}", m0),
+            Self::ReasonUnknown(m0) => write!(f, ":reason-unknown {}", m0),
+            Self::Version(m0) => write!(f, ":version {}", m0),
+        }
+    }
+}
+impl<'st> InfoResponse<'st> {
+    pub fn parse(st: &'st Storage, src: &str) -> Result<InfoResponse<'st>, ParseError> {
+        <InfoResponse<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
+    }
+}
+impl<'st> SmtlibParse<'st> for InfoResponse<'st> {
+    type Output = InfoResponse<'st>;
+    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
+        (p.nth_matches(offset, Token::Keyword, ":version"))
+            || (p.nth_matches(offset, Token::Keyword, ":reason-unknown"))
+            || (p.nth_matches(offset, Token::Keyword, ":name"))
+            || (p.nth_matches(offset, Token::Keyword, ":error-behavior"))
+            || (p.nth_matches(offset, Token::Keyword, ":authors"))
+            || (p.nth_matches(offset, Token::Keyword, ":assertion-stack-levels"))
+            || (Attribute::is_start_of(offset, p))
+    }
+    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
+        let offset = 0;
+        if p.nth_matches(offset, Token::Keyword, ":version") {
+            p.expect_matches(Token::Keyword, ":version")?;
+            let m0 = <String as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Version(m0.into()));
+        }
+        if p.nth_matches(offset, Token::Keyword, ":reason-unknown") {
+            p.expect_matches(Token::Keyword, ":reason-unknown")?;
+            let m0 = <ReasonUnknown<'st> as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(Self::ReasonUnknown(m0.into()));
+        }
+        if p.nth_matches(offset, Token::Keyword, ":name") {
+            p.expect_matches(Token::Keyword, ":name")?;
+            let m0 = <String as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Name(m0.into()));
+        }
+        if p.nth_matches(offset, Token::Keyword, ":error-behavior") {
+            p.expect_matches(Token::Keyword, ":error-behavior")?;
+            let m0 = <ErrorBehavior as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(Self::ErrorBehavior(m0.into()));
+        }
+        if p.nth_matches(offset, Token::Keyword, ":authors") {
+            p.expect_matches(Token::Keyword, ":authors")?;
+            let m0 = <String as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Authors(m0.into()));
+        }
+        if p.nth_matches(offset, Token::Keyword, ":assertion-stack-levels") {
+            p.expect_matches(Token::Keyword, ":assertion-stack-levels")?;
+            let m0 = <Numeral<'st> as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(Self::AssertionStackLevels(m0.into()));
+        }
+        if Attribute::is_start_of(offset, p) {
+            let m0 = <Attribute<'st> as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Attribute(m0.into()));
+        }
+        Err(p.stuck("InfoResponse"))
+    }
+}
+/// `(logic <symbol> <logic_attribute>+)`
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub struct Logic<'st>(pub Symbol<'st>, pub &'st [LogicAttribute<'st>]);
+impl std::fmt::Display for Logic<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "(logic {} {})", self.0, self.1.iter().format(" "))
+    }
+}
+impl<'st> Logic<'st> {
+    pub fn parse(st: &'st Storage, src: &str) -> Result<Logic<'st>, ParseError> {
+        <Logic<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
+    }
+}
+impl<'st> SmtlibParse<'st> for Logic<'st> {
+    type Output = Logic<'st>;
+    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
+        p.nth(offset) == Token::LParen
+            && p.nth_matches(offset + 1, Token::Symbol, "logic")
+    }
+    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
+        p.expect(Token::LParen)?;
+        p.expect_matches(Token::Symbol, "logic")?;
+        let m0 = <Symbol<'st> as SmtlibParse<'st>>::parse(p)?;
+        let m1 = p.non_zero::<LogicAttribute<'st>>()?;
+        p.expect(Token::RParen)?;
+        Ok(Self(m0, m1))
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub enum LogicAttribute<'st> {
+    /// `<attribute>`
+    Attribute(Attribute<'st>),
+    /// `:extensions <string>`
+    Extensions(&'st str),
+    /// `:language <string>`
+    Language(&'st str),
+    /// `:notes <string>`
+    Notes(&'st str),
+    /// `:theories (<symbol>*)`
+    Theories(&'st [Symbol<'st>]),
+    /// `:values <string>`
+    Values(&'st str),
+}
+impl std::fmt::Display for LogicAttribute<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::Attribute(m0) => write!(f, "{}", m0),
+            Self::Extensions(m0) => write!(f, ":extensions {}", m0),
+            Self::Language(m0) => write!(f, ":language {}", m0),
+            Self::Notes(m0) => write!(f, ":notes {}", m0),
+            Self::Theories(m0) => write!(f, ":theories ({})", m0.iter().format(" ")),
+            Self::Values(m0) => write!(f, ":values {}", m0),
+        }
+    }
+}
+impl<'st> LogicAttribute<'st> {
+    pub fn parse(
+        st: &'st Storage,
+        src: &str,
+    ) -> Result<LogicAttribute<'st>, ParseError> {
+        <LogicAttribute<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
+    }
+}
+impl<'st> SmtlibParse<'st> for LogicAttribute<'st> {
+    type Output = LogicAttribute<'st>;
+    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
+        (p.nth_matches(offset, Token::Keyword, ":theories")
+            && p.nth(offset + 1) == Token::LParen)
+            || (p.nth_matches(offset, Token::Keyword, ":values"))
+            || (p.nth_matches(offset, Token::Keyword, ":notes"))
+            || (p.nth_matches(offset, Token::Keyword, ":language"))
+            || (p.nth_matches(offset, Token::Keyword, ":extensions"))
+            || (Attribute::is_start_of(offset, p))
+    }
+    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
+        let offset = 0;
+        if p.nth_matches(offset, Token::Keyword, ":theories")
+            && p.nth(offset + 1) == Token::LParen
+        {
+            p.expect_matches(Token::Keyword, ":theories")?;
+            p.expect(Token::LParen)?;
+            let m0 = p.any::<Symbol<'st>>()?;
+            p.expect(Token::RParen)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Theories(m0.into()));
+        }
+        if p.nth_matches(offset, Token::Keyword, ":values") {
+            p.expect_matches(Token::Keyword, ":values")?;
+            let m0 = <String as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Values(m0.into()));
+        }
+        if p.nth_matches(offset, Token::Keyword, ":notes") {
+            p.expect_matches(Token::Keyword, ":notes")?;
+            let m0 = <String as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Notes(m0.into()));
+        }
+        if p.nth_matches(offset, Token::Keyword, ":language") {
+            p.expect_matches(Token::Keyword, ":language")?;
+            let m0 = <String as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Language(m0.into()));
+        }
+        if p.nth_matches(offset, Token::Keyword, ":extensions") {
+            p.expect_matches(Token::Keyword, ":extensions")?;
+            let m0 = <String as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Extensions(m0.into()));
+        }
+        if Attribute::is_start_of(offset, p) {
+            let m0 = <Attribute<'st> as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Attribute(m0.into()));
+        }
+        Err(p.stuck("LogicAttribute"))
+    }
+}
+/// `(<pattern> <term>)`
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub struct MatchCase<'st>(pub Pattern<'st>, pub &'st Term<'st>);
+impl std::fmt::Display for MatchCase<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "({} {})", self.0, self.1)
+    }
+}
+impl<'st> MatchCase<'st> {
+    pub fn parse(st: &'st Storage, src: &str) -> Result<MatchCase<'st>, ParseError> {
+        <MatchCase<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
+    }
+}
+impl<'st> SmtlibParse<'st> for MatchCase<'st> {
+    type Output = MatchCase<'st>;
+    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
+        p.nth(offset) == Token::LParen
+    }
+    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
+        p.expect(Token::LParen)?;
+        let m0 = <Pattern<'st> as SmtlibParse<'st>>::parse(p)?;
+        let m1 = <Term<'st> as SmtlibParse<'st>>::parse(p)?;
+        p.expect(Token::RParen)?;
+        Ok(Self(m0, m1))
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub enum MetaSpecConstant {
+    /// `DECIMAL`
+    Decimal,
+    /// `NUMERAL`
+    Numeral,
+    /// `STRING`
+    String,
+}
+impl std::fmt::Display for MetaSpecConstant {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::Decimal => write!(f, "DECIMAL"),
+            Self::Numeral => write!(f, "NUMERAL"),
+            Self::String => write!(f, "STRING"),
+        }
+    }
+}
+impl<'st> MetaSpecConstant {
+    pub fn parse(st: &'st Storage, src: &str) -> Result<MetaSpecConstant, ParseError> {
+        <MetaSpecConstant as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
+    }
+}
+impl<'st> SmtlibParse<'st> for MetaSpecConstant {
+    type Output = MetaSpecConstant;
+    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
+        (p.nth_matches(offset, Token::Reserved, "STRING"))
+            || (p.nth_matches(offset, Token::Reserved, "NUMERAL"))
+            || (p.nth_matches(offset, Token::Reserved, "DECIMAL"))
+    }
+    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
+        let offset = 0;
+        if p.nth_matches(offset, Token::Reserved, "STRING") {
+            p.expect_matches(Token::Reserved, "STRING")?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::String);
+        }
+        if p.nth_matches(offset, Token::Reserved, "NUMERAL") {
+            p.expect_matches(Token::Reserved, "NUMERAL")?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Numeral);
+        }
+        if p.nth_matches(offset, Token::Reserved, "DECIMAL") {
+            p.expect_matches(Token::Reserved, "DECIMAL")?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Decimal);
+        }
+        Err(p.stuck("MetaSpecConstant"))
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub enum ModelResponse<'st> {
+    /// `(define-fun <function_def>)`
+    DefineFun(FunctionDef<'st>),
+    /// `(define-fun-rec <function_def>)`
+    DefineFunRec(FunctionDef<'st>),
+    /// `(define-funs-rec (<function_dec>n+1) (<term>n+1))`
+    DefineFunsRec(&'st [FunctionDec<'st>], &'st [&'st Term<'st>]),
+}
+impl std::fmt::Display for ModelResponse<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::DefineFun(m0) => write!(f, "(define-fun {})", m0),
+            Self::DefineFunRec(m0) => write!(f, "(define-fun-rec {})", m0),
+            Self::DefineFunsRec(m0, m1) => {
+                write!(
+                    f, "(define-funs-rec ({}) ({}))", m0.iter().format(" "), m1.iter()
+                    .format(" ")
+                )
+            }
+        }
+    }
+}
+impl<'st> ModelResponse<'st> {
+    pub fn parse(st: &'st Storage, src: &str) -> Result<ModelResponse<'st>, ParseError> {
+        <ModelResponse<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
+    }
+}
+impl<'st> SmtlibParse<'st> for ModelResponse<'st> {
+    type Output = ModelResponse<'st>;
+    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
+        (p.nth(offset) == Token::LParen
+            && p.nth_matches(offset + 1, Token::Symbol, "define-funs-rec")
+            && p.nth(offset + 2) == Token::LParen)
+            || (p.nth(offset) == Token::LParen
+                && p.nth_matches(offset + 1, Token::Reserved, "define-fun-rec"))
+            || (p.nth(offset) == Token::LParen
+                && p.nth_matches(offset + 1, Token::Reserved, "define-fun"))
+    }
+    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
+        let offset = 0;
+        if p.nth(offset) == Token::LParen
+            && p.nth_matches(offset + 1, Token::Symbol, "define-funs-rec")
+            && p.nth(offset + 2) == Token::LParen
+        {
+            p.expect(Token::LParen)?;
+            p.expect_matches(Token::Symbol, "define-funs-rec")?;
+            p.expect(Token::LParen)?;
+            let m0 = p.n_plus_one::<FunctionDec<'st>>()?;
+            p.expect(Token::RParen)?;
+            p.expect(Token::LParen)?;
+            let m1 = p.n_plus_one::<Term<'st>>()?;
+            p.expect(Token::RParen)?;
+            p.expect(Token::RParen)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(Self::DefineFunsRec(m0.into(), m1.into()));
+        }
+        if p.nth(offset) == Token::LParen
+            && p.nth_matches(offset + 1, Token::Reserved, "define-fun-rec")
+        {
+            p.expect(Token::LParen)?;
+            p.expect_matches(Token::Reserved, "define-fun-rec")?;
+            let m0 = <FunctionDef<'st> as SmtlibParse<'st>>::parse(p)?;
+            p.expect(Token::RParen)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(Self::DefineFunRec(m0.into()));
+        }
+        if p.nth(offset) == Token::LParen
+            && p.nth_matches(offset + 1, Token::Reserved, "define-fun")
+        {
+            p.expect(Token::LParen)?;
+            p.expect_matches(Token::Reserved, "define-fun")?;
+            let m0 = <FunctionDef<'st> as SmtlibParse<'st>>::parse(p)?;
+            p.expect(Token::RParen)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::DefineFun(m0.into()));
+        }
+        Err(p.stuck("ModelResponse"))
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub enum Option<'st> {
+    /// `<attribute>`
+    Attribute(Attribute<'st>),
+    /// `:diagnostic-output-channel <string>`
+    DiagnosticOutputChannel(&'st str),
+    /// `:global-declarations <b_value>`
+    GlobalDeclarations(BValue),
+    /// `:interactive-mode <b_value>`
+    InteractiveMode(BValue),
+    /// `:print-success <b_value>`
+    PrintSuccess(BValue),
+    /// `:produce-assertions <b_value>`
+    ProduceAssertions(BValue),
+    /// `:produce-assignments <b_value>`
+    ProduceAssignments(BValue),
+    /// `:produce-models <b_value>`
+    ProduceModels(BValue),
+    /// `:produce-proofs <b_value>`
+    ProduceProofs(BValue),
+    /// `:produce-unsat-assumptions <b_value>`
+    ProduceUnsatAssumptions(BValue),
+    /// `:produce-unsat-cores <b_value>`
+    ProduceUnsatCores(BValue),
+    /// `:random-seed <numeral>`
+    RandomSeed(Numeral<'st>),
+    /// `:regular-output-channel <string>`
+    RegularOutputChannel(&'st str),
+    /// `:reproducible-resource-limit <numeral>`
+    ReproducibleResourceLimit(Numeral<'st>),
+    /// `:verbosity <numeral>`
+    Verbosity(Numeral<'st>),
+}
+impl std::fmt::Display for Option<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::Attribute(m0) => write!(f, "{}", m0),
+            Self::DiagnosticOutputChannel(m0) => {
+                write!(f, ":diagnostic-output-channel {}", m0)
+            }
+            Self::GlobalDeclarations(m0) => write!(f, ":global-declarations {}", m0),
+            Self::InteractiveMode(m0) => write!(f, ":interactive-mode {}", m0),
+            Self::PrintSuccess(m0) => write!(f, ":print-success {}", m0),
+            Self::ProduceAssertions(m0) => write!(f, ":produce-assertions {}", m0),
+            Self::ProduceAssignments(m0) => write!(f, ":produce-assignments {}", m0),
+            Self::ProduceModels(m0) => write!(f, ":produce-models {}", m0),
+            Self::ProduceProofs(m0) => write!(f, ":produce-proofs {}", m0),
+            Self::ProduceUnsatAssumptions(m0) => {
+                write!(f, ":produce-unsat-assumptions {}", m0)
+            }
+            Self::ProduceUnsatCores(m0) => write!(f, ":produce-unsat-cores {}", m0),
+            Self::RandomSeed(m0) => write!(f, ":random-seed {}", m0),
+            Self::RegularOutputChannel(m0) => write!(f, ":regular-output-channel {}", m0),
+            Self::ReproducibleResourceLimit(m0) => {
+                write!(f, ":reproducible-resource-limit {}", m0)
+            }
+            Self::Verbosity(m0) => write!(f, ":verbosity {}", m0),
+        }
+    }
+}
+impl<'st> Option<'st> {
+    pub fn parse(st: &'st Storage, src: &str) -> Result<Option<'st>, ParseError> {
+        <Option<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
+    }
+}
+impl<'st> SmtlibParse<'st> for Option<'st> {
+    type Output = Option<'st>;
+    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
+        (p.nth_matches(offset, Token::Keyword, ":verbosity"))
+            || (p.nth_matches(offset, Token::Keyword, ":reproducible-resource-limit"))
+            || (p.nth_matches(offset, Token::Keyword, ":regular-output-channel"))
+            || (p.nth_matches(offset, Token::Keyword, ":random-seed"))
+            || (p.nth_matches(offset, Token::Keyword, ":produce-unsat-cores"))
+            || (p.nth_matches(offset, Token::Keyword, ":produce-unsat-assumptions"))
+            || (p.nth_matches(offset, Token::Keyword, ":produce-proofs"))
+            || (p.nth_matches(offset, Token::Keyword, ":produce-models"))
+            || (p.nth_matches(offset, Token::Keyword, ":produce-assignments"))
+            || (p.nth_matches(offset, Token::Keyword, ":produce-assertions"))
+            || (p.nth_matches(offset, Token::Keyword, ":print-success"))
+            || (p.nth_matches(offset, Token::Keyword, ":interactive-mode"))
+            || (p.nth_matches(offset, Token::Keyword, ":global-declarations"))
+            || (p.nth_matches(offset, Token::Keyword, ":diagnostic-output-channel"))
+            || (Attribute::is_start_of(offset, p))
+    }
+    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
+        let offset = 0;
+        if p.nth_matches(offset, Token::Keyword, ":verbosity") {
+            p.expect_matches(Token::Keyword, ":verbosity")?;
+            let m0 = <Numeral<'st> as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Verbosity(m0.into()));
+        }
+        if p.nth_matches(offset, Token::Keyword, ":reproducible-resource-limit") {
+            p.expect_matches(Token::Keyword, ":reproducible-resource-limit")?;
+            let m0 = <Numeral<'st> as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(Self::ReproducibleResourceLimit(m0.into()));
+        }
+        if p.nth_matches(offset, Token::Keyword, ":regular-output-channel") {
+            p.expect_matches(Token::Keyword, ":regular-output-channel")?;
+            let m0 = <String as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(Self::RegularOutputChannel(m0.into()));
+        }
+        if p.nth_matches(offset, Token::Keyword, ":random-seed") {
+            p.expect_matches(Token::Keyword, ":random-seed")?;
+            let m0 = <Numeral<'st> as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::RandomSeed(m0.into()));
+        }
+        if p.nth_matches(offset, Token::Keyword, ":produce-unsat-cores") {
+            p.expect_matches(Token::Keyword, ":produce-unsat-cores")?;
+            let m0 = <BValue as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(Self::ProduceUnsatCores(m0.into()));
+        }
+        if p.nth_matches(offset, Token::Keyword, ":produce-unsat-assumptions") {
+            p.expect_matches(Token::Keyword, ":produce-unsat-assumptions")?;
+            let m0 = <BValue as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(Self::ProduceUnsatAssumptions(m0.into()));
+        }
+        if p.nth_matches(offset, Token::Keyword, ":produce-proofs") {
+            p.expect_matches(Token::Keyword, ":produce-proofs")?;
+            let m0 = <BValue as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(Self::ProduceProofs(m0.into()));
+        }
+        if p.nth_matches(offset, Token::Keyword, ":produce-models") {
+            p.expect_matches(Token::Keyword, ":produce-models")?;
+            let m0 = <BValue as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(Self::ProduceModels(m0.into()));
+        }
+        if p.nth_matches(offset, Token::Keyword, ":produce-assignments") {
+            p.expect_matches(Token::Keyword, ":produce-assignments")?;
+            let m0 = <BValue as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(Self::ProduceAssignments(m0.into()));
+        }
+        if p.nth_matches(offset, Token::Keyword, ":produce-assertions") {
+            p.expect_matches(Token::Keyword, ":produce-assertions")?;
+            let m0 = <BValue as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(Self::ProduceAssertions(m0.into()));
+        }
+        if p.nth_matches(offset, Token::Keyword, ":print-success") {
+            p.expect_matches(Token::Keyword, ":print-success")?;
+            let m0 = <BValue as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(Self::PrintSuccess(m0.into()));
+        }
+        if p.nth_matches(offset, Token::Keyword, ":interactive-mode") {
+            p.expect_matches(Token::Keyword, ":interactive-mode")?;
+            let m0 = <BValue as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(Self::InteractiveMode(m0.into()));
+        }
+        if p.nth_matches(offset, Token::Keyword, ":global-declarations") {
+            p.expect_matches(Token::Keyword, ":global-declarations")?;
+            let m0 = <BValue as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(Self::GlobalDeclarations(m0.into()));
+        }
+        if p.nth_matches(offset, Token::Keyword, ":diagnostic-output-channel") {
+            p.expect_matches(Token::Keyword, ":diagnostic-output-channel")?;
+            let m0 = <String as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(Self::DiagnosticOutputChannel(m0.into()));
+        }
+        if Attribute::is_start_of(offset, p) {
+            let m0 = <Attribute<'st> as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Attribute(m0.into()));
+        }
+        Err(p.stuck("Option"))
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub enum ParFunSymbolDecl<'st> {
+    /// `<fun_symbol_decl>`
+    FunSymbolDecl(FunSymbolDecl<'st>),
+    /// `(par (<symbol>+) (<identifier> <sort>+ <attribute>*))`
+    Par(&'st [Symbol<'st>], Identifier<'st>, &'st [Sort<'st>], &'st [Attribute<'st>]),
+}
+impl std::fmt::Display for ParFunSymbolDecl<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::FunSymbolDecl(m0) => write!(f, "{}", m0),
+            Self::Par(m0, m1, m2, m3) => {
+                write!(
+                    f, "(par ({}) ({} {} {}))", m0.iter().format(" "), m1, m2.iter()
+                    .format(" "), m3.iter().format(" ")
+                )
+            }
+        }
+    }
+}
+impl<'st> ParFunSymbolDecl<'st> {
+    pub fn parse(
+        st: &'st Storage,
+        src: &str,
+    ) -> Result<ParFunSymbolDecl<'st>, ParseError> {
+        <ParFunSymbolDecl<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
+    }
+}
+impl<'st> SmtlibParse<'st> for ParFunSymbolDecl<'st> {
+    type Output = ParFunSymbolDecl<'st>;
+    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
+        (p.nth(offset) == Token::LParen
+            && p.nth_matches(offset + 1, Token::Reserved, "par")
+            && p.nth(offset + 2) == Token::LParen)
+            || (FunSymbolDecl::is_start_of(offset, p))
+    }
+    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
+        let offset = 0;
+        if p.nth(offset) == Token::LParen
+            && p.nth_matches(offset + 1, Token::Reserved, "par")
+            && p.nth(offset + 2) == Token::LParen
+        {
+            p.expect(Token::LParen)?;
+            p.expect_matches(Token::Reserved, "par")?;
+            p.expect(Token::LParen)?;
+            let m0 = p.non_zero::<Symbol<'st>>()?;
+            p.expect(Token::RParen)?;
+            p.expect(Token::LParen)?;
+            let m1 = <Identifier<'st> as SmtlibParse<'st>>::parse(p)?;
+            let m2 = p.non_zero::<Sort<'st>>()?;
+            let m3 = p.any::<Attribute<'st>>()?;
+            p.expect(Token::RParen)?;
+            p.expect(Token::RParen)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(Self::Par(m0.into(), m1.into(), m2.into(), m3.into()));
+        }
+        if FunSymbolDecl::is_start_of(offset, p) {
+            let m0 = <FunSymbolDecl<'st> as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(Self::FunSymbolDecl(m0.into()));
+        }
+        Err(p.stuck("ParFunSymbolDecl"))
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub enum Pattern<'st> {
+    /// `(<symbol> <symbol>+)`
+    Application(Symbol<'st>, &'st [Symbol<'st>]),
+    /// `<symbol>`
+    Symbol(Symbol<'st>),
+}
+impl std::fmt::Display for Pattern<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::Application(m0, m1) => write!(f, "({} {})", m0, m1.iter().format(" ")),
+            Self::Symbol(m0) => write!(f, "{}", m0),
+        }
+    }
+}
+impl<'st> Pattern<'st> {
+    pub fn parse(st: &'st Storage, src: &str) -> Result<Pattern<'st>, ParseError> {
+        <Pattern<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
+    }
+}
+impl<'st> SmtlibParse<'st> for Pattern<'st> {
+    type Output = Pattern<'st>;
+    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
+        (p.nth(offset) == Token::LParen) || (Symbol::is_start_of(offset, p))
+    }
+    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
+        let offset = 0;
+        if p.nth(offset) == Token::LParen {
+            p.expect(Token::LParen)?;
+            let m0 = <Symbol<'st> as SmtlibParse<'st>>::parse(p)?;
+            let m1 = p.non_zero::<Symbol<'st>>()?;
+            p.expect(Token::RParen)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(Self::Application(m0.into(), m1.into()));
+        }
+        if Symbol::is_start_of(offset, p) {
+            let m0 = <Symbol<'st> as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Symbol(m0.into()));
+        }
+        Err(p.stuck("Pattern"))
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub enum PropLiteral<'st> {
+    /// `(not <symbol>)`
+    Not(Symbol<'st>),
+    /// `<symbol>`
+    Symbol(Symbol<'st>),
+}
+impl std::fmt::Display for PropLiteral<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::Not(m0) => write!(f, "(not {})", m0),
+            Self::Symbol(m0) => write!(f, "{}", m0),
+        }
+    }
+}
+impl<'st> PropLiteral<'st> {
+    pub fn parse(st: &'st Storage, src: &str) -> Result<PropLiteral<'st>, ParseError> {
+        <PropLiteral<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
+    }
+}
+impl<'st> SmtlibParse<'st> for PropLiteral<'st> {
+    type Output = PropLiteral<'st>;
+    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
+        (p.nth(offset) == Token::LParen
+            && p.nth_matches(offset + 1, Token::Symbol, "not"))
+            || (Symbol::is_start_of(offset, p))
+    }
+    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
+        let offset = 0;
+        if p.nth(offset) == Token::LParen
+            && p.nth_matches(offset + 1, Token::Symbol, "not")
+        {
+            p.expect(Token::LParen)?;
+            p.expect_matches(Token::Symbol, "not")?;
+            let m0 = <Symbol<'st> as SmtlibParse<'st>>::parse(p)?;
+            p.expect(Token::RParen)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Not(m0.into()));
+        }
+        if Symbol::is_start_of(offset, p) {
+            let m0 = <Symbol<'st> as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Symbol(m0.into()));
+        }
+        Err(p.stuck("PropLiteral"))
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub enum QualIdentifier<'st> {
+    /// `<identifier>`
+    Identifier(Identifier<'st>),
+    /// `(as <identifier> <sort>)`
+    Sorted(Identifier<'st>, Sort<'st>),
+}
+impl std::fmt::Display for QualIdentifier<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::Identifier(m0) => write!(f, "{}", m0),
+            Self::Sorted(m0, m1) => write!(f, "(as {} {})", m0, m1),
+        }
+    }
+}
+impl<'st> QualIdentifier<'st> {
+    pub fn parse(
+        st: &'st Storage,
+        src: &str,
+    ) -> Result<QualIdentifier<'st>, ParseError> {
+        <QualIdentifier<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
+    }
+}
+impl<'st> SmtlibParse<'st> for QualIdentifier<'st> {
+    type Output = QualIdentifier<'st>;
+    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
+        (p.nth(offset) == Token::LParen
+            && p.nth_matches(offset + 1, Token::Reserved, "as"))
+            || (Identifier::is_start_of(offset, p))
+    }
+    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
+        let offset = 0;
+        if p.nth(offset) == Token::LParen
+            && p.nth_matches(offset + 1, Token::Reserved, "as")
+        {
+            p.expect(Token::LParen)?;
+            p.expect_matches(Token::Reserved, "as")?;
+            let m0 = <Identifier<'st> as SmtlibParse<'st>>::parse(p)?;
+            let m1 = <Sort<'st> as SmtlibParse<'st>>::parse(p)?;
+            p.expect(Token::RParen)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(Self::Sorted(m0.into(), m1.into()));
+        }
+        if Identifier::is_start_of(offset, p) {
+            let m0 = <Identifier<'st> as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Identifier(m0.into()));
+        }
+        Err(p.stuck("QualIdentifier"))
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub enum ReasonUnknown<'st> {
+    /// `incomplete`
+    Incomplete,
+    /// `memout`
+    Memout,
+    /// `<s_expr>`
+    SExpr(SExpr<'st>),
+}
+impl std::fmt::Display for ReasonUnknown<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::Incomplete => write!(f, "incomplete"),
+            Self::Memout => write!(f, "memout"),
+            Self::SExpr(m0) => write!(f, "{}", m0),
+        }
+    }
+}
+impl<'st> ReasonUnknown<'st> {
+    pub fn parse(st: &'st Storage, src: &str) -> Result<ReasonUnknown<'st>, ParseError> {
+        <ReasonUnknown<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
+    }
+}
+impl<'st> SmtlibParse<'st> for ReasonUnknown<'st> {
+    type Output = ReasonUnknown<'st>;
+    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
+        (p.nth_matches(offset, Token::Symbol, "memout"))
+            || (p.nth_matches(offset, Token::Symbol, "incomplete"))
+            || (SExpr::is_start_of(offset, p))
+    }
+    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
+        let offset = 0;
+        if p.nth_matches(offset, Token::Symbol, "memout") {
+            p.expect_matches(Token::Symbol, "memout")?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Memout);
+        }
+        if p.nth_matches(offset, Token::Symbol, "incomplete") {
+            p.expect_matches(Token::Symbol, "incomplete")?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Incomplete);
+        }
+        if SExpr::is_start_of(offset, p) {
+            let m0 = <SExpr<'st> as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::SExpr(m0.into()));
+        }
+        Err(p.stuck("ReasonUnknown"))
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub enum SExpr<'st> {
+    /// `<keyword>`
+    Keyword(Keyword<'st>),
+    /// `(<s_expr>*)`
+    Paren(&'st [SExpr<'st>]),
+    /// `<reserved>`
+    Reserved(Reserved<'st>),
+    /// `<spec_constant>`
+    SpecConstant(SpecConstant<'st>),
+    /// `<symbol>`
+    Symbol(Symbol<'st>),
+}
+impl std::fmt::Display for SExpr<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::Keyword(m0) => write!(f, "{}", m0),
+            Self::Paren(m0) => write!(f, "({})", m0.iter().format(" ")),
+            Self::Reserved(m0) => write!(f, "{}", m0),
+            Self::SpecConstant(m0) => write!(f, "{}", m0),
+            Self::Symbol(m0) => write!(f, "{}", m0),
+        }
+    }
+}
+impl<'st> SExpr<'st> {
+    pub fn parse(st: &'st Storage, src: &str) -> Result<SExpr<'st>, ParseError> {
+        <SExpr<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
+    }
+}
+impl<'st> SmtlibParse<'st> for SExpr<'st> {
+    type Output = SExpr<'st>;
+    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
+        (p.nth(offset) == Token::LParen) || (Symbol::is_start_of(offset, p))
+            || (SpecConstant::is_start_of(offset, p))
+            || (Reserved::is_start_of(offset, p)) || (Keyword::is_start_of(offset, p))
+    }
+    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
+        let offset = 0;
+        if p.nth(offset) == Token::LParen {
+            p.expect(Token::LParen)?;
+            let m0 = p.any::<SExpr<'st>>()?;
+            p.expect(Token::RParen)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Paren(m0.into()));
+        }
+        if Symbol::is_start_of(offset, p) {
+            let m0 = <Symbol<'st> as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Symbol(m0.into()));
+        }
+        if SpecConstant::is_start_of(offset, p) {
+            let m0 = <SpecConstant<'st> as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(Self::SpecConstant(m0.into()));
+        }
+        if Reserved::is_start_of(offset, p) {
+            let m0 = <Reserved<'st> as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Reserved(m0.into()));
+        }
+        if Keyword::is_start_of(offset, p) {
+            let m0 = <Keyword<'st> as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Keyword(m0.into()));
+        }
+        Err(p.stuck("SExpr"))
+    }
+}
+/// `<command>*`
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub struct Script<'st>(pub &'st [Command<'st>]);
+impl std::fmt::Display for Script<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.0.iter().format("\n"))
+    }
+}
+impl<'st> Script<'st> {
+    pub fn parse(st: &'st Storage, src: &str) -> Result<Script<'st>, ParseError> {
+        <Script<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
+    }
+}
+impl<'st> SmtlibParse<'st> for Script<'st> {
+    type Output = Script<'st>;
+    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
+        todo!("{offset:?}, {p:?}")
+    }
+    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
+        let m0 = p.any::<Command<'st>>()?;
+        Ok(Self(m0))
+    }
+}
+/// `(<symbol> <sort>)`
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub struct SelectorDec<'st>(pub Symbol<'st>, pub Sort<'st>);
+impl std::fmt::Display for SelectorDec<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "({} {})", self.0, self.1)
+    }
+}
+impl<'st> SelectorDec<'st> {
+    pub fn parse(st: &'st Storage, src: &str) -> Result<SelectorDec<'st>, ParseError> {
+        <SelectorDec<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
+    }
+}
+impl<'st> SmtlibParse<'st> for SelectorDec<'st> {
+    type Output = SelectorDec<'st>;
+    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
+        p.nth(offset) == Token::LParen
+    }
+    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
+        p.expect(Token::LParen)?;
+        let m0 = <Symbol<'st> as SmtlibParse<'st>>::parse(p)?;
+        let m1 = <Sort<'st> as SmtlibParse<'st>>::parse(p)?;
+        p.expect(Token::RParen)?;
+        Ok(Self(m0, m1))
+    }
+}
 /// `<term>`
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
@@ -3131,9 +2626,201 @@ impl<'st> SmtlibParse<'st> for SimplifyResponse<'st> {
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub enum Sort<'st> {
+    /// `(<identifier> <sort>+)`
+    Parametric(Identifier<'st>, &'st [Sort<'st>]),
+    /// `<identifier>`
+    Sort(Identifier<'st>),
+}
+impl std::fmt::Display for Sort<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::Parametric(m0, m1) => write!(f, "({} {})", m0, m1.iter().format(" ")),
+            Self::Sort(m0) => write!(f, "{}", m0),
+        }
+    }
+}
+impl<'st> Sort<'st> {
+    pub fn parse(st: &'st Storage, src: &str) -> Result<Sort<'st>, ParseError> {
+        <Sort<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
+    }
+}
+impl<'st> SmtlibParse<'st> for Sort<'st> {
+    type Output = Sort<'st>;
+    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
+        (Identifier::is_start_of(offset, p)) || (p.nth(offset) == Token::LParen)
+    }
+    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
+        let offset = 0;
+        if Identifier::is_start_of(offset, p) {
+            let m0 = <Identifier<'st> as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Sort(m0.into()));
+        }
+        if p.nth(offset) == Token::LParen {
+            p.expect(Token::LParen)?;
+            let m0 = <Identifier<'st> as SmtlibParse<'st>>::parse(p)?;
+            let m1 = p.non_zero::<Sort<'st>>()?;
+            p.expect(Token::RParen)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(Self::Parametric(m0.into(), m1.into()));
+        }
+        Err(p.stuck("Sort"))
+    }
+}
+/// `(<symbol> <numeral>)`
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub struct SortDec<'st>(pub Symbol<'st>, pub Numeral<'st>);
+impl std::fmt::Display for SortDec<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "({} {})", self.0, self.1)
+    }
+}
+impl<'st> SortDec<'st> {
+    pub fn parse(st: &'st Storage, src: &str) -> Result<SortDec<'st>, ParseError> {
+        <SortDec<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
+    }
+}
+impl<'st> SmtlibParse<'st> for SortDec<'st> {
+    type Output = SortDec<'st>;
+    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
+        p.nth(offset) == Token::LParen
+    }
+    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
+        p.expect(Token::LParen)?;
+        let m0 = <Symbol<'st> as SmtlibParse<'st>>::parse(p)?;
+        let m1 = <Numeral<'st> as SmtlibParse<'st>>::parse(p)?;
+        p.expect(Token::RParen)?;
+        Ok(Self(m0, m1))
+    }
+}
+/// `(<identifier> <numeral> <attribute>*)`
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub struct SortSymbolDecl<'st>(
+    pub Identifier<'st>,
+    pub Numeral<'st>,
+    pub &'st [Attribute<'st>],
+);
+impl std::fmt::Display for SortSymbolDecl<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "({} {} {})", self.0, self.1, self.2.iter().format(" "))
+    }
+}
+impl<'st> SortSymbolDecl<'st> {
+    pub fn parse(
+        st: &'st Storage,
+        src: &str,
+    ) -> Result<SortSymbolDecl<'st>, ParseError> {
+        <SortSymbolDecl<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
+    }
+}
+impl<'st> SmtlibParse<'st> for SortSymbolDecl<'st> {
+    type Output = SortSymbolDecl<'st>;
+    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
+        p.nth(offset) == Token::LParen
+    }
+    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
+        p.expect(Token::LParen)?;
+        let m0 = <Identifier<'st> as SmtlibParse<'st>>::parse(p)?;
+        let m1 = <Numeral<'st> as SmtlibParse<'st>>::parse(p)?;
+        let m2 = p.any::<Attribute<'st>>()?;
+        p.expect(Token::RParen)?;
+        Ok(Self(m0, m1, m2))
+    }
+}
+/// `(<symbol> <sort>)`
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub struct SortedVar<'st>(pub Symbol<'st>, pub Sort<'st>);
+impl std::fmt::Display for SortedVar<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "({} {})", self.0, self.1)
+    }
+}
+impl<'st> SortedVar<'st> {
+    pub fn parse(st: &'st Storage, src: &str) -> Result<SortedVar<'st>, ParseError> {
+        <SortedVar<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
+    }
+}
+impl<'st> SmtlibParse<'st> for SortedVar<'st> {
+    type Output = SortedVar<'st>;
+    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
+        p.nth(offset) == Token::LParen
+    }
+    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
+        p.expect(Token::LParen)?;
+        let m0 = <Symbol<'st> as SmtlibParse<'st>>::parse(p)?;
+        let m1 = <Sort<'st> as SmtlibParse<'st>>::parse(p)?;
+        p.expect(Token::RParen)?;
+        Ok(Self(m0, m1))
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub enum SpecConstant<'st> {
+    /// `<binary>`
+    Binary(Binary<'st>),
+    /// `<decimal>`
+    Decimal(Decimal<'st>),
+    /// `<hexadecimal>`
+    Hexadecimal(Hexadecimal<'st>),
+    /// `<numeral>`
+    Numeral(Numeral<'st>),
+    /// `<string>`
+    String(&'st str),
+}
+impl std::fmt::Display for SpecConstant<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::Binary(m0) => write!(f, "{}", m0),
+            Self::Decimal(m0) => write!(f, "{}", m0),
+            Self::Hexadecimal(m0) => write!(f, "{}", m0),
+            Self::Numeral(m0) => write!(f, "{}", m0),
+            Self::String(m0) => write!(f, "{}", m0),
+        }
+    }
+}
+impl<'st> SpecConstant<'st> {
+    pub fn parse(st: &'st Storage, src: &str) -> Result<SpecConstant<'st>, ParseError> {
+        <SpecConstant<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
+    }
+}
+impl<'st> SmtlibParse<'st> for SpecConstant<'st> {
+    type Output = SpecConstant<'st>;
+    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
+        (String::is_start_of(offset, p)) || (Numeral::is_start_of(offset, p))
+            || (Hexadecimal::is_start_of(offset, p)) || (Decimal::is_start_of(offset, p))
+            || (Binary::is_start_of(offset, p))
+    }
+    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
+        let offset = 0;
+        if String::is_start_of(offset, p) {
+            let m0 = <String as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::String(m0.into()));
+        }
+        if Numeral::is_start_of(offset, p) {
+            let m0 = <Numeral<'st> as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Numeral(m0.into()));
+        }
+        if Hexadecimal::is_start_of(offset, p) {
+            let m0 = <Hexadecimal<'st> as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Hexadecimal(m0.into()));
+        }
+        if Decimal::is_start_of(offset, p) {
+            let m0 = <Decimal<'st> as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Decimal(m0.into()));
+        }
+        if Binary::is_start_of(offset, p) {
+            let m0 = <Binary<'st> as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Binary(m0.into()));
+        }
+        Err(p.stuck("SpecConstant"))
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub enum SpecificSuccessResponse<'st> {
-    /// `<get_unsat_assumptions_response>`
-    GetUnsatAssumptionsResponse(GetUnsatAssumptionsResponse<'st>),
     /// `<check_sat_response>`
     CheckSatResponse(CheckSatResponse),
     /// `<echo_response>`
@@ -3150,6 +2837,8 @@ pub enum SpecificSuccessResponse<'st> {
     GetOptionResponse(GetOptionResponse<'st>),
     /// `<get_proof_response>`
     GetProofResponse(GetProofResponse<'st>),
+    /// `<get_unsat_assumptions_response>`
+    GetUnsatAssumptionsResponse(GetUnsatAssumptionsResponse<'st>),
     /// `<get_unsat_core_response>`
     GetUnsatCoreResponse(GetUnsatCoreResponse<'st>),
     /// `<get_value_response>`
@@ -3160,7 +2849,6 @@ pub enum SpecificSuccessResponse<'st> {
 impl std::fmt::Display for SpecificSuccessResponse<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            Self::GetUnsatAssumptionsResponse(m0) => write!(f, "{}", m0),
             Self::CheckSatResponse(m0) => write!(f, "{}", m0),
             Self::EchoResponse(m0) => write!(f, "{}", m0),
             Self::GetAssertionsResponse(m0) => write!(f, "{}", m0),
@@ -3169,6 +2857,7 @@ impl std::fmt::Display for SpecificSuccessResponse<'_> {
             Self::GetModelResponse(m0) => write!(f, "{}", m0),
             Self::GetOptionResponse(m0) => write!(f, "{}", m0),
             Self::GetProofResponse(m0) => write!(f, "{}", m0),
+            Self::GetUnsatAssumptionsResponse(m0) => write!(f, "{}", m0),
             Self::GetUnsatCoreResponse(m0) => write!(f, "{}", m0),
             Self::GetValueResponse(m0) => write!(f, "{}", m0),
             Self::SimplifyResponse(m0) => write!(f, "{}", m0),
@@ -3191,6 +2880,7 @@ impl<'st> SmtlibParse<'st> for SpecificSuccessResponse<'st> {
         (SimplifyResponse::is_start_of(offset, p))
             || (GetValueResponse::is_start_of(offset, p))
             || (GetUnsatCoreResponse::is_start_of(offset, p))
+            || (GetUnsatAssumptionsResponse::is_start_of(offset, p))
             || (GetProofResponse::is_start_of(offset, p))
             || (GetOptionResponse::is_start_of(offset, p))
             || (GetModelResponse::is_start_of(offset, p))
@@ -3199,7 +2889,6 @@ impl<'st> SmtlibParse<'st> for SpecificSuccessResponse<'st> {
             || (GetAssertionsResponse::is_start_of(offset, p))
             || (EchoResponse::is_start_of(offset, p))
             || (CheckSatResponse::is_start_of(offset, p))
-            || (GetUnsatAssumptionsResponse::is_start_of(offset, p))
     }
     fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
         let offset = 0;
@@ -3217,6 +2906,11 @@ impl<'st> SmtlibParse<'st> for SpecificSuccessResponse<'st> {
             let m0 = <GetUnsatCoreResponse<'st> as SmtlibParse<'st>>::parse(p)?;
             #[allow(clippy::useless_conversion)]
             return Ok(Self::GetUnsatCoreResponse(m0.into()));
+        }
+        if GetUnsatAssumptionsResponse::is_start_of(offset, p) {
+            let m0 = <GetUnsatAssumptionsResponse<'st> as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(Self::GetUnsatAssumptionsResponse(m0.into()));
         }
         if GetProofResponse::is_start_of(offset, p) {
             let m0 = <GetProofResponse<'st> as SmtlibParse<'st>>::parse(p)?;
@@ -3258,77 +2952,382 @@ impl<'st> SmtlibParse<'st> for SpecificSuccessResponse<'st> {
             #[allow(clippy::useless_conversion)]
             return Ok(Self::CheckSatResponse(m0.into()));
         }
-        if GetUnsatAssumptionsResponse::is_start_of(offset, p) {
-            let m0 = <GetUnsatAssumptionsResponse<'st> as SmtlibParse<'st>>::parse(p)?;
-            #[allow(clippy::useless_conversion)]
-            return Ok(Self::GetUnsatAssumptionsResponse(m0.into()));
-        }
         Err(p.stuck("SpecificSuccessResponse"))
+    }
+}
+/// `(<symbol> <b_value>)`
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub struct TValuationPair<'st>(pub Symbol<'st>, pub BValue);
+impl std::fmt::Display for TValuationPair<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "({} {})", self.0, self.1)
+    }
+}
+impl<'st> TValuationPair<'st> {
+    pub fn parse(
+        st: &'st Storage,
+        src: &str,
+    ) -> Result<TValuationPair<'st>, ParseError> {
+        <TValuationPair<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
+    }
+}
+impl<'st> SmtlibParse<'st> for TValuationPair<'st> {
+    type Output = TValuationPair<'st>;
+    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
+        p.nth(offset) == Token::LParen
+    }
+    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
+        p.expect(Token::LParen)?;
+        let m0 = <Symbol<'st> as SmtlibParse<'st>>::parse(p)?;
+        let m1 = <BValue as SmtlibParse<'st>>::parse(p)?;
+        p.expect(Token::RParen)?;
+        Ok(Self(m0, m1))
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub enum GeneralResponse<'st> {
-    /// `success`
-    Success,
-    /// `<specific_success_response>`
-    SpecificSuccessResponse(SpecificSuccessResponse<'st>),
-    /// `unsupported`
-    Unsupported,
-    /// `(error <string>)`
-    Error(&'st str),
+pub enum Term<'st> {
+    /// `(! <term> <attribute>+)`
+    Annotation(&'st Term<'st>, &'st [Attribute<'st>]),
+    /// `(<qual_identifier> <term>+)`
+    Application(QualIdentifier<'st>, &'st [&'st Term<'st>]),
+    /// `(exists (<sorted_var>+) <term>)`
+    Exists(&'st [SortedVar<'st>], &'st Term<'st>),
+    /// `(forall (<sorted_var>+) <term>)`
+    Forall(&'st [SortedVar<'st>], &'st Term<'st>),
+    /// `<qual_identifier>`
+    Identifier(QualIdentifier<'st>),
+    /// `(let (<var_binding>+) <term>)`
+    Let(&'st [VarBinding<'st>], &'st Term<'st>),
+    /// `(match <term> (<match_case>+))`
+    Match(&'st Term<'st>, &'st [MatchCase<'st>]),
+    /// `<spec_constant>`
+    SpecConstant(SpecConstant<'st>),
 }
-impl std::fmt::Display for GeneralResponse<'_> {
+impl std::fmt::Display for Term<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            Self::Success => write!(f, "success"),
-            Self::SpecificSuccessResponse(m0) => write!(f, "{}", m0),
-            Self::Unsupported => write!(f, "unsupported"),
-            Self::Error(m0) => write!(f, "(error {})", m0),
+            Self::Annotation(m0, m1) => write!(f, "(! {} {})", m0, m1.iter().format(" ")),
+            Self::Application(m0, m1) => write!(f, "({} {})", m0, m1.iter().format(" ")),
+            Self::Exists(m0, m1) => {
+                write!(f, "(exists ({}) {})", m0.iter().format(" "), m1)
+            }
+            Self::Forall(m0, m1) => {
+                write!(f, "(forall ({}) {})", m0.iter().format(" "), m1)
+            }
+            Self::Identifier(m0) => write!(f, "{}", m0),
+            Self::Let(m0, m1) => write!(f, "(let ({}) {})", m0.iter().format(" "), m1),
+            Self::Match(m0, m1) => {
+                write!(f, "(match {} ({}))", m0, m1.iter().format(" "))
+            }
+            Self::SpecConstant(m0) => write!(f, "{}", m0),
         }
     }
 }
-impl<'st> GeneralResponse<'st> {
-    pub fn parse(
-        st: &'st Storage,
-        src: &str,
-    ) -> Result<GeneralResponse<'st>, ParseError> {
-        <GeneralResponse<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
+impl<'st> Term<'st> {
+    pub fn parse(st: &'st Storage, src: &str) -> Result<&'st Term<'st>, ParseError> {
+        <Term<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
     }
 }
-impl<'st> SmtlibParse<'st> for GeneralResponse<'st> {
-    type Output = GeneralResponse<'st>;
+impl<'st> SmtlibParse<'st> for Term<'st> {
+    type Output = &'st Term<'st>;
     fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
         (p.nth(offset) == Token::LParen
-            && p.nth_matches(offset + 1, Token::Symbol, "error"))
-            || (p.nth_matches(offset, Token::Symbol, "unsupported"))
-            || (p.nth_matches(offset, Token::Symbol, "success"))
-            || (SpecificSuccessResponse::is_start_of(offset, p))
+            && p.nth_matches(offset + 1, Token::Reserved, "match"))
+            || (p.nth(offset) == Token::LParen
+                && p.nth_matches(offset + 1, Token::Reserved, "let")
+                && p.nth(offset + 2) == Token::LParen)
+            || (p.nth(offset) == Token::LParen
+                && p.nth_matches(offset + 1, Token::Reserved, "forall")
+                && p.nth(offset + 2) == Token::LParen)
+            || (p.nth(offset) == Token::LParen
+                && p.nth_matches(offset + 1, Token::Reserved, "exists")
+                && p.nth(offset + 2) == Token::LParen)
+            || (p.nth(offset) == Token::LParen
+                && p.nth_matches(offset + 1, Token::Reserved, "!"))
+            || (p.nth(offset) == Token::LParen) || (SpecConstant::is_start_of(offset, p))
+            || (QualIdentifier::is_start_of(offset, p))
     }
     fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
         let offset = 0;
         if p.nth(offset) == Token::LParen
-            && p.nth_matches(offset + 1, Token::Symbol, "error")
+            && p.nth_matches(offset + 1, Token::Reserved, "match")
         {
             p.expect(Token::LParen)?;
-            p.expect_matches(Token::Symbol, "error")?;
-            let m0 = <String as SmtlibParse<'st>>::parse(p)?;
+            p.expect_matches(Token::Reserved, "match")?;
+            let m0 = <Term<'st> as SmtlibParse<'st>>::parse(p)?;
+            p.expect(Token::LParen)?;
+            let m1 = p.non_zero::<MatchCase<'st>>()?;
             p.expect(Token::RParen)?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Error(m0.into()));
-        }
-        if p.nth_matches(offset, Token::Symbol, "unsupported") {
-            p.expect_matches(Token::Symbol, "unsupported")?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Unsupported);
-        }
-        if p.nth_matches(offset, Token::Symbol, "success") {
-            p.expect_matches(Token::Symbol, "success")?;
-            #[allow(clippy::useless_conversion)] return Ok(Self::Success);
-        }
-        if SpecificSuccessResponse::is_start_of(offset, p) {
-            let m0 = <SpecificSuccessResponse<'st> as SmtlibParse<'st>>::parse(p)?;
+            p.expect(Token::RParen)?;
             #[allow(clippy::useless_conversion)]
-            return Ok(Self::SpecificSuccessResponse(m0.into()));
+            return Ok(p.storage.alloc(Self::Match(m0.into(), m1.into())));
         }
-        Err(p.stuck("GeneralResponse"))
+        if p.nth(offset) == Token::LParen
+            && p.nth_matches(offset + 1, Token::Reserved, "let")
+            && p.nth(offset + 2) == Token::LParen
+        {
+            p.expect(Token::LParen)?;
+            p.expect_matches(Token::Reserved, "let")?;
+            p.expect(Token::LParen)?;
+            let m0 = p.non_zero::<VarBinding<'st>>()?;
+            p.expect(Token::RParen)?;
+            let m1 = <Term<'st> as SmtlibParse<'st>>::parse(p)?;
+            p.expect(Token::RParen)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(p.storage.alloc(Self::Let(m0.into(), m1.into())));
+        }
+        if p.nth(offset) == Token::LParen
+            && p.nth_matches(offset + 1, Token::Reserved, "forall")
+            && p.nth(offset + 2) == Token::LParen
+        {
+            p.expect(Token::LParen)?;
+            p.expect_matches(Token::Reserved, "forall")?;
+            p.expect(Token::LParen)?;
+            let m0 = p.non_zero::<SortedVar<'st>>()?;
+            p.expect(Token::RParen)?;
+            let m1 = <Term<'st> as SmtlibParse<'st>>::parse(p)?;
+            p.expect(Token::RParen)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(p.storage.alloc(Self::Forall(m0.into(), m1.into())));
+        }
+        if p.nth(offset) == Token::LParen
+            && p.nth_matches(offset + 1, Token::Reserved, "exists")
+            && p.nth(offset + 2) == Token::LParen
+        {
+            p.expect(Token::LParen)?;
+            p.expect_matches(Token::Reserved, "exists")?;
+            p.expect(Token::LParen)?;
+            let m0 = p.non_zero::<SortedVar<'st>>()?;
+            p.expect(Token::RParen)?;
+            let m1 = <Term<'st> as SmtlibParse<'st>>::parse(p)?;
+            p.expect(Token::RParen)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(p.storage.alloc(Self::Exists(m0.into(), m1.into())));
+        }
+        if p.nth(offset) == Token::LParen
+            && p.nth_matches(offset + 1, Token::Reserved, "!")
+        {
+            p.expect(Token::LParen)?;
+            p.expect_matches(Token::Reserved, "!")?;
+            let m0 = <Term<'st> as SmtlibParse<'st>>::parse(p)?;
+            let m1 = p.non_zero::<Attribute<'st>>()?;
+            p.expect(Token::RParen)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(p.storage.alloc(Self::Annotation(m0.into(), m1.into())));
+        }
+        if p.nth(offset) == Token::LParen {
+            p.expect(Token::LParen)?;
+            let m0 = <QualIdentifier<'st> as SmtlibParse<'st>>::parse(p)?;
+            let m1 = p.non_zero::<Term<'st>>()?;
+            p.expect(Token::RParen)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(p.storage.alloc(Self::Application(m0.into(), m1.into())));
+        }
+        if SpecConstant::is_start_of(offset, p) {
+            let m0 = <SpecConstant<'st> as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(p.storage.alloc(Self::SpecConstant(m0.into())));
+        }
+        if QualIdentifier::is_start_of(offset, p) {
+            let m0 = <QualIdentifier<'st> as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(p.storage.alloc(Self::Identifier(m0.into())));
+        }
+        Err(p.stuck("Term"))
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub enum TheoryAttribute<'st> {
+    /// `<attribute>`
+    Attribute(Attribute<'st>),
+    /// `:definition <string>`
+    Definition(&'st str),
+    /// `:funs (<par_fun_symbol_decl>+)`
+    Funs(&'st [ParFunSymbolDecl<'st>]),
+    /// `:funs-description <string>`
+    FunsDescription(&'st str),
+    /// `:notes <string>`
+    Notes(&'st str),
+    /// `:sorts (<sort_symbol_decl>+)`
+    Sorts(&'st [SortSymbolDecl<'st>]),
+    /// `:sorts-description <string>`
+    SortsDescription(&'st str),
+    /// `:values <string>`
+    Values(&'st str),
+}
+impl std::fmt::Display for TheoryAttribute<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::Attribute(m0) => write!(f, "{}", m0),
+            Self::Definition(m0) => write!(f, ":definition {}", m0),
+            Self::Funs(m0) => write!(f, ":funs ({})", m0.iter().format(" ")),
+            Self::FunsDescription(m0) => write!(f, ":funs-description {}", m0),
+            Self::Notes(m0) => write!(f, ":notes {}", m0),
+            Self::Sorts(m0) => write!(f, ":sorts ({})", m0.iter().format(" ")),
+            Self::SortsDescription(m0) => write!(f, ":sorts-description {}", m0),
+            Self::Values(m0) => write!(f, ":values {}", m0),
+        }
+    }
+}
+impl<'st> TheoryAttribute<'st> {
+    pub fn parse(
+        st: &'st Storage,
+        src: &str,
+    ) -> Result<TheoryAttribute<'st>, ParseError> {
+        <TheoryAttribute<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
+    }
+}
+impl<'st> SmtlibParse<'st> for TheoryAttribute<'st> {
+    type Output = TheoryAttribute<'st>;
+    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
+        (p.nth_matches(offset, Token::Keyword, ":sorts")
+            && p.nth(offset + 1) == Token::LParen)
+            || (p.nth_matches(offset, Token::Keyword, ":funs")
+                && p.nth(offset + 1) == Token::LParen)
+            || (p.nth_matches(offset, Token::Keyword, ":values"))
+            || (p.nth_matches(offset, Token::Keyword, ":sorts-description"))
+            || (p.nth_matches(offset, Token::Keyword, ":notes"))
+            || (p.nth_matches(offset, Token::Keyword, ":funs-description"))
+            || (p.nth_matches(offset, Token::Keyword, ":definition"))
+            || (Attribute::is_start_of(offset, p))
+    }
+    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
+        let offset = 0;
+        if p.nth_matches(offset, Token::Keyword, ":sorts")
+            && p.nth(offset + 1) == Token::LParen
+        {
+            p.expect_matches(Token::Keyword, ":sorts")?;
+            p.expect(Token::LParen)?;
+            let m0 = p.non_zero::<SortSymbolDecl<'st>>()?;
+            p.expect(Token::RParen)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Sorts(m0.into()));
+        }
+        if p.nth_matches(offset, Token::Keyword, ":funs")
+            && p.nth(offset + 1) == Token::LParen
+        {
+            p.expect_matches(Token::Keyword, ":funs")?;
+            p.expect(Token::LParen)?;
+            let m0 = p.non_zero::<ParFunSymbolDecl<'st>>()?;
+            p.expect(Token::RParen)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Funs(m0.into()));
+        }
+        if p.nth_matches(offset, Token::Keyword, ":values") {
+            p.expect_matches(Token::Keyword, ":values")?;
+            let m0 = <String as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Values(m0.into()));
+        }
+        if p.nth_matches(offset, Token::Keyword, ":sorts-description") {
+            p.expect_matches(Token::Keyword, ":sorts-description")?;
+            let m0 = <String as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(Self::SortsDescription(m0.into()));
+        }
+        if p.nth_matches(offset, Token::Keyword, ":notes") {
+            p.expect_matches(Token::Keyword, ":notes")?;
+            let m0 = <String as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Notes(m0.into()));
+        }
+        if p.nth_matches(offset, Token::Keyword, ":funs-description") {
+            p.expect_matches(Token::Keyword, ":funs-description")?;
+            let m0 = <String as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(Self::FunsDescription(m0.into()));
+        }
+        if p.nth_matches(offset, Token::Keyword, ":definition") {
+            p.expect_matches(Token::Keyword, ":definition")?;
+            let m0 = <String as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Definition(m0.into()));
+        }
+        if Attribute::is_start_of(offset, p) {
+            let m0 = <Attribute<'st> as SmtlibParse<'st>>::parse(p)?;
+            #[allow(clippy::useless_conversion)] return Ok(Self::Attribute(m0.into()));
+        }
+        Err(p.stuck("TheoryAttribute"))
+    }
+}
+/// `(theory <symbol> <theory_attribute>+)`
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub struct TheoryDecl<'st>(pub Symbol<'st>, pub &'st [TheoryAttribute<'st>]);
+impl std::fmt::Display for TheoryDecl<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "(theory {} {})", self.0, self.1.iter().format(" "))
+    }
+}
+impl<'st> TheoryDecl<'st> {
+    pub fn parse(st: &'st Storage, src: &str) -> Result<TheoryDecl<'st>, ParseError> {
+        <TheoryDecl<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
+    }
+}
+impl<'st> SmtlibParse<'st> for TheoryDecl<'st> {
+    type Output = TheoryDecl<'st>;
+    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
+        p.nth(offset) == Token::LParen
+            && p.nth_matches(offset + 1, Token::Symbol, "theory")
+    }
+    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
+        p.expect(Token::LParen)?;
+        p.expect_matches(Token::Symbol, "theory")?;
+        let m0 = <Symbol<'st> as SmtlibParse<'st>>::parse(p)?;
+        let m1 = p.non_zero::<TheoryAttribute<'st>>()?;
+        p.expect(Token::RParen)?;
+        Ok(Self(m0, m1))
+    }
+}
+/// `(<term> <term>)`
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub struct ValuationPair<'st>(pub &'st Term<'st>, pub &'st Term<'st>);
+impl std::fmt::Display for ValuationPair<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "({} {})", self.0, self.1)
+    }
+}
+impl<'st> ValuationPair<'st> {
+    pub fn parse(st: &'st Storage, src: &str) -> Result<ValuationPair<'st>, ParseError> {
+        <ValuationPair<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
+    }
+}
+impl<'st> SmtlibParse<'st> for ValuationPair<'st> {
+    type Output = ValuationPair<'st>;
+    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
+        p.nth(offset) == Token::LParen
+    }
+    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
+        p.expect(Token::LParen)?;
+        let m0 = <Term<'st> as SmtlibParse<'st>>::parse(p)?;
+        let m1 = <Term<'st> as SmtlibParse<'st>>::parse(p)?;
+        p.expect(Token::RParen)?;
+        Ok(Self(m0, m1))
+    }
+}
+/// `(<symbol> <term>)`
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub struct VarBinding<'st>(pub Symbol<'st>, pub &'st Term<'st>);
+impl std::fmt::Display for VarBinding<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "({} {})", self.0, self.1)
+    }
+}
+impl<'st> VarBinding<'st> {
+    pub fn parse(st: &'st Storage, src: &str) -> Result<VarBinding<'st>, ParseError> {
+        <VarBinding<'st> as SmtlibParse<'st>>::parse(&mut Parser::new(st, src))
+    }
+}
+impl<'st> SmtlibParse<'st> for VarBinding<'st> {
+    type Output = VarBinding<'st>;
+    fn is_start_of(offset: usize, p: &mut Parser<'st, '_>) -> bool {
+        p.nth(offset) == Token::LParen
+    }
+    fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
+        p.expect(Token::LParen)?;
+        let m0 = <Symbol<'st> as SmtlibParse<'st>>::parse(p)?;
+        let m1 = <Term<'st> as SmtlibParse<'st>>::parse(p)?;
+        p.expect(Token::RParen)?;
+        Ok(Self(m0, m1))
     }
 }

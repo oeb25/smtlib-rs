@@ -116,7 +116,7 @@ impl Name {
                 }),
                 Some(Syntax::Class { response: _, cases }) => cases.iter().any(|(_, case)| {
                     case.syntax.fields.iter().any(|f| match f {
-                        Field::One(name) => name.needs_lt(spec),
+                        Field::One(name) => name == self || name.needs_lt(spec),
                         Field::Any(_) | Field::NonZero(_) | Field::NPlusOne(_) => true,
                     })
                 }),
