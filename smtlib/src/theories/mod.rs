@@ -4,5 +4,6 @@
 pub mod arrays_ex;
 pub mod core;
 pub mod fixed_size_bit_vectors;
+pub mod floating_point;
 pub mod ints;
 pub mod reals;
