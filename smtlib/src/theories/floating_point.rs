@@ -216,6 +216,21 @@ impl<'st> IntoWithStorage<'st, Float64<'st>> for f64 {
     }
 }
 
+impl<'st> TryFrom<Float32<'st>> for f32 {
+    type Error = std::num::ParseIntError;
+
+    fn try_from(value: Float32<'st>) -> Result<Self, Self::Error> {
+        panic!("{:?}", value);
+    }
+}
+impl<'st> TryFrom<Float64<'st>> for f64 {
+    type Error = std::num::ParseIntError;
+
+    fn try_from(value: Float64<'st>) -> Result<Self, Self::Error> {
+        panic!("{:?}", value);
+    }
+}
+
 impl<'st, const EB: usize, const SB: usize> FloatingPoint<'st, EB, SB> {
     /// Construct a new bit-vec.
     pub fn new(
@@ -539,30 +554,50 @@ mod tests {
     fn test_fp_convert_rust_floats() -> Result<(), Box<dyn std::error::Error>> {
         let st = Storage::new();
         let mut solver = test_solver(&st);
-        let f64_bv_sign = BitVec::new_const(&st, "f64_bv_sign");
-        let f64_bv_exponent = BitVec::new_const(&st, "f64_bv_exponent");
-        let f64_bv_significand = BitVec::new_const(&st, "f64_bv_significand");
-        let f64_bv = Float64::fp::<52>(
-            &st,
-            f64_bv_sign.into(),
-            f64_bv_exponent.into(),
-            f64_bv_significand.into(),
-        );
+
         let f32_bv_sign = BitVec::new_const(&st, "f32_bv_sign");
+        let f64_bv_sign = BitVec::new_const(&st, "f64_bv_sign");
         let f32_bv_exponent = BitVec::new_const(&st, "f32_bv_exponent");
+        let f64_bv_exponent = BitVec::new_const(&st, "f64_bv_exponent");
         let f32_bv_significand = BitVec::new_const(&st, "f32_bv_significand");
+        let f64_bv_significand = BitVec::new_const(&st, "f64_bv_significand");
+
         let f32_bv = Float32::fp::<23>(
             &st,
             f32_bv_sign.into(),
             f32_bv_exponent.into(),
             f32_bv_significand.into(),
         );
-        for f in [0.0f64, 1.0, 0.5, 1. / 3., 1e9, 1e32, -1. / 3., 123456.789] {
-            let f64_ref = FloatingPoint::new(&st, f);
-            let f32_ref = FloatingPoint::new(&st, f as f32);
+
+        let f64_bv = Float64::fp::<52>(
+            &st,
+            f64_bv_sign.into(),
+            f64_bv_exponent.into(),
+            f64_bv_significand.into(),
+        );
+
+        let f32_const = Float32::new_const(&st, "f32_const");
+        let f64_const = Float64::new_const(&st, "f64_const");
+
+        for f in [
+            0.0f64,
+            -0.0,
+            1.0,
+            1. / 3.,
+            -1. / 3.,
+            123456.789,
+            f64::MIN,
+            f64::MAX,
+            f64::MIN_POSITIVE,
+            f64::EPSILON,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+        ] {
             let model = solver.scope(|solver| {
-                solver.assert(f64_ref._eq(f64_bv))?;
-                solver.assert(f32_ref._eq(f32_bv))?;
+                solver.assert(f64_const._eq(f))?;
+                solver.assert(f32_const._eq(f as f32))?;
+                solver.assert(f64_bv._eq(f))?;
+                solver.assert(f32_bv._eq(f as f32))?;
                 solver.check_sat()?;
                 solver.get_model()
             })?;
@@ -574,7 +609,8 @@ mod tests {
             );
             println!("f: {f}, sign: {sign}, exponent: {exponent}, significand: {significand}, f_model: {f_model}");
             assert_eq!(f_model, f);
-            // let f_model: f64 = model.eval(f_ref).unwrap().try_into()?;
+            let f_model: f64 = model.eval(f64_const).unwrap().try_into()?;
+            assert_eq!(f_model, f);
 
             let sign: i64 = model.eval(f32_bv_sign).unwrap().try_into()?;
             let exponent: i64 = model.eval(f32_bv_exponent).unwrap().try_into()?;
@@ -588,9 +624,6 @@ mod tests {
 
         Ok(())
     }
-
-    const EXP_BITS_F32: usize = 8;
-    const SIG_BITS_F32: usize = 24;
 
     #[test]
     fn test_fp_constants_and_classification() -> Result<(), Box<dyn std::error::Error>> {
@@ -613,11 +646,8 @@ mod tests {
 
         solver.assert(!p_zero.fp_is_nan())?;
         solver.assert(!p_inf.fp_is_nan())?;
-        // RNE should be a valid RoundingMode constant
-        let _rne = RoundingMode::rne(&st);
 
-        let check_result = solver.check_sat()?;
-        assert_eq!(check_result, SatResult::Sat);
+        assert_eq!(solver.check_sat()?, SatResult::Sat);
         Ok(())
     }
 
@@ -638,25 +668,20 @@ mod tests {
         solver.assert(!abs_neg_two.fp_is_negative())?;
         solver.assert(abs_neg_two.fp_is_positive())?;
 
-        let check_result = solver.check_sat()?;
-        assert_eq!(check_result, SatResult::Sat);
+        assert_eq!(solver.check_sat()?, SatResult::Sat);
         Ok(())
     }
 
     #[test]
     fn test_fp_add() -> Result<(), Box<dyn std::error::Error>> {
-        // TODO: simplify all of these tests with Float32::new(1.0)
         let st = Storage::new();
         let mut solver = test_solver(&st);
         let rne = RoundingMode::rne(&st);
-
         let one = Float32::new(&st, 1.0f32);
-
         let sum_one_one = one.fp_add(rne, one);
         solver.assert(sum_one_one._eq(2.0))?;
 
-        let check_result = solver.check_sat()?;
-        assert_eq!(check_result, SatResult::Sat);
+        assert_eq!(solver.check_sat()?, SatResult::Sat);
         Ok(())
     }
 
@@ -673,13 +698,15 @@ mod tests {
         let result = one.fp_fma(rne, two, three); // (one * two) + three
         solver.assert(result._eq(5.0f32))?;
 
-        let check_result = solver.check_sat()?;
-        assert_eq!(check_result, SatResult::Sat);
+        assert_eq!(solver.check_sat()?, SatResult::Sat);
         Ok(())
     }
 
     #[test]
     fn test_to_fp_from_bit_vec() -> Result<(), Box<dyn std::error::Error>> {
+        const EXP_BITS_F32: usize = 8;
+        const SIG_BITS_F32: usize = 24;
+
         let st = Storage::new();
         let mut solver = test_solver(&st);
 
@@ -689,8 +716,7 @@ mod tests {
         let fp_val = Float32::to_fp_from_bit_vec(&st, ieee_1_0_bv);
         solver.assert(fp_val._eq(1.0))?;
 
-        let check_result = solver.check_sat()?;
-        assert_eq!(check_result, SatResult::Sat);
+        assert_eq!(solver.check_sat()?, SatResult::Sat);
         Ok(())
     }
 
@@ -699,24 +725,17 @@ mod tests {
         let st = Storage::new();
         let mut solver = test_solver(&st);
         let rtz = RoundingMode::rtz(&st);
+        let rne = RoundingMode::rne(&st);
 
         let two_fp = Float32::new(&st, 2.0f32);
-        solver.assert(two_fp._eq(2.0))?;
+        solver.assert(two_fp.fp_to_ubv::<42>(rtz)._eq(2i64))?;
+        solver.assert(two_fp.fp_to_ubv::<42>(rne)._eq(2i64))?;
 
-        let result_bv: BitVec<42> = two_fp.fp_to_ubv(rtz);
-        solver.assert(result_bv._eq(2i64))?;
-
-        let check_result1 = solver.check_sat()?;
-        assert_eq!(check_result1, SatResult::Sat);
-
-        // Test 2.75 to ubv M=8, RTZ should be 2
-        // 2.75 = 1.375 * 2^1, where 1.375 = 1.011 in binary (fraction = .011 = 0.375)
         let two_point_75_fp = Float32::new(&st, 2.75f32);
-        let result_bv2: BitVec<42> = two_point_75_fp.fp_to_ubv(rtz);
-        solver.assert(result_bv2._eq(2i64))?;
+        solver.assert(two_point_75_fp.fp_to_ubv::<42>(rtz)._eq(2i64))?;
+        solver.assert(two_point_75_fp.fp_to_ubv::<42>(rne)._eq(3i64))?;
 
-        let check_result2 = solver.check_sat()?;
-        assert_eq!(check_result2, SatResult::Sat);
+        assert_eq!(solver.check_sat()?, SatResult::Sat);
         Ok(())
     }
 }
