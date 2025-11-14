@@ -71,7 +71,7 @@ syntax = "( <pattern> <term> )"
 [term]
 spec_constant = { syntax = "<spec_constant>" }
 identifier = { syntax = "<qual_identifier>" }
-application = { syntax = "( <qual_identifier> <term>+ )" }
+application = { syntax = "( <qual_identifier> <term>+ )", priority = -1 }
 let = { syntax = "( let ( <var_binding>+ ) <term> )" }
 forall = { syntax = "( forall ( <sorted_var>+ ) <term> )" }
 exists = { syntax = "( exists ( <sorted_var>+ ) <term> )" }
@@ -284,7 +284,7 @@ syntax = "( assert-soft <term> <optimization_attribute>* )"
 
 [optimization_attribute]
 weight = { syntax = ":weight <numeral>" }
-id = { syntax = ":id <symbol>"}
+id = { syntax = ":id <symbol>" }
 attribute = { syntax = "<attribute>" }
 
 [script]
@@ -316,7 +316,7 @@ reproducible-resource-limit = { syntax = ":reproducible-resource-limit <numeral>
 verbosity = { syntax = ":verbosity <numeral>" }
 
 # optimization options
-"opt.priority" = { syntax = ":opt.priority <optimization_priority>"}
+"opt.priority" = { syntax = ":opt.priority <optimization_priority>" }
 
 # cont'd
 attribute = { syntax = "<attribute>" }
