@@ -216,18 +216,74 @@ impl<'st> IntoWithStorage<'st, Float64<'st>> for f64 {
     }
 }
 
+// TODO: this is a bit of a mess
+fn spec_constant_to_u64<'st>(value: &ast::SpecConstant<'st>) -> u64 {
+    match value {
+        ast::SpecConstant::Numeral(..) => todo!(),
+        ast::SpecConstant::Decimal(..) => todo!(),
+        ast::SpecConstant::Hexadecimal(hexadecimal) => hexadecimal.parse().unwrap() as u64,
+        ast::SpecConstant::Binary(binary) => binary.parse().unwrap() as u64,
+        ast::SpecConstant::String(..) => panic!(),
+    }
+}
+fn term_to_u64<'st>(value: &Term<'st>) -> u64 {
+    match value {
+        Term::SpecConstant(spec_constant) => spec_constant_to_u64(spec_constant),
+        _ => panic!("{:?}", value),
+    }
+}
 impl<'st> TryFrom<Float32<'st>> for f32 {
     type Error = std::num::ParseIntError;
 
     fn try_from(value: Float32<'st>) -> Result<Self, Self::Error> {
-        panic!("{:?}", value);
+        match value.term() {
+            Term::Identifier(QualIdentifier::Identifier(Identifier::Indexed(symbol, _indices))) => {
+                Ok(match symbol.0 {
+                    "+zero" => 0.0,
+                    "-zero" => -0.0,
+                    "+oo" => f32::INFINITY,
+                    "-oo" => f32::NEG_INFINITY,
+                    "NaN" => f32::NAN,
+                    _ => panic!("Unknown floating-point constant: {}", symbol.0),
+                })
+            }
+            Term::Application(QualIdentifier::Identifier(Identifier::Simple(symbol)), args) => {
+                assert_eq!(symbol.0, "fp");
+                let sign = term_to_u64(args[0]) as u32;
+                let exponent = term_to_u64(args[1]) as u32;
+                let significand = term_to_u64(args[2]) as u32;
+                let value = (sign << 31) | (exponent << 23) | significand;
+                Ok(f32::from_bits(value))
+            }
+            _ => panic!("{:?}", value),
+        }
     }
 }
 impl<'st> TryFrom<Float64<'st>> for f64 {
     type Error = std::num::ParseIntError;
 
     fn try_from(value: Float64<'st>) -> Result<Self, Self::Error> {
-        panic!("{:?}", value);
+        match value.term() {
+            Term::Identifier(QualIdentifier::Identifier(Identifier::Indexed(symbol, _indices))) => {
+                Ok(match symbol.0 {
+                    "+zero" => 0.0,
+                    "-zero" => -0.0,
+                    "+oo" => f64::INFINITY,
+                    "-oo" => f64::NEG_INFINITY,
+                    "NaN" => f64::NAN,
+                    _ => panic!("Unknown floating-point constant: {}", symbol.0),
+                })
+            }
+            Term::Application(QualIdentifier::Identifier(Identifier::Simple(symbol)), args) => {
+                assert_eq!(symbol.0, "fp");
+                let sign = term_to_u64(args[0]);
+                let exponent = term_to_u64(args[1]);
+                let significand = term_to_u64(args[2]);
+                let value = (sign << 63) | (exponent << 52) | significand;
+                Ok(f64::from_bits(value))
+            }
+            _ => panic!("{:?}", value),
+        }
     }
 }
 
@@ -580,7 +636,7 @@ mod tests {
         let f64_const = Float64::new_const(&st, "f64_const");
 
         for f in [
-            0.0f64,
+            0.0,
             -0.0,
             1.0,
             1. / 3.,
@@ -601,25 +657,10 @@ mod tests {
                 solver.check_sat()?;
                 solver.get_model()
             })?;
-            let sign: i64 = model.eval(f64_bv_sign).unwrap().try_into()?;
-            let exponent: i64 = model.eval(f64_bv_exponent).unwrap().try_into()?;
-            let significand: i64 = model.eval(f64_bv_significand).unwrap().try_into()?;
-            let f_model: f64 = f64::from_bits(
-                (sign as u64) << 63 | (exponent as u64) << 52 | (significand as u64),
-            );
-            println!("f: {f}, sign: {sign}, exponent: {exponent}, significand: {significand}, f_model: {f_model}");
-            assert_eq!(f_model, f);
             let f_model: f64 = model.eval(f64_const).unwrap().try_into()?;
+            let f_model_32: f32 = model.eval(f32_const).unwrap().try_into()?;
             assert_eq!(f_model, f);
-
-            let sign: i64 = model.eval(f32_bv_sign).unwrap().try_into()?;
-            let exponent: i64 = model.eval(f32_bv_exponent).unwrap().try_into()?;
-            let significand: i64 = model.eval(f32_bv_significand).unwrap().try_into()?;
-            let f_model: f32 = f32::from_bits(
-                (sign as u32) << 31 | (exponent as u32) << 23 | (significand as u32),
-            );
-            println!("f: {f}, sign: {sign}, exponent: {exponent}, significand: {significand}, f_model: {f_model}");
-            assert_eq!(f_model, f as f32);
+            assert_eq!(f_model_32, f as f32);
         }
 
         Ok(())
