@@ -19,14 +19,6 @@ use crate::{
 /// The SMT-LIB sort for rounding modes in floating-point operations.
 #[derive(Debug, Clone, Copy)]
 pub struct RoundingMode<'st>(STerm<'st>);
-/*#[derive(Debug, Clone, Copy)]
-pub enum RoundingMode_ {
-    RNE,
-    RNA,
-    RTP,
-    RTN,
-    RTZ,
-}*/
 
 impl<'st> From<Const<'st, RoundingMode<'st>>> for RoundingMode<'st> {
     fn from(c: Const<'st, RoundingMode<'st>>) -> Self {
@@ -192,98 +184,144 @@ impl<'st, const EB: usize, const SB: usize> StaticSorted<'st> for FloatingPoint<
     }
 }
 
+trait FloatHelper: Sized {
+    const EXPONENT_BITS: u32;
+    const SIGNIFICAND_BITS: u32;
+    const SIGN_SHIFT: u32 = Self::EXPONENT_BITS + Self::SIGNIFICAND_BITS;
+    const EXPONENT_SHIFT: u32 = Self::SIGNIFICAND_BITS;
+    fn from_bits_u64(bits: u64) -> Self;
+    fn to_bits_u64(self) -> u64;
+    fn parse_special(symbol: &str) -> Self;
+
+    fn to_bits_parts(self) -> (i64, i64, i64) {
+        let bits = self.to_bits_u64();
+        let sign = (bits >> (Self::EXPONENT_BITS + Self::SIGNIFICAND_BITS)) as i64;
+        let exponent = ((bits << 1) >> (1 + Self::SIGNIFICAND_BITS)) as i64;
+        let significand = ((bits << (1 + Self::EXPONENT_BITS)) >> (1 + Self::EXPONENT_BITS)) as i64;
+        (sign, exponent, significand)
+    }
+
+    fn from_bits_parts(sign: i64, exponent: i64, significand: i64) -> Self {
+        let bits = ((sign as u64) << Self::SIGN_SHIFT)
+            | ((exponent as u64) << Self::EXPONENT_SHIFT)
+            | (significand as u64);
+        Self::from_bits_u64(bits)
+    }
+}
+
+impl FloatHelper for f32 {
+    const EXPONENT_BITS: u32 = 8;
+    const SIGNIFICAND_BITS: u32 = 23;
+
+    fn from_bits_u64(bits: u64) -> Self {
+        f32::from_bits(bits as u32)
+    }
+    fn to_bits_u64(self) -> u64 {
+        self.to_bits() as u64
+    }
+    fn parse_special(symbol: &str) -> Self {
+        match symbol {
+            "+zero" => 0.0,
+            "-zero" => -0.0,
+            "+oo" => f32::INFINITY,
+            "-oo" => f32::NEG_INFINITY,
+            "NaN" => f32::NAN,
+            _ => panic!("Unknown floating-point constant: {}", symbol),
+        }
+    }
+}
+
+impl FloatHelper for f64 {
+    const EXPONENT_BITS: u32 = 11;
+    const SIGNIFICAND_BITS: u32 = 52;
+
+    fn from_bits_u64(bits: u64) -> Self {
+        f64::from_bits(bits)
+    }
+    fn to_bits_u64(self) -> u64 {
+        self.to_bits()
+    }
+    fn parse_special(symbol: &str) -> Self {
+        match symbol {
+            "+zero" => 0.0,
+            "-zero" => -0.0,
+            "+oo" => f64::INFINITY,
+            "-oo" => f64::NEG_INFINITY,
+            "NaN" => f64::NAN,
+            _ => panic!("Unknown floating-point constant: {}", symbol),
+        }
+    }
+}
+
 impl<'st> IntoWithStorage<'st, Float32<'st>> for f32 {
     fn into_with_storage(self, st: &'st Storage) -> Float32<'st> {
-        let bits = self.to_bits();
+        let (sign, exponent, significand) = self.to_bits_parts();
         Float32::fp::<23>(
             st,
-            BitVec::new(st, (bits >> 31) as i64),
-            BitVec::new(st, ((bits << 1) >> 24) as i64),
-            BitVec::new(st, ((bits << 9) >> 9) as i64),
+            BitVec::new(st, sign),
+            BitVec::new(st, exponent),
+            BitVec::new(st, significand),
         )
     }
 }
 
 impl<'st> IntoWithStorage<'st, Float64<'st>> for f64 {
     fn into_with_storage(self, st: &'st Storage) -> Float64<'st> {
-        let bits = self.to_bits();
+        let (sign, exponent, significand) = self.to_bits_parts();
         Float64::fp::<52>(
             st,
-            BitVec::new(st, (bits >> 63) as i64),
-            BitVec::new(st, ((bits << 1) >> 53) as i64),
-            BitVec::new(st, ((bits << 12) >> 12) as i64),
+            BitVec::new(st, sign),
+            BitVec::new(st, exponent),
+            BitVec::new(st, significand),
         )
     }
 }
 
-// TODO: this is a bit of a mess
-fn spec_constant_to_u64<'st>(value: &ast::SpecConstant<'st>) -> u64 {
+fn spec_constant_to_i64<'st>(value: &ast::SpecConstant<'st>) -> i64 {
     match value {
-        ast::SpecConstant::Numeral(..) => todo!(),
-        ast::SpecConstant::Decimal(..) => todo!(),
-        ast::SpecConstant::Hexadecimal(hexadecimal) => hexadecimal.parse().unwrap() as u64,
-        ast::SpecConstant::Binary(binary) => binary.parse().unwrap() as u64,
-        ast::SpecConstant::String(..) => panic!(),
+        ast::SpecConstant::Numeral(n) => n.into_u128().unwrap().try_into().unwrap(),
+        ast::SpecConstant::Hexadecimal(h) => h.parse().unwrap(),
+        ast::SpecConstant::Binary(b) => b.parse().unwrap(),
+        _ => panic!("Unsupported constant type for bit conversion: {:?}", value),
     }
 }
-fn term_to_u64<'st>(value: &Term<'st>) -> u64 {
+
+fn term_to_i64<'st>(value: &Term<'st>) -> i64 {
     match value {
-        Term::SpecConstant(spec_constant) => spec_constant_to_u64(spec_constant),
-        _ => panic!("{:?}", value),
+        Term::SpecConstant(spec_constant) => spec_constant_to_i64(spec_constant),
+        _ => panic!("Expected spec constant, got: {:?}", value),
     }
 }
+
+fn try_float_from_term<F: FloatHelper>(term: &Term) -> Result<F, std::num::ParseIntError> {
+    Ok(match term {
+        Term::Identifier(QualIdentifier::Identifier(Identifier::Indexed(symbol, _))) => {
+            F::parse_special(symbol.0)
+        }
+        Term::Application(QualIdentifier::Identifier(Identifier::Simple(symbol)), args) => {
+            assert_eq!(symbol.0, "fp");
+            let sign = term_to_i64(args[0]);
+            let exponent = term_to_i64(args[1]);
+            let significand = term_to_i64(args[2]);
+            F::from_bits_parts(sign, exponent, significand)
+        }
+        _ => panic!("Unexpected term: {:?}", term),
+    })
+}
+
 impl<'st> TryFrom<Float32<'st>> for f32 {
     type Error = std::num::ParseIntError;
 
     fn try_from(value: Float32<'st>) -> Result<Self, Self::Error> {
-        match value.term() {
-            Term::Identifier(QualIdentifier::Identifier(Identifier::Indexed(symbol, _indices))) => {
-                Ok(match symbol.0 {
-                    "+zero" => 0.0,
-                    "-zero" => -0.0,
-                    "+oo" => f32::INFINITY,
-                    "-oo" => f32::NEG_INFINITY,
-                    "NaN" => f32::NAN,
-                    _ => panic!("Unknown floating-point constant: {}", symbol.0),
-                })
-            }
-            Term::Application(QualIdentifier::Identifier(Identifier::Simple(symbol)), args) => {
-                assert_eq!(symbol.0, "fp");
-                let sign = term_to_u64(args[0]) as u32;
-                let exponent = term_to_u64(args[1]) as u32;
-                let significand = term_to_u64(args[2]) as u32;
-                let value = (sign << 31) | (exponent << 23) | significand;
-                Ok(f32::from_bits(value))
-            }
-            _ => panic!("{:?}", value),
-        }
+        try_float_from_term(value.term())
     }
 }
+
 impl<'st> TryFrom<Float64<'st>> for f64 {
     type Error = std::num::ParseIntError;
 
     fn try_from(value: Float64<'st>) -> Result<Self, Self::Error> {
-        match value.term() {
-            Term::Identifier(QualIdentifier::Identifier(Identifier::Indexed(symbol, _indices))) => {
-                Ok(match symbol.0 {
-                    "+zero" => 0.0,
-                    "-zero" => -0.0,
-                    "+oo" => f64::INFINITY,
-                    "-oo" => f64::NEG_INFINITY,
-                    "NaN" => f64::NAN,
-                    _ => panic!("Unknown floating-point constant: {}", symbol.0),
-                })
-            }
-            Term::Application(QualIdentifier::Identifier(Identifier::Simple(symbol)), args) => {
-                assert_eq!(symbol.0, "fp");
-                let sign = term_to_u64(args[0]);
-                let exponent = term_to_u64(args[1]);
-                let significand = term_to_u64(args[2]);
-                let value = (sign << 63) | (exponent << 52) | significand;
-                Ok(f64::from_bits(value))
-            }
-            _ => panic!("{:?}", value),
-        }
+        try_float_from_term(value.term())
     }
 }
 
