@@ -49,6 +49,11 @@ impl<'st> From<STerm<'st>> for Real<'st> {
         Real(t)
     }
 }
+impl<'st> From<(STerm<'st>, Sort<'st>)> for Real<'st> {
+    fn from((t, _): (STerm<'st>, Sort<'st>)) -> Self {
+        t.into()
+    }
+}
 impl<'st> StaticSorted<'st> for Real<'st> {
     type Inner = Self;
     const AST_SORT: ast::Sort<'static> = ast::Sort::new_simple("Real");
