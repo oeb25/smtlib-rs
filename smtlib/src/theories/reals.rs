@@ -49,6 +49,11 @@ impl<'st> From<STerm<'st>> for Real<'st> {
         Real(t)
     }
 }
+impl<'st> From<(STerm<'st>, Sort<'st>)> for Real<'st> {
+    fn from((t, _): (STerm<'st>, Sort<'st>)) -> Self {
+        t.into()
+    }
+}
 impl<'st> StaticSorted<'st> for Real<'st> {
     type Inner = Self;
     const AST_SORT: ast::Sort<'static> = ast::Sort::new_simple("Real");
@@ -63,7 +68,10 @@ impl<'st> IntoWithStorage<'st, Real<'st>> for i64 {
 }
 impl<'st> IntoWithStorage<'st, Real<'st>> for f64 {
     fn into_with_storage(self, st: &'st Storage) -> Real<'st> {
-        let s = Term::Identifier(qual_ident(st.alloc_str(&format!("{:?}", self.abs())), None));
+        let s = Term::Identifier(qual_ident(
+            st.alloc_str(&format!("{:.10}", self.abs())),
+            None,
+        ));
         let term = if self.is_sign_negative() {
             Term::Application(qual_ident("-", None), st.alloc_slice(&[st.alloc_term(s)]))
         } else {
@@ -72,6 +80,25 @@ impl<'st> IntoWithStorage<'st, Real<'st>> for f64 {
         STerm::new(st, term).into()
     }
 }
+
+#[cfg(feature = "decimal")]
+impl<'st> IntoWithStorage<'st, Real<'st>> for rust_decimal::Decimal {
+    fn into_with_storage(self, st: &'st Storage) -> Real<'st> {
+        // Make sure to format as Real
+        let mut s = self.abs().to_string();
+        if !s.contains(".") {
+            s += ".0";
+        }
+        let id = Term::Identifier(qual_ident(st.alloc_str(&s), None));
+        let term = if self.is_sign_negative() {
+            Term::Application(qual_ident("-", None), st.alloc_slice(&[st.alloc_term(id)]))
+        } else {
+            id
+        };
+        STerm::new(st, term).into()
+    }
+}
+
 impl<'st> Real<'st> {
     /// Construct a new real.
     pub fn new(st: &'st Storage, value: impl IntoWithStorage<'st, Real<'st>>) -> Real<'st> {
@@ -86,24 +113,28 @@ impl<'st> Real<'st> {
         app(self.st(), op, (self.term(), other.term())).into()
     }
     /// Construct the term expressing `(> self other)`
-    pub fn gt(self, other: impl Into<Self>) -> Bool<'st> {
-        self.binop(">", other.into())
+    pub fn gt(self, other: impl IntoWithStorage<'st, Self>) -> Bool<'st> {
+        self.binop(">", other.into_with_storage(self.st()))
     }
     /// Construct the term expressing `(>= self other)`
-    pub fn ge(self, other: impl Into<Self>) -> Bool<'st> {
-        self.binop(">=", other.into())
+    pub fn ge(self, other: impl IntoWithStorage<'st, Self>) -> Bool<'st> {
+        self.binop(">=", other.into_with_storage(self.st()))
     }
     /// Construct the term expressing `(< self other)`
-    pub fn lt(self, other: impl Into<Self>) -> Bool<'st> {
-        self.binop("<", other.into())
+    pub fn lt(self, other: impl IntoWithStorage<'st, Self>) -> Bool<'st> {
+        self.binop("<", other.into_with_storage(self.st()))
     }
     /// Construct the term expressing `(<= self other)`
-    pub fn le(self, other: impl Into<Self>) -> Bool<'st> {
-        self.binop("<=", other.into())
+    pub fn le(self, other: impl IntoWithStorage<'st, Self>) -> Bool<'st> {
+        self.binop("<=", other.into_with_storage(self.st()))
     }
     /// Construct the term expressing `(abs self)`
     pub fn abs(self) -> Real<'st> {
         app(self.st(), "abs", self.term()).into()
+    }
+    /// Construct the term expressing floor division of two terms
+    pub fn floor_div<R>(self, rhs: impl IntoWithStorage<'st, Self>) -> Self {
+        self.binop("div", rhs.into_with_storage(self.st()))
     }
 }
 
@@ -117,4 +148,4 @@ impl std::ops::Neg for Real<'_> {
 impl_op!(Real<'st>, f64, Add, add, "+", AddAssign, add_assign, +);
 impl_op!(Real<'st>, f64, Sub, sub, "-", SubAssign, sub_assign, -);
 impl_op!(Real<'st>, f64, Mul, mul, "*", MulAssign, mul_assign, *);
-impl_op!(Real<'st>, f64, Div, div, "div", DivAssign, div_assign, /);
+impl_op!(Real<'st>, f64, Div, div, "/", DivAssign, div_assign, /);

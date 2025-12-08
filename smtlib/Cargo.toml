@@ -16,6 +16,7 @@ serde = ["dep:serde", "smtlib-lowlevel/serde"]
 z3-static = ["smtlib-lowlevel/z3-static"]
 const-bit-vec = []
 tokio = ["smtlib-lowlevel/tokio"]
+decimal = ["dep:rust_decimal"]
 
 [dependencies]
 itertools.workspace = true
@@ -24,6 +25,7 @@ smtlib-lowlevel.workspace = true
 serde = { workspace = true, optional = true }
 thiserror.workspace = true
 indexmap = "2.2.6"
+rust_decimal = { version = "1.39", optional = true }
 
 [dev-dependencies]
 futures = "0.3.29"
