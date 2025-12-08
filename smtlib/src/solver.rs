@@ -9,7 +9,7 @@ use smtlib_lowlevel::{
 
 use crate::{
     funs, sorts,
-    terms::{qual_ident, Const, Dynamic},
+    terms::{qual_ident, Const, Dynamic, STerm},
     Bool, Error, Logic, Model, SatResult, SatResultWithModel, Sorted,
 };
 
@@ -160,7 +160,7 @@ where
     pub fn assert_soft(&mut self, b: Bool<'st>) -> Result<(), Error> {
         let term = b.term();
 
-        self.declare_all_consts(&term)?;
+        self.declare_all_consts(term)?;
 
         let cmd = ast::Command::AssertSoft(term, &[]);
 
@@ -177,7 +177,7 @@ where
     {
         let term = g.into().term();
 
-        self.declare_all_consts(&term)?;
+        self.declare_all_consts(term)?;
 
         let cmd = ast::Command::Minimize(term);
 
@@ -299,14 +299,14 @@ where
     pub fn eval<S>(&mut self, term: S) -> Result<S::Inner, Error>
     where
         S: Sorted<'st>,
-        S::Inner: From<&'st ast::Term<'st>>,
+        S::Inner: From<STerm<'st>>,
     {
         let cmd = ast::Command::Eval(term.into().term());
 
         match self.driver.exec(cmd)? {
             ast::GeneralResponse::SpecificSuccessResponse(
                 ast::SpecificSuccessResponse::EvalResponse(ast::EvalResponse(t)),
-            ) => Ok(t.into()),
+            ) => Ok(STerm::new_from_ref(self.st(), t).into()),
             ast::GeneralResponse::Error(e) => Err(Error::Smt(e.to_string(), cmd.to_string())),
             _ => unimplemented!(),
         }
