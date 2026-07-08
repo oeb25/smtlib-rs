@@ -81,6 +81,9 @@ pub enum Logic {
   (because they may be in the scope of a let binder).
  */
     QF_BV,
+    /**Closed quantifier-free formulas over the FixedSizeBitVectors and
+    FloatingPoint theories.*/
+    QF_BVFP,
     /**Closed quantifier-free formulas with atoms of the form:
   - q
   - (op (- x y) n),
@@ -199,6 +202,7 @@ impl Logic {
             Self::QF_AUFLIA => Cow::Borrowed("QF_AUFLIA"),
             Self::QF_AX => Cow::Borrowed("QF_AX"),
             Self::QF_BV => Cow::Borrowed("QF_BV"),
+            Self::QF_BVFP => Cow::Borrowed("QF_BVFP"),
             Self::QF_IDL => Cow::Borrowed("QF_IDL"),
             Self::QF_LIA => Cow::Borrowed("QF_LIA"),
             Self::QF_LRA => Cow::Borrowed("QF_LRA"),

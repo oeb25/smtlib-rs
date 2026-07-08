@@ -67,7 +67,10 @@ impl<'st> Index<'st> {
 }
 
 pub(crate) fn is_built_in_sort(name: &str) -> bool {
-    matches!(name, "Int" | "Bool" | "Array" | "BitVec")
+    matches!(
+        name,
+        "Int" | "Bool" | "Array" | "BitVec" | "FloatingPoint" | "RoundingMode"
+    )
 }
 
 impl<'st> Sort<'st> {
