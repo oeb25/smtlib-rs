@@ -123,14 +123,86 @@ impl<'st, const M: usize> IntoWithStorage<'st, BitVec<'st, M>> for i64 {
         i64_to_bit_array(self).into_with_storage(st)
     }
 }
+
+/// A primitive integer type that maps onto a bit-vector of width `M`.
+pub trait PrimInt<const M: usize>: Sized {
+    /// Convert this value into its big-endian bit-vector representation.
+    fn to_bit_array(&self) -> [bool; M];
+    /// Parse this value from a bit-vector literal (`#x` or `#b`).
+    fn from_spec_constant<'st>(
+        spec_constant: &ast::SpecConstant<'st>,
+    ) -> Result<Self, std::num::ParseIntError>;
+}
+
+impl PrimInt<8> for u8 {
+    fn to_bit_array(&self) -> [bool; 8] {
+        std::array::from_fn(|idx| (self >> (8 - idx - 1)) & 1 == 1)
+    }
+    fn from_spec_constant<'st>(
+        spec_constant: &ast::SpecConstant<'st>,
+    ) -> Result<Self, std::num::ParseIntError> {
+        match spec_constant {
+            ast::SpecConstant::Hexadecimal(h) => Self::from_str_radix(&h.0[2..], 16),
+            ast::SpecConstant::Binary(b) => Self::from_str_radix(&b.0[2..], 2),
+            _ => panic!(),
+        }
+    }
+}
+impl PrimInt<32> for u32 {
+    fn to_bit_array(&self) -> [bool; 32] {
+        std::array::from_fn(|idx| (self >> (32 - idx - 1)) & 1 == 1)
+    }
+    fn from_spec_constant<'st>(
+        spec_constant: &ast::SpecConstant<'st>,
+    ) -> Result<Self, std::num::ParseIntError> {
+        match spec_constant {
+            ast::SpecConstant::Hexadecimal(h) => Self::from_str_radix(&h.0[2..], 16),
+            ast::SpecConstant::Binary(b) => Self::from_str_radix(&b.0[2..], 2),
+            _ => panic!(),
+        }
+    }
+}
+impl PrimInt<64> for u64 {
+    fn to_bit_array(&self) -> [bool; 64] {
+        std::array::from_fn(|idx| (self >> (64 - idx - 1)) & 1 == 1)
+    }
+    fn from_spec_constant<'st>(
+        spec_constant: &ast::SpecConstant<'st>,
+    ) -> Result<Self, std::num::ParseIntError> {
+        match spec_constant {
+            ast::SpecConstant::Hexadecimal(h) => Self::from_str_radix(&h.0[2..], 16),
+            ast::SpecConstant::Binary(b) => Self::from_str_radix(&b.0[2..], 2),
+            _ => panic!(),
+        }
+    }
+}
+
 impl<'st, const M: usize> BitVec<'st, M> {
     /// Construct a new bit-vec.
+    /// `value` can be either [bool; M] or i64 to enable usage with integer
+    /// literals.
+    ///
+    /// Note: `new_prim` can be used with multiple integer types instead.
     pub fn new(
         st: &'st Storage,
         value: impl IntoWithStorage<'st, BitVec<'st, M>>,
     ) -> BitVec<'st, M> {
         value.into_with_storage(st)
     }
+    /// Construct a new bit-vec from a primitive integer (e.g. `u8`, `u32`,
+    /// `u64`).
+    pub fn new_prim(st: &'st Storage, value: impl PrimInt<M>) -> BitVec<'st, M> {
+        Self::new(st, value.to_bit_array())
+    }
+    /// Try to convert this bit-vec back into a primitive integer. Returns an
+    /// error if the underlying term is not a bit-vector literal.
+    pub fn try_into_prim<T: PrimInt<M>>(&self) -> Result<T, std::num::ParseIntError> {
+        match self.term() {
+            Term::SpecConstant(spec_constant) => T::from_spec_constant(spec_constant),
+            _ => panic!(),
+        }
+    }
+    // TODO: add alternative `new` fn that accepts all integer types
     fn binop<T: From<STerm<'st>>>(self, op: &'st str, other: BitVec<'st, M>) -> T {
         app(self.st(), op, (self.term(), other.term())).into()
     }
