@@ -160,7 +160,7 @@ where
     pub fn assert_soft(&mut self, b: Bool<'st>) -> Result<(), Error> {
         let term = b.term();
 
-        self.declare_all_consts(&term)?;
+        self.declare_all_consts(term)?;
 
         let cmd = ast::Command::AssertSoft(term, &[]);
 
@@ -177,7 +177,7 @@ where
     {
         let term = g.into().term();
 
-        self.declare_all_consts(&term)?;
+        self.declare_all_consts(term)?;
 
         let cmd = ast::Command::Minimize(term);
 

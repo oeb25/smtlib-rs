@@ -105,7 +105,7 @@ impl<'st> RoundingMode<'st> {
 }
 
 /// A floating-point number, parameterized by exponent bits (EB) and significand
-/// bits (SB).
+/// bits (SB). Significand bits include the sign bit.
 #[derive(Debug, Clone, Copy)]
 pub struct FloatingPoint<'st, const EB: usize, const SB: usize>(STerm<'st>);
 
@@ -190,16 +190,7 @@ trait FloatHelper: Sized {
     const SIGN_SHIFT: u32 = Self::EXPONENT_BITS + Self::SIGNIFICAND_BITS;
     const EXPONENT_SHIFT: u32 = Self::SIGNIFICAND_BITS;
     fn from_bits_u64(bits: u64) -> Self;
-    fn to_bits_u64(self) -> u64;
     fn parse_special(symbol: &str) -> Self;
-
-    fn to_bits_parts(self) -> (i64, i64, i64) {
-        let bits = self.to_bits_u64();
-        let sign = (bits >> (Self::EXPONENT_BITS + Self::SIGNIFICAND_BITS)) as i64;
-        let exponent = ((bits << 1) >> (1 + Self::SIGNIFICAND_BITS)) as i64;
-        let significand = ((bits << (1 + Self::EXPONENT_BITS)) >> (1 + Self::EXPONENT_BITS)) as i64;
-        (sign, exponent, significand)
-    }
 
     fn from_bits_parts(sign: i64, exponent: i64, significand: i64) -> Self {
         let bits = ((sign as u64) << Self::SIGN_SHIFT)
@@ -215,9 +206,6 @@ impl FloatHelper for f32 {
 
     fn from_bits_u64(bits: u64) -> Self {
         f32::from_bits(bits as u32)
-    }
-    fn to_bits_u64(self) -> u64 {
-        self.to_bits() as u64
     }
     fn parse_special(symbol: &str) -> Self {
         match symbol {
@@ -238,9 +226,6 @@ impl FloatHelper for f64 {
     fn from_bits_u64(bits: u64) -> Self {
         f64::from_bits(bits)
     }
-    fn to_bits_u64(self) -> u64 {
-        self.to_bits()
-    }
     fn parse_special(symbol: &str) -> Self {
         match symbol {
             "+zero" => 0.0,
@@ -255,25 +240,13 @@ impl FloatHelper for f64 {
 
 impl<'st> IntoWithStorage<'st, Float32<'st>> for f32 {
     fn into_with_storage(self, st: &'st Storage) -> Float32<'st> {
-        let (sign, exponent, significand) = self.to_bits_parts();
-        Float32::fp::<23>(
-            st,
-            BitVec::new(st, sign),
-            BitVec::new(st, exponent),
-            BitVec::new(st, significand),
-        )
+        Float32::to_fp_from_bits(st, BitVec::new_prim(st, self.to_bits()))
     }
 }
 
 impl<'st> IntoWithStorage<'st, Float64<'st>> for f64 {
     fn into_with_storage(self, st: &'st Storage) -> Float64<'st> {
-        let (sign, exponent, significand) = self.to_bits_parts();
-        Float64::fp::<52>(
-            st,
-            BitVec::new(st, sign),
-            BitVec::new(st, exponent),
-            BitVec::new(st, significand),
-        )
+        Float64::to_fp_from_bits(st, BitVec::new_prim(st, self.to_bits()))
     }
 }
 
@@ -383,8 +356,6 @@ impl<'st, const EB: usize, const SB: usize> FloatingPoint<'st, EB, SB> {
         STerm::new(st, Term::Identifier(qual_id)).into()
     }
 
-    // Value constructors
-
     /// Creates a floating-point value from sign, exponent, and significand
     /// bit-vectors. `i = sb - 1`
     ///
@@ -397,8 +368,6 @@ impl<'st, const EB: usize, const SB: usize> FloatingPoint<'st, EB, SB> {
         significand: BitVec<'st, SB_1>,
     ) -> Self {
         assert_eq!(SB_1, SB - 1);
-        // The SMT LIB theory states i = sb - 1.
-        // The BitVec type ensures the size of significand is SB -1.
         app(st, "fp", (sign.term(), exponent.term(), significand.term())).into()
     }
 
@@ -459,117 +428,117 @@ impl<'st, const EB: usize, const SB: usize> FloatingPoint<'st, EB, SB> {
         app(self.st(), op, (rm.term(), self.term())).into()
     }
 
-    /// Absolute value
+    /// Absolute value (`fp.abs`)
     pub fn fp_abs(self) -> Self {
         self.unop("fp.abs")
     }
 
-    /// Negation
+    /// Negation (`fp.neg`)
     pub fn fp_neg(self) -> Self {
         self.unop("fp.neg")
     }
 
-    /// Addition
+    /// Addition (`fp.add`)
     pub fn fp_add(self, rm: RoundingMode<'st>, other: Self) -> Self {
         self.binop_rm("fp.add", rm, other)
     }
 
-    /// Subtraction
+    /// Subtraction (`fp.sub`)
     pub fn fp_sub(self, rm: RoundingMode<'st>, other: Self) -> Self {
         self.binop_rm("fp.sub", rm, other)
     }
 
-    /// Multiplication
+    /// Multiplication (`fp.mul`)
     pub fn fp_mul(self, rm: RoundingMode<'st>, other: Self) -> Self {
         self.binop_rm("fp.mul", rm, other)
     }
 
-    /// Division
+    /// Division (`fp.div`)
     pub fn fp_div(self, rm: RoundingMode<'st>, other: Self) -> Self {
         self.binop_rm("fp.div", rm, other)
     }
 
-    /// Fused multiplication and addition: `(self * other1) + other2`
+    /// Fused multiplication and addition: `(self * other1) + other2` (`fp.fma`)
     pub fn fp_fma(self, rm: RoundingMode<'st>, other1: Self, other2: Self) -> Self {
         self.ternop_rm("fp.fma", rm, other1, other2)
     }
 
-    /// Square root
+    /// Square root (`fp.sqrt`)
     pub fn fp_sqrt(self, rm: RoundingMode<'st>) -> Self {
         self.unop_rm("fp.sqrt", rm)
     }
 
     /// Remainder: `self - other * n`, where `n` in Z is nearest to `self/other`
+    /// (`fp.rem`)
     pub fn fp_rem(self, other: Self) -> Self {
         self.binop("fp.rem", other)
     }
 
-    /// Rounding to integral
+    /// Rounding to integral (`fp.roundToIntegral`)
     pub fn fp_round_to_integral(self, rm: RoundingMode<'st>) -> Self {
         self.unop_rm("fp.roundToIntegral", rm)
     }
 
-    /// Minimum
+    /// Minimum (`fp.min`)
     pub fn fp_min(self, other: Self) -> Self {
         self.binop("fp.min", other)
     }
 
-    /// Maximum
+    /// Maximum (`fp.max`)
     pub fn fp_max(self, other: Self) -> Self {
         self.binop("fp.max", other)
     }
 
-    /// Less than or equal
+    /// Less than or equal (`fp.leq`)
     pub fn fp_leq(self, other: Self) -> Bool<'st> {
         self.binop("fp.leq", other)
     }
 
-    /// Less than
+    /// Less than (`fp.lt`)
     pub fn fp_lt(self, other: Self) -> Bool<'st> {
         self.binop("fp.lt", other)
     }
 
-    /// Greater than or equal
+    /// Greater than or equal (`fp.geq`)
     pub fn fp_geq(self, other: Self) -> Bool<'st> {
         self.binop("fp.geq", other)
     }
 
-    /// Greater than
+    /// Greater than (`fp.gt`)
     pub fn fp_gt(self, other: Self) -> Bool<'st> {
         self.binop("fp.gt", other)
     }
 
-    /// IEEE 754-2008 equality
+    /// IEEE 754-2008 equality (`fp.eq`)
     pub fn fp_eq(self, other: Self) -> Bool<'st> {
         self.binop("fp.eq", other)
     }
 
-    // Classification
-    /// Is normal
+    /// Is normal (`fp.isNormal`)
     pub fn fp_is_normal(self) -> Bool<'st> {
         self.unop("fp.isNormal")
     }
-    /// Is subnormal
+    /// Is subnormal (`fp.isSubnormal`)
     pub fn fp_is_subnormal(self) -> Bool<'st> {
         self.unop("fp.isSubnormal")
     }
-    /// Is zero
+    /// Is zero (`fp.isZero`)
     pub fn fp_is_zero(self) -> Bool<'st> {
         self.unop("fp.isZero")
     }
-    /// Is infinite
+    /// Is infinite (`fp.isInfinite`)
     pub fn fp_is_infinite(self) -> Bool<'st> {
         self.unop("fp.isInfinite")
     }
-    /// Is NaN
+    /// Is NaN (`fp.isNaN`)
     pub fn fp_is_nan(self) -> Bool<'st> {
         self.unop("fp.isNaN")
     }
-    /// Is negative
+    /// Is negative (`fp.isNegative`)
     pub fn fp_is_negative(self) -> Bool<'st> {
         self.unop("fp.isNegative")
     }
-    /// Is positive
+    /// Is positive (`fp.isPositive`)
     pub fn fp_is_positive(self) -> Bool<'st> {
         self.unop("fp.isPositive")
     }
@@ -577,13 +546,13 @@ impl<'st, const EB: usize, const SB: usize> FloatingPoint<'st, EB, SB> {
     // Conversions
 
     /// From single bitstring representation in IEEE 754-2008 interchange
-    /// format. `M = EB + SB`
-    pub fn to_fp_from_bit_vec<const M: usize>(st: &'st Storage, bv: BitVec<'st, M>) -> Self {
+    /// format. `M = EB + SB` (`to_fp`)
+    pub fn to_fp_from_bits<const M: usize>(st: &'st Storage, bv: BitVec<'st, M>) -> Self {
         assert_eq!(M, EB + SB, "BitVec size M must be EB + SB");
         Self::app_fn_indexed_args(st, "to_fp", [EB, SB], bv.term())
     }
 
-    /// From another floating point sort
+    /// From another floating point sort (`to_fp`)
     pub fn to_fp_from_fp<const MB: usize, const NB: usize>(
         st: &'st Storage,
         rm: RoundingMode<'st>,
@@ -592,12 +561,13 @@ impl<'st, const EB: usize, const SB: usize> FloatingPoint<'st, EB, SB> {
         Self::app_fn_indexed_args(st, "to_fp", [EB, SB], (rm.term(), fp_other.term()))
     }
 
-    /// From real
+    /// From real (`to_fp`)
     pub fn to_fp_from_real(st: &'st Storage, rm: RoundingMode<'st>, real: Real<'st>) -> Self {
         Self::app_fn_indexed_args(st, "to_fp", [EB, SB], (rm.term(), real.term()))
     }
 
     /// From signed machine integer, represented as a 2's complement bit vector
+    /// (`to_fp`)
     pub fn to_fp_from_signed_bit_vec<const M: usize>(
         st: &'st Storage,
         rm: RoundingMode<'st>,
@@ -607,6 +577,7 @@ impl<'st, const EB: usize, const SB: usize> FloatingPoint<'st, EB, SB> {
     }
 
     /// From unsigned machine integer, represented as bit vector
+    /// (`to_fp_unsigned`)
     pub fn to_fp_from_unsigned_bit_vec<const M: usize>(
         st: &'st Storage,
         rm: RoundingMode<'st>,
@@ -615,17 +586,18 @@ impl<'st, const EB: usize, const SB: usize> FloatingPoint<'st, EB, SB> {
         Self::app_fn_indexed_args(st, "to_fp_unsigned", [EB, SB], (rm.term(), bv.term()))
     }
 
-    /// To unsigned machine integer, represented as a bit vector
+    /// To unsigned machine integer, represented as a bit vector (`fp.to_ubv`)
     pub fn fp_to_ubv<const M: usize>(self, rm: RoundingMode<'st>) -> BitVec<'st, M> {
         self.unop_rm_indexed("fp.to_ubv", rm, M)
     }
 
     /// To signed machine integer, represented as a 2's complement bit vector
+    /// (`fp.to_sbv`)
     pub fn fp_to_sbv<const M: usize>(self, rm: RoundingMode<'st>) -> BitVec<'st, M> {
         self.unop_rm_indexed("fp.to_sbv", rm, M)
     }
 
-    /// To real
+    /// To real (`fp.to_real`)
     pub fn fp_to_real(self) -> Real<'st> {
         self.unop("fp.to_real")
     }
@@ -645,30 +617,9 @@ mod tests {
     }
 
     #[test]
-    fn test_fp_convert_rust_floats() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_fp_convert_rust_floats() {
         let st = Storage::new();
         let mut solver = test_solver(&st);
-
-        let f32_bv_sign = BitVec::new_const(&st, "f32_bv_sign");
-        let f64_bv_sign = BitVec::new_const(&st, "f64_bv_sign");
-        let f32_bv_exponent = BitVec::new_const(&st, "f32_bv_exponent");
-        let f64_bv_exponent = BitVec::new_const(&st, "f64_bv_exponent");
-        let f32_bv_significand = BitVec::new_const(&st, "f32_bv_significand");
-        let f64_bv_significand = BitVec::new_const(&st, "f64_bv_significand");
-
-        let f32_bv = Float32::fp::<23>(
-            &st,
-            f32_bv_sign.into(),
-            f32_bv_exponent.into(),
-            f32_bv_significand.into(),
-        );
-
-        let f64_bv = Float64::fp::<52>(
-            &st,
-            f64_bv_sign.into(),
-            f64_bv_exponent.into(),
-            f64_bv_significand.into(),
-        );
 
         let f32_const = Float32::new_const(&st, "f32_const");
         let f64_const = Float64::new_const(&st, "f64_const");
@@ -687,21 +638,21 @@ mod tests {
             f64::INFINITY,
             f64::NEG_INFINITY,
         ] {
-            let model = solver.scope(|solver| {
-                solver.assert(f64_const._eq(f))?;
-                solver.assert(f32_const._eq(f as f32))?;
-                solver.assert(f64_bv._eq(f))?;
-                solver.assert(f32_bv._eq(f as f32))?;
-                solver.check_sat()?;
-                solver.get_model()
-            })?;
-            let f_model: f64 = model.eval(f64_const).unwrap().try_into()?;
-            let f_model_32: f32 = model.eval(f32_const).unwrap().try_into()?;
+            let model = solver
+                .scope(|solver| {
+                    solver.assert(f64_const._eq(f))?;
+                    solver.assert(f32_const._eq(f as f32))?;
+                    let f64_bits = BitVec::new_prim(&st, f.to_bits());
+                    solver.assert(f64_const._eq(Float64::to_fp_from_bits(&st, f64_bits)))?;
+                    solver.check_sat()?;
+                    solver.get_model()
+                })
+                .unwrap();
+            let f_model: f64 = model.eval(f64_const).unwrap().try_into().unwrap();
+            let f_model_32: f32 = model.eval(f32_const).unwrap().try_into().unwrap();
             assert_eq!(f_model, f);
             assert_eq!(f_model_32, f as f32);
         }
-
-        Ok(())
     }
 
     #[test]
@@ -792,7 +743,7 @@ mod tests {
         let ieee_1_0_val: i64 = 0x3f800000;
         let ieee_1_0_bv: BitVec<{ EXP_BITS_F32 + SIG_BITS_F32 }> = BitVec::new(&st, ieee_1_0_val);
 
-        let fp_val = Float32::to_fp_from_bit_vec(&st, ieee_1_0_bv);
+        let fp_val = Float32::to_fp_from_bits(&st, ieee_1_0_bv);
         solver.assert(fp_val._eq(1.0))?;
 
         assert_eq!(solver.check_sat()?, SatResult::Sat);
@@ -816,5 +767,34 @@ mod tests {
 
         assert_eq!(solver.check_sat()?, SatResult::Sat);
         Ok(())
+    }
+
+    #[test]
+    fn test_usage() {
+        let st = Storage::new();
+        let mut solver = test_solver(&st);
+
+        let inp_3 = BitVec::<8>::new_const(&st, "inp-3");
+        let inp_2 = BitVec::<8>::new_const(&st, "inp-2");
+        let inp_1 = BitVec::<8>::new_const(&st, "inp-1");
+        let inp_0 = BitVec::<8>::new_const(&st, "inp-0");
+
+        let concat_3_2 = inp_3.concat_::<8, 16>(inp_2);
+        let concat_1_0 = inp_1.concat_::<8, 16>(inp_0);
+        let full_bits = concat_3_2.concat_::<16, 32>(concat_1_0);
+
+        let fp_from_bits = Float32::to_fp_from_bits(&st, full_bits);
+        let fp_constant = Float32::to_fp_from_bits(&st, BitVec::<32>::new(&st, 0x4974_2400i64));
+
+        let fp_lt = fp_from_bits.fp_lt(fp_constant);
+        let one_bv = BitVec::<32>::new(&st, 1i64);
+        let zero_bv = BitVec::<32>::new(&st, 0i64);
+
+        let ite_result = fp_lt.ite(one_bv, zero_bv);
+        let not_eq = !ite_result._eq(zero_bv);
+
+        solver.assert(not_eq).unwrap();
+        solver.check_sat().unwrap();
+        let _ = solver.get_model().unwrap();
     }
 }
