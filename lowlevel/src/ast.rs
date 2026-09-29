@@ -3274,8 +3274,9 @@ impl<'st> SmtlibParse<'st> for Term<'st> {
                 && p.nth(offset + 2) == Token::LParen)
             || (p.nth(offset) == Token::LParen
                 && p.nth_matches(offset + 1, Token::Reserved, "!"))
-            || (p.nth(offset) == Token::LParen) || (SpecConstant::is_start_of(offset, p))
+            || (SpecConstant::is_start_of(offset, p))
             || (QualIdentifier::is_start_of(offset, p))
+            || (p.nth(offset) == Token::LParen)
     }
     fn parse(p: &mut Parser<'st, '_>) -> Result<Self::Output, ParseError> {
         let offset = 0;
@@ -3345,14 +3346,6 @@ impl<'st> SmtlibParse<'st> for Term<'st> {
             #[allow(clippy::useless_conversion)]
             return Ok(p.storage.alloc(Self::Annotation(m0.into(), m1.into())));
         }
-        if p.nth(offset) == Token::LParen {
-            p.expect(Token::LParen)?;
-            let m0 = <QualIdentifier<'st> as SmtlibParse<'st>>::parse(p)?;
-            let m1 = p.non_zero::<Term<'st>>()?;
-            p.expect(Token::RParen)?;
-            #[allow(clippy::useless_conversion)]
-            return Ok(p.storage.alloc(Self::Application(m0.into(), m1.into())));
-        }
         if SpecConstant::is_start_of(offset, p) {
             let m0 = <SpecConstant<'st> as SmtlibParse<'st>>::parse(p)?;
             #[allow(clippy::useless_conversion)]
@@ -3362,6 +3355,14 @@ impl<'st> SmtlibParse<'st> for Term<'st> {
             let m0 = <QualIdentifier<'st> as SmtlibParse<'st>>::parse(p)?;
             #[allow(clippy::useless_conversion)]
             return Ok(p.storage.alloc(Self::Identifier(m0.into())));
+        }
+        if p.nth(offset) == Token::LParen {
+            p.expect(Token::LParen)?;
+            let m0 = <QualIdentifier<'st> as SmtlibParse<'st>>::parse(p)?;
+            let m1 = p.non_zero::<Term<'st>>()?;
+            p.expect(Token::RParen)?;
+            #[allow(clippy::useless_conversion)]
+            return Ok(p.storage.alloc(Self::Application(m0.into(), m1.into())));
         }
         Err(p.stuck("Term"))
     }

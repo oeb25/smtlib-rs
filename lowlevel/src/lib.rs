@@ -57,6 +57,17 @@ where
     }
 }
 
+/// A simple debug logger that logs SMT commands and responses to stderr.
+pub struct StderrLogger;
+impl Logger for StderrLogger {
+    fn exec(&self, cmd: ast::Command) {
+        eprintln!("> {cmd}");
+    }
+    fn response(&self, _cmd: ast::Command, res: &str) {
+        eprintln!("< {res}");
+    }
+}
+
 pub struct Driver<'st, B> {
     st: &'st Storage,
     backend: B,

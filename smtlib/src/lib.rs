@@ -28,7 +28,7 @@ pub mod theories;
 
 pub use smtlib_lowlevel::Storage;
 pub use solver::Solver;
-pub use theories::{core::*, fixed_size_bit_vectors::*, ints::*, reals::*};
+pub use theories::{core::*, fixed_size_bit_vectors::*, floating_point::*, ints::*, reals::*};
 #[cfg(feature = "tokio")]
 pub use tokio_solver::TokioSolver;
 

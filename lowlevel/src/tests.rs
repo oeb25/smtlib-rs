@@ -18,6 +18,26 @@ fn bubble_sort() {
     ));
 }
 
+#[test]
+fn indexed_identifier_in_term() {
+    use crate::ast::*;
+
+    let st = Storage::new();
+    // This is an indexed identifier used as a term (e.g., floating-point constants
+    // like +zero)
+    let term_str = "(_ +zero 8 24)";
+    let expected = Term::Identifier(QualIdentifier::Identifier(Identifier::indexed(
+        st.alloc_str("+zero"),
+        st.alloc_slice(&[
+            Index::parse(&st, "8").unwrap(),
+            Index::parse(&st, "24").unwrap(),
+        ]),
+    )));
+    assert_eq!(term_str, expected.to_string());
+    let result = Term::parse(&st, term_str);
+    assert_eq!(result.unwrap(), &expected);
+}
+
 mod z3 {
     use crate::{ast::Command, backend::z3_binary::Z3Binary, storage::Storage, Driver};
 
