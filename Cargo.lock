@@ -1125,7 +1125,7 @@ checksum = "f9395f0f0eee849a9b707b2f06bb92a6a422090e2123bb2ef8e87a0e61892a8e"
 
 [[package]]
 name = "smtlib"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "futures",
  "indexmap",
@@ -1143,7 +1143,7 @@ dependencies = [
 
 [[package]]
 name = "smtlib-lowlevel"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "bumpalo",
  "insta",
@@ -1608,7 +1608,7 @@ checksum = "32ac00cd3f8ec9c1d33fb3e7958a82df6989c42d747bd326c822b1d625283547"
 
 [[package]]
 name = "xtask"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "color-eyre",
  "heck",
