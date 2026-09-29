@@ -11,11 +11,11 @@ color-eyre = "0.6.4"
 heck = "0.5"
 indexmap = { version = "2.2.6", features = ["serde"] }
 itertools.workspace = true
-prettyplease = "0.2.15"
+prettyplease = "0.3.0"
 proc-macro2 = "1.0.83"
 quote = "1.0.35"
 serde.workspace = true
-syn = "2.0.87"
-toml = "0.9.2"
+syn = "3.0.6"
+toml = "1.1.6"
 xflags = "0.3.2"
 xshell = "0.2.5"

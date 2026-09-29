@@ -115,7 +115,8 @@ pub(crate) enum Token {
     /// characters: 9dec (tab), 10dec (line feed), 13dec (carriage return), and
     /// 32dec (space).
     #[regex(r"[\t\n\r ]+", logos::skip)]
-    #[regex(r";[^\n]*", logos::skip)]
+    // TODO: figure out the correct supported way to parse comments with logos
+    #[regex(r";[^\n]*", logos::skip, allow_greedy = true)]
     Error,
 }
 

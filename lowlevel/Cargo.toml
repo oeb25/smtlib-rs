@@ -19,7 +19,7 @@ tokio = ["dep:tokio"]
 [dependencies]
 bumpalo = "3.17.0"
 itertools.workspace = true
-logos = "0.15.0"
+logos = "0.16.1"
 miette.workspace = true
 serde = { workspace = true, optional = true }
 thiserror.workspace = true
@@ -28,6 +28,7 @@ z3-sys = { version = "0.8.1", features = ["static-link-z3"], optional = true }
 
 [dev-dependencies]
 insta.workspace = true
+ron.workspace = true
 smtlib-lowlevel = { path = ".", features = ["serde", "tokio"] }
 
 [package.metadata.docs.rs]
